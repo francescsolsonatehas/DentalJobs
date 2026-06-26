@@ -227,6 +227,61 @@ app.delete("/publicaciones/:id", verifyToken, (req, res) => {
   });
 });
 
+// Endpoints de estadísticas
+app.get("/stats/total-dentistas", (req, res) => {
+  db.get(
+    "SELECT COUNT(*) as total FROM publicaciones WHERE tipo = 'solicitud' AND activo = 1",
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener total de dentistas" });
+      }
+      res.json({ total: result.total || 0 });
+    }
+  );
+});
+
+app.get("/stats/posibles-candidatos/:empresa_id", verifyToken, (req, res) => {
+  // Contar candidatos únicos que coinciden con Ciudad y Especialidad de mis ofertas
+  db.get(
+    `SELECT COUNT(DISTINCT s.usuario_id) as total
+     FROM publicaciones s
+     WHERE s.tipo = 'solicitud' AND s.activo = 1
+     AND (
+       SELECT COUNT(*) FROM publicaciones o
+       WHERE o.usuario_id = ? AND o.tipo = 'oferta' AND o.activo = 1
+       AND (o.ciudad = s.ciudad OR s.ciudad LIKE '%' || o.ciudad || '%' OR o.ciudad LIKE '%' || s.ciudad || '%')
+       AND (o.especialidad_id = s.especialidad_id OR o.especialidad_id IS NULL OR s.especialidad_id IS NULL)
+     ) > 0`,
+    [req.params.empresa_id],
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener posibles candidatos" });
+      }
+      res.json({ total: result.total || 0 });
+    }
+  );
+});
+
+app.get("/stats/candidatos-interesados/:empresa_id", verifyToken, (req, res) => {
+  // Contar candidatos únicos que han enviado mensaje a mis ofertas
+  db.get(
+    `SELECT COUNT(DISTINCT m.usuario_id) as total
+     FROM mensajes m
+     INNER JOIN publicaciones p ON m.publicacion_id = p.id
+     WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1`,
+    [req.params.empresa_id],
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener candidatos interesados" });
+      }
+      res.json({ total: result.total || 0 });
+    }
+  );
+});
+
 /* ===========================
    🔹 MENSAJES
 =========================== */

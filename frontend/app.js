@@ -991,26 +991,48 @@ const app = {
 
     async actualizarStats() {
       try {
-        const todas = await utils.request("/publicaciones");
-        const ofertas = todas.filter(p => p.tipo === 'oferta').length;
-        const solicitudes = todas.filter(p => p.tipo === 'solicitud').length;
-        const candidatos = new Set(todas.filter(p => p.tipo === 'solicitud').map(p => p.usuario_id)).size;
-
-        const ofertasElement = document.getElementById("statOfertas");
-        const candidatosElement = document.getElementById("statCandidatos");
-        const ofertasParent = ofertasElement.parentElement;
-        const candidatosParent = candidatosElement.parentElement;
+        const statsGrid = document.getElementById("statsGrid");
 
         if (estadoApp.tipoUsuario === 'clinica') {
-          // Empresa: mostrar solo Candidatos
-          ofertasParent.style.display = 'none';
-          candidatosParent.style.display = 'block';
-          candidatosElement.textContent = candidatos;
+          // Empresa: mostrar Total Dentistas, Posibles Candidatos, Candidatos Interesados
+          const totalDentistas = await utils.request("/stats/total-dentistas");
+          const posiblesCandidatos = await utils.request(`/stats/posibles-candidatos/${estadoApp.usuario.id}`);
+          const candidatosInteresados = await utils.request(`/stats/candidatos-interesados/${estadoApp.usuario.id}`);
+
+          statsGrid.innerHTML = `
+            <div class="stat-item">
+              <span>👥</span>
+              <h3>${totalDentistas.total}</h3>
+              <p>Total Dentistas</p>
+            </div>
+            <div class="stat-item">
+              <span>🔍</span>
+              <h3>${posiblesCandidatos.total}</h3>
+              <p>Posibles Candidatos</p>
+            </div>
+            <div class="stat-item">
+              <span>📧</span>
+              <h3>${candidatosInteresados.total}</h3>
+              <p>Candidatos</p>
+            </div>
+          `;
         } else {
-          // Candidato: mostrar solo Ofertas
-          ofertasParent.style.display = 'block';
-          candidatosParent.style.display = 'none';
-          ofertasElement.textContent = ofertas;
+          // Candidato: mostrar Ofertas activas y Especialidades
+          const todas = await utils.request("/publicaciones");
+          const ofertas = todas.filter(p => p.tipo === 'oferta').length;
+
+          statsGrid.innerHTML = `
+            <div class="stat-item">
+              <span>📋</span>
+              <h3>${ofertas}</h3>
+              <p>Ofertas activas</p>
+            </div>
+            <div class="stat-item">
+              <span>🏥</span>
+              <h3>8</h3>
+              <p>Especialidades</p>
+            </div>
+          `;
         }
       } catch (error) {
         console.error(error);
