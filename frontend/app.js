@@ -927,16 +927,12 @@ const app = {
       // Actualizar texto del hero según tipo de usuario
       const heroTitle = document.querySelector("#heroPlataforma h1");
       const filtersTitle = document.getElementById("filtrosTitle");
-      const btnVer1 = document.getElementById("btnVer1");
-      const btnVer2 = document.getElementById("btnVer2");
       const btnTodas = document.getElementById("btnTodas");
       const btnMias = document.getElementById("btnMias");
 
       if (estadoApp.tipoUsuario === 'clinica') {
         heroTitle.textContent = "🦷 Solicitudes de Dentistas";
         filtersTitle.textContent = "Todas las solicitudes";
-        btnVer1.textContent = "Ver Solicitudes";
-        btnVer2.textContent = "Mis Ofertas";
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "inline-block";
@@ -945,8 +941,6 @@ const app = {
       } else {
         heroTitle.textContent = "🦷 Ofertas de Trabajo";
         filtersTitle.textContent = "Todas las ofertas";
-        btnVer1.textContent = "Ver Ofertas";
-        btnVer2.textContent = "Mis Solicitudes";
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "inline-block";
