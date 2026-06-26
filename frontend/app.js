@@ -962,7 +962,7 @@ const app = {
       const btnContactadas = document.getElementById("btnContactadas");
 
       if (estadoApp.tipoUsuario === 'clinica') {
-        heroTitle.textContent = "🦷 Solicitudes de Dentistas";
+        heroTitle.textContent = `🦷 ${estadoApp.usuario?.nombre || 'Mi Empresa'}`;
         filtersTitle.textContent = "Solicitudes";
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
