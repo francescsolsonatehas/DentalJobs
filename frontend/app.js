@@ -605,6 +605,15 @@ const app = {
 
       document.getElementById("detalleBody").innerHTML = html;
       document.getElementById("detalleTitle").textContent = publicacion.tipo === "oferta" ? "Oferta de trabajo" : "Solicitud de empleo";
+
+      // Ocultar botón "Enviar mensaje" si es propia
+      const btnEnviarMensaje = document.getElementById("btnEnviarMensaje");
+      if (publicacion.usuario_id === estadoApp.usuario?.id) {
+        btnEnviarMensaje.style.display = "none";
+      } else {
+        btnEnviarMensaje.style.display = "block";
+      }
+
       document.getElementById("modalDetalle").classList.add("active");
     },
 
