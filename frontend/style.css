@@ -342,6 +342,56 @@ button {
   font-size: 0.9rem;
 }
 
+.candidato-clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.candidato-clickable:hover {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  transform: translateX(5px);
+  box-shadow: 0 2px 8px rgba(15, 76, 117, 0.15);
+}
+
+.perfil-dentista {
+  padding: 1rem 0;
+}
+
+.perfil-dentista h3 {
+  color: var(--primary);
+  font-size: 1.4rem;
+  margin-bottom: 1.5rem;
+}
+
+.info-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.info-section h4 {
+  color: var(--primary);
+  font-size: 1rem;
+  margin-bottom: 0.8rem;
+  font-weight: 600;
+}
+
+.info-section p {
+  margin: 0.5rem 0;
+  color: var(--gray-700);
+  line-height: 1.5;
+}
+
+.info-section a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.info-section a:hover {
+  text-decoration: underline;
+}
+
 .desglose-list {
   display: flex;
   flex-direction: column;

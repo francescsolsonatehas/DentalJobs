@@ -890,9 +890,12 @@ const app = {
       let html = `<h3>${candidatos.length} ${titulo}</h3><div class="candidatos-list">`;
       candidatos.forEach(c => {
         html += `
-          <div class="candidato-item">
-            <strong>${c.nombre}</strong>
-            <p>${c.email}</p>
+          <div class="candidato-item candidato-clickable" onclick="app.stats.mostrarPerfilDentista(${JSON.stringify(c).replace(/"/g, '&quot;')})">
+            <div>
+              <strong>${c.nombre}</strong>
+              <p>${c.email}</p>
+              <p style="font-size: 0.85rem; color: var(--gray-600);">📍 ${c.ciudad || 'Sin ciudad'}</p>
+            </div>
           </div>
         `;
       });
@@ -900,6 +903,39 @@ const app = {
 
       document.getElementById("interesadosBody").innerHTML = html;
       document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = titulo;
+      document.getElementById("modalInteresados").classList.add("active");
+    },
+
+    mostrarPerfilDentista(dentista) {
+      let html = `
+        <div class="perfil-dentista">
+          <h3 style="margin-top: 0;">${dentista.nombre}</h3>
+
+          <div class="info-section">
+            <h4>Contacto</h4>
+            <p><strong>Email:</strong> <a href="mailto:${dentista.email}">${dentista.email}</a></p>
+            ${dentista.telefono ? `<p><strong>Teléfono:</strong> <a href="tel:${dentista.telefono}">${dentista.telefono}</a></p>` : ''}
+          </div>
+
+          <div class="info-section">
+            <h4>Ubicación</h4>
+            <p><strong>Ciudad:</strong> ${dentista.ciudad || 'No especificada'}</p>
+            ${dentista.direccion ? `<p><strong>Dirección:</strong> ${dentista.direccion}</p>` : ''}
+            ${dentista.codigo_postal ? `<p><strong>Código Postal:</strong> ${dentista.codigo_postal}</p>` : ''}
+            ${dentista.pais ? `<p><strong>País:</strong> ${dentista.pais}</p>` : ''}
+          </div>
+
+          ${dentista.especialidad ? `
+            <div class="info-section">
+              <h4>Especialidad</h4>
+              <p><strong>${dentista.especialidad}</strong></p>
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "Perfil: " + dentista.nombre;
       document.getElementById("modalInteresados").classList.add("active");
     }
   },
