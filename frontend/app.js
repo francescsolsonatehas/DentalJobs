@@ -595,23 +595,28 @@ const app = {
         <h4 style="margin: 1rem 0 0.5rem; color: #0F4C75; font-weight: 700;">Descripción</h4>
         <p style="white-space: pre-wrap; line-height: 1.6;">${publicacion.descripcion}</p>
 
-        <h4 style="margin: 1rem 0 0.5rem; color: #0F4C75; font-weight: 700;">Contacto</h4>
-        <div style="background: #F8FAFF; padding: 1rem; border-radius: 8px; border-left: 4px solid #0F4C75;">
-          <p style="font-weight: 700; color: #0F4C75;">${publicacion.nombre_contacto}</p>
-          <p>📧 <a href="mailto:${publicacion.email_contacto}" style="color: #0F4C75; text-decoration: none;">${publicacion.email_contacto}</a></p>
-          ${publicacion.telefono_contacto ? `<p>📞 <a href="tel:${publicacion.telefono_contacto}" style="color: #0F4C75; text-decoration: none;">${publicacion.telefono_contacto}</a></p>` : ""}
+        <div id="detalleContacto">
+          <h4 style="margin: 1rem 0 0.5rem; color: #0F4C75; font-weight: 700;">Contacto</h4>
+          <div style="background: #F8FAFF; padding: 1rem; border-radius: 8px; border-left: 4px solid #0F4C75;">
+            <p style="font-weight: 700; color: #0F4C75;">${publicacion.nombre_contacto}</p>
+            <p>📧 <a href="mailto:${publicacion.email_contacto}" style="color: #0F4C75; text-decoration: none;">${publicacion.email_contacto}</a></p>
+            ${publicacion.telefono_contacto ? `<p>📞 <a href="tel:${publicacion.telefono_contacto}" style="color: #0F4C75; text-decoration: none;">${publicacion.telefono_contacto}</a></p>` : ""}
+          </div>
         </div>
       `;
 
       document.getElementById("detalleBody").innerHTML = html;
       document.getElementById("detalleTitle").textContent = publicacion.tipo === "oferta" ? "Oferta de trabajo" : "Solicitud de empleo";
 
-      // Ocultar botón "Enviar mensaje" si es propia
+      // Ocultar botón "Enviar mensaje" y sección de contacto si es propia
       const btnEnviarMensaje = document.getElementById("btnEnviarMensaje");
+      const detalleContacto = document.getElementById("detalleContacto");
       if (publicacion.usuario_id === estadoApp.usuario?.id) {
         btnEnviarMensaje.style.display = "none";
+        detalleContacto.style.display = "none";
       } else {
         btnEnviarMensaje.style.display = "block";
+        detalleContacto.style.display = "block";
       }
 
       document.getElementById("modalDetalle").classList.add("active");
