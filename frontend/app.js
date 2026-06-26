@@ -13,7 +13,8 @@ let estadoApp = {
     especialidad: "",
     contrato: "",
     jornada: "",
-    soloMias: false
+    soloMias: false,
+    contactadas: false
   },
   publicacionActual: null
 };
@@ -336,6 +337,21 @@ const app = {
       }
     },
 
+    async cargarContactadas() {
+      if (!estadoApp.usuario) {
+        utils.mostrarAlerta("Debes iniciar sesión", "error");
+        return;
+      }
+
+      try {
+        const publicaciones = await utils.request(`/publicaciones/contactadas/${estadoApp.usuario.id}`);
+        estadoApp.publicaciones = publicaciones;
+        app.ui.renderizarPublicaciones();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
     async crear(tipo) {
       if (!estadoApp.token) {
         utils.mostrarAlerta("Debes iniciar sesión para publicar", "error");
@@ -435,6 +451,7 @@ const app = {
 
     mostrarMias() {
       estadoApp.filtros.soloMias = true;
+      estadoApp.filtros.contactadas = false;
       document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
       event.target.classList.add("active");
 
@@ -447,6 +464,18 @@ const app = {
       }
 
       app.publicaciones.cargar();
+    },
+
+    mostrarContactadas() {
+      estadoApp.filtros.soloMias = false;
+      estadoApp.filtros.contactadas = true;
+      document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
+      event.target.classList.add("active");
+
+      const filtersTitle = document.getElementById("filtrosTitle");
+      filtersTitle.textContent = "Solicitudes contactadas";
+
+      app.publicaciones.cargarContactadas();
     },
 
     setTipo(tipo) {
@@ -930,12 +959,15 @@ const app = {
       const btnTodas = document.getElementById("btnTodas");
       const btnMias = document.getElementById("btnMias");
 
+      const btnContactadas = document.getElementById("btnContactadas");
+
       if (estadoApp.tipoUsuario === 'clinica') {
         heroTitle.textContent = "🦷 Solicitudes de Dentistas";
         filtersTitle.textContent = "Solicitudes";
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "inline-block";
+        btnContactadas.style.display = "inline-block";
         btnTodas.textContent = "Ver solicitudes";
         btnMias.textContent = "Mis ofertas";
       } else {
@@ -944,6 +976,7 @@ const app = {
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "inline-block";
+        btnContactadas.style.display = "none";
         btnTodas.textContent = "Ver ofertas";
         btnMias.textContent = "Mis solicitudes";
       }

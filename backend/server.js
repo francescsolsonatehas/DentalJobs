@@ -228,8 +228,26 @@ app.get("/mensajes/:publicacion_id", (req, res) => {
   );
 });
 
-app.post("/mensajes", (req, res) => {
+app.get("/publicaciones/contactadas/:usuario_id", verifyToken, (req, res) => {
+  db.all(
+    `SELECT DISTINCT p.* FROM publicaciones p
+     INNER JOIN mensajes m ON p.id = m.publicacion_id
+     WHERE m.usuario_id = ? AND p.tipo = 'solicitud'
+     ORDER BY p.creado_en DESC`,
+    [req.params.usuario_id],
+    (err, publicaciones) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener solicitudes contactadas" });
+      }
+      res.json(publicaciones || []);
+    }
+  );
+});
+
+app.post("/mensajes", verifyToken, (req, res) => {
   const { publicacion_id, remitente_nombre, remitente_email, cuerpo } = req.body;
+  const usuario_id = req.usuario.id;
 
   if (!publicacion_id || !remitente_nombre || !remitente_email || !cuerpo) {
     return res.status(400).json({ error: "Faltan datos obligatorios" });
@@ -246,8 +264,8 @@ app.post("/mensajes", (req, res) => {
     }
 
     db.run(
-      "INSERT INTO mensajes (publicacion_id, remitente_nombre, remitente_email, cuerpo) VALUES (?, ?, ?, ?)",
-      [publicacion_id, remitente_nombre, remitente_email, cuerpo],
+      "INSERT INTO mensajes (publicacion_id, usuario_id, remitente_nombre, remitente_email, cuerpo) VALUES (?, ?, ?, ?, ?)",
+      [publicacion_id, usuario_id, remitente_nombre, remitente_email, cuerpo],
       (err) => {
         if (err) {
           console.error(err);

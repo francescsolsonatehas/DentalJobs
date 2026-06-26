@@ -53,6 +53,7 @@ db.serialize(() => {
     CREATE TABLE IF NOT EXISTS mensajes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       publicacion_id INTEGER REFERENCES publicaciones(id),
+      usuario_id INTEGER REFERENCES usuarios(id),
       remitente_nombre TEXT NOT NULL,
       remitente_email TEXT NOT NULL,
       cuerpo TEXT NOT NULL,
@@ -60,6 +61,11 @@ db.serialize(() => {
       creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Agregar columna usuario_id si no existe (para compatibilidad)
+  db.run(`ALTER TABLE mensajes ADD COLUMN usuario_id INTEGER REFERENCES usuarios(id)`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS archivos (
