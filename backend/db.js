@@ -62,8 +62,20 @@ db.serialize(() => {
     )
   `);
 
-  // Agregar columna usuario_id si no existe (para compatibilidad)
+  // Agregar columnas si no existen (para compatibilidad)
   db.run(`ALTER TABLE mensajes ADD COLUMN usuario_id INTEGER REFERENCES usuarios(id)`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
+  db.run(`ALTER TABLE usuarios ADD COLUMN direccion TEXT`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
+  db.run(`ALTER TABLE usuarios ADD COLUMN codigo_postal TEXT`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
+  db.run(`ALTER TABLE usuarios ADD COLUMN pais TEXT`, (err) => {
     // Ignorar error si la columna ya existe
   });
 
