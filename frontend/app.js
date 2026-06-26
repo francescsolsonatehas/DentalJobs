@@ -887,15 +887,23 @@ const app = {
         const todas = await utils.request("/publicaciones");
         const misSolicitudes = [];
 
-        for (const pub of todas.filter(p => p.tipo === 'oferta')) {
-          const mensajes = await utils.request(`/mensajes/${pub.id}`);
-          if (mensajes.some(m => m.usuario_id === estadoApp.usuario.id)) {
-            misSolicitudes.push(pub);
+        // Obtener mis solicitudes (donde soy autor)
+        const solicitudesMias = todas.filter(p => p.tipo === 'solicitud' && p.usuario_id === estadoApp.usuario.id);
+
+        // Para cada una, verificar si me han respondido
+        for (const solicitud of solicitudesMias) {
+          const mensajes = await utils.request(`/mensajes/${solicitud.id}`);
+          if (mensajes.length > 0) {
+            misSolicitudes.push({
+              ...solicitud,
+              respondido: true,
+              respuestas: mensajes
+            });
           }
         }
 
         if (misSolicitudes.length === 0) {
-          utils.mostrarAlerta("No has aplicado a ninguna solicitud", "info");
+          utils.mostrarAlerta("No tienes solicitudes con respuestas", "info");
           return;
         }
 
@@ -914,10 +922,11 @@ const app = {
 
           agrupadoPorCiudad[ciudad].sort((a, b) => (a.especialidad_id || 0) - (b.especialidad_id || 0)).forEach(s => {
             const esp = estadoApp.especialidades.find(e => e.id === s.especialidad_id);
+            const respuestasCount = s.respuestas ? s.respuestas.length : 0;
             html += `
-              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarPerfilDentista({id: ${s.id}, nombre: '${s.titulo.replace(/'/g, "\\'")}', email: '${s.email_contacto}', ciudad: '${s.ciudad}'})">
+              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarPerfilDentista({id: ${s.id}, nombre: '${s.titulo.replace(/'/g, "\\'")}', email: '${s.email_contacto}', ciudad: '${s.ciudad}', respuestas: ${respuestasCount}})">
                 <strong>${s.titulo}</strong>
-                <span class="desglose-numero">${esp?.nombre || 'Sin especialidad'}</span>
+                <span class="desglose-numero">${respuestasCount} respuesta${respuestasCount !== 1 ? 's' : ''}</span>
               </div>
             `;
           });
@@ -1343,15 +1352,17 @@ const app = {
           const todas = await utils.request("/publicaciones");
           const ofertas = todas.filter(p => p.tipo === 'oferta').length;
 
-          // Contar mis solicitudes (las que he aplicado enviando mensajes)
+          // Contar mis solicitudes (a las que me han respondido)
           const misSolicitudesIds = [];
-          for (const pub of todas.filter(p => p.tipo === 'oferta')) {
-            const mensajes = await utils.request(`/mensajes/${pub.id}`);
-            if (mensajes.some(m => m.usuario_id === estadoApp.usuario.id)) {
-              if (!misSolicitudesIds.includes(pub.id)) misSolicitudesIds.push(pub.id);
+          const misSolicitudes = todas.filter(p => p.tipo === 'solicitud' && p.usuario_id === estadoApp.usuario.id);
+
+          for (const solicitud of misSolicitudes) {
+            const mensajes = await utils.request(`/mensajes/${solicitud.id}`);
+            if (mensajes.length > 0) {
+              misSolicitudesIds.push(solicitud.id);
             }
           }
-          const misSolicitudes = misSolicitudesIds.length;
+          const misSolicitudesConRespuesta = misSolicitudesIds.length;
 
           statsGrid.innerHTML = `
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarOfertasActivas()">
@@ -1362,9 +1373,9 @@ const app = {
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisSolicitudes()">
               <span>✉️</span>
-              <h3>${misSolicitudes}</h3>
+              <h3>${misSolicitudesConRespuesta}</h3>
               <p>Mis solicitudes</p>
-              <div class="stat-tooltip">Solicitudes que he enviado un mail aplicando por ellas</div>
+              <div class="stat-tooltip">Mis solicitudes a las que me han respondido</div>
             </div>
           `;
         }
