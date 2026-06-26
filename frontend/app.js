@@ -297,21 +297,29 @@ const app = {
 
   publicaciones: {
     async cargar() {
-      // Empresas ven SOLICITUDES, candidatos ven OFERTAS
-      let tipo = estadoApp.tipoUsuario === 'clinica' ? 'solicitud' : 'oferta';
+      // Determinar tipo según modo
+      let tipo;
+      if (estadoApp.filtros.soloMias) {
+        // Mis publicaciones: empresas ven sus OFERTAS, candidatos ven sus SOLICITUDES
+        tipo = estadoApp.tipoUsuario === 'clinica' ? 'oferta' : 'solicitud';
+      } else {
+        // Ver todas: empresas ven SOLICITUDES, candidatos ven OFERTAS
+        tipo = estadoApp.tipoUsuario === 'clinica' ? 'solicitud' : 'oferta';
+      }
+
       const ciudad = document.getElementById("filterCiudad").value;
       const especialidad = document.getElementById("filterEspecialidad").value;
       const contrato = document.getElementById("filterContrato").value;
       const jornada = document.getElementById("filterJornada").value;
 
-      estadoApp.filtros = { tipo, ciudad, especialidad, contrato, jornada };
+      estadoApp.filtros = { tipo, ciudad, especialidad, contrato, jornada, soloMias: estadoApp.filtros.soloMias };
 
       let url = "/publicaciones?";
       if (tipo) url += `tipo=${tipo}&`;
-      if (ciudad) url += `ciudad=${encodeURIComponent(ciudad)}&`;
-      if (especialidad) url += `especialidad=${especialidad}&`;
-      if (contrato) url += `contrato=${encodeURIComponent(contrato)}&`;
-      if (jornada) url += `jornada=${encodeURIComponent(jornada)}&`;
+      if (ciudad && !estadoApp.filtros.soloMias) url += `ciudad=${encodeURIComponent(ciudad)}&`;
+      if (especialidad && !estadoApp.filtros.soloMias) url += `especialidad=${especialidad}&`;
+      if (contrato && !estadoApp.filtros.soloMias) url += `contrato=${encodeURIComponent(contrato)}&`;
+      if (jornada && !estadoApp.filtros.soloMias) url += `jornada=${encodeURIComponent(jornada)}&`;
 
       try {
         let publicaciones = await utils.request(url.slice(0, -1));
@@ -414,6 +422,14 @@ const app = {
       document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
       event.target.classList.add("active");
 
+      // Actualizar título de filtros
+      const filtersTitle = document.getElementById("filtrosTitle");
+      if (estadoApp.tipoUsuario === 'clinica') {
+        filtersTitle.textContent = "Todas las solicitudes";
+      } else {
+        filtersTitle.textContent = "Todas las ofertas";
+      }
+
       app.publicaciones.cargar();
     },
 
@@ -421,6 +437,14 @@ const app = {
       estadoApp.filtros.soloMias = true;
       document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
       event.target.classList.add("active");
+
+      // Actualizar título de filtros
+      const filtersTitle = document.getElementById("filtrosTitle");
+      if (estadoApp.tipoUsuario === 'clinica') {
+        filtersTitle.textContent = "Mis ofertas";
+      } else {
+        filtersTitle.textContent = "Mis solicitudes";
+      }
 
       app.publicaciones.cargar();
     },
@@ -910,19 +934,29 @@ const app = {
 
       if (estadoApp.tipoUsuario === 'clinica') {
         heroTitle.textContent = "🦷 Solicitudes de Dentistas";
-        filtersTitle.style.display = "none";
-        btnTodas.style.display = "none";
-        btnMias.style.display = "none";
+        filtersTitle.textContent = "Todas las solicitudes";
         btnVer1.textContent = "Ver Solicitudes";
         btnVer2.textContent = "Mis Ofertas";
+        filtersTitle.style.display = "block";
+        btnTodas.style.display = "inline-block";
+        btnMias.style.display = "inline-block";
+        btnTodas.textContent = "Ver solicitudes";
+        btnMias.textContent = "Mis ofertas";
       } else {
         heroTitle.textContent = "🦷 Ofertas de Trabajo";
-        filtersTitle.style.display = "none";
-        btnTodas.style.display = "none";
-        btnMias.style.display = "none";
+        filtersTitle.textContent = "Todas las ofertas";
         btnVer1.textContent = "Ver Ofertas";
         btnVer2.textContent = "Mis Solicitudes";
+        filtersTitle.style.display = "block";
+        btnTodas.style.display = "inline-block";
+        btnMias.style.display = "inline-block";
+        btnTodas.textContent = "Ver ofertas";
+        btnMias.textContent = "Mis solicitudes";
       }
+
+      estadoApp.filtros.soloMias = false;
+      document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
+      document.getElementById("btnTodas").classList.add("active");
 
       await app.publicaciones.cargar();
       await app.ui.actualizarStats();
@@ -954,20 +988,6 @@ const app = {
       } catch (error) {
         console.error(error);
       }
-    },
-
-    mostrarVerTodas() {
-      document.getElementById("filtrosTitle").style.display = "block";
-      document.getElementById("btnTodas").style.display = "inline-block";
-      document.getElementById("btnMias").style.display = "inline-block";
-      app.filtros.mostrarTodas();
-    },
-
-    mostrarMisPublicaciones() {
-      document.getElementById("filtrosTitle").style.display = "block";
-      document.getElementById("btnTodas").style.display = "inline-block";
-      document.getElementById("btnMias").style.display = "inline-block";
-      app.filtros.mostrarMias();
     },
 
     async renderizarPublicaciones() {
