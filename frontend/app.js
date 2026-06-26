@@ -747,7 +747,7 @@ const app = {
         } else {
           datos.forEach(d => {
             html += `
-              <div class="desglose-item">
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarDentistasEspecialidad('${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
                 <strong>${d.especialidad || "Sin especialidad"}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
@@ -774,7 +774,7 @@ const app = {
         } else {
           datos.forEach(d => {
             html += `
-              <div class="desglose-item">
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarDentistasCiudad('${d.ciudad.replace(/'/g, "\\'")}')">
                 <strong>${d.ciudad}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
@@ -809,7 +809,7 @@ const app = {
               html += `<div class='desglose-grupo'><h4>${ciudadActual}</h4>`;
             }
             html += `
-              <div class="desglose-item-sub">
+              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarDentistasCiudadEspecialidad('${d.ciudad.replace(/'/g, "\\'")}', '${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
                 <strong>${d.especialidad || "Sin especialidad"}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
@@ -822,6 +822,33 @@ const app = {
         document.getElementById("interesadosBody").innerHTML = html;
         document.getElementById("modalOpcionesStats").classList.remove("active");
         document.getElementById("modalInteresados").classList.add("active");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarDentistasEspecialidad(especialidad) {
+      try {
+        const dentistas = await utils.request(`/stats/dentistas-por-especialidad-lista/${encodeURIComponent(especialidad)}`);
+        app.stats.mostrarListaCandidatos(dentistas, `Dentistas - ${especialidad}`);
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarDentistasCiudad(ciudad) {
+      try {
+        const dentistas = await utils.request(`/stats/dentistas-por-ciudad-lista/${encodeURIComponent(ciudad)}`);
+        app.stats.mostrarListaCandidatos(dentistas, `Dentistas - ${ciudad}`);
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarDentistasCiudadEspecialidad(ciudad, especialidad) {
+      try {
+        const dentistas = await utils.request(`/stats/dentistas-por-ciudad-especialidad-lista/${encodeURIComponent(ciudad)}/${encodeURIComponent(especialidad)}`);
+        app.stats.mostrarListaCandidatos(dentistas, `Dentistas - ${ciudad} - ${especialidad}`);
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }

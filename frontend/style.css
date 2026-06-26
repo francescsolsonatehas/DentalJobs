@@ -405,6 +405,26 @@ button {
   font-weight: 600;
 }
 
+.desglose-clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.desglose-clickable:hover {
+  background: var(--primary) !important;
+  color: white;
+  transform: translateX(5px);
+}
+
+.desglose-clickable:hover strong {
+  color: white;
+}
+
+.desglose-clickable:hover .desglose-numero {
+  background: white;
+  color: var(--primary);
+}
+
 /* ============ CONTAINER ============ */
 
 .container {

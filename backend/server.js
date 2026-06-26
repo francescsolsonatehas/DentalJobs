@@ -393,6 +393,63 @@ app.get("/stats/dentistas-por-ciudad-especialidad", (req, res) => {
   );
 });
 
+app.get("/stats/dentistas-por-especialidad-lista/:especialidad", (req, res) => {
+  db.all(
+    `SELECT DISTINCT s.usuario_id, u.nombre, u.email
+     FROM publicaciones s
+     INNER JOIN usuarios u ON s.usuario_id = u.id
+     LEFT JOIN especialidades e ON s.especialidad_id = e.id
+     WHERE s.tipo = 'solicitud' AND s.activo = 1
+     AND (e.nombre = ? OR (? = 'Sin especialidad' AND s.especialidad_id IS NULL))`,
+    [req.params.especialidad, req.params.especialidad],
+    (err, dentistas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener dentistas" });
+      }
+      res.json(dentistas || []);
+    }
+  );
+});
+
+app.get("/stats/dentistas-por-ciudad-lista/:ciudad", (req, res) => {
+  db.all(
+    `SELECT DISTINCT s.usuario_id, u.nombre, u.email
+     FROM publicaciones s
+     INNER JOIN usuarios u ON s.usuario_id = u.id
+     WHERE s.tipo = 'solicitud' AND s.activo = 1
+     AND s.ciudad = ?`,
+    [req.params.ciudad],
+    (err, dentistas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener dentistas" });
+      }
+      res.json(dentistas || []);
+    }
+  );
+});
+
+app.get("/stats/dentistas-por-ciudad-especialidad-lista/:ciudad/:especialidad", (req, res) => {
+  db.all(
+    `SELECT DISTINCT s.usuario_id, u.nombre, u.email
+     FROM publicaciones s
+     INNER JOIN usuarios u ON s.usuario_id = u.id
+     LEFT JOIN especialidades e ON s.especialidad_id = e.id
+     WHERE s.tipo = 'solicitud' AND s.activo = 1
+     AND s.ciudad = ?
+     AND (e.nombre = ? OR (? = 'Sin especialidad' AND s.especialidad_id IS NULL))`,
+    [req.params.ciudad, req.params.especialidad, req.params.especialidad],
+    (err, dentistas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener dentistas" });
+      }
+      res.json(dentistas || []);
+    }
+  );
+});
+
 /* ===========================
    🔹 MENSAJES
 =========================== */
