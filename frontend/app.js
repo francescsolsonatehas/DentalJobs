@@ -1225,16 +1225,9 @@ const app = {
           const posiblesCandidatos = await utils.request(`/stats/posibles-candidatos/${estadoApp.usuario.id}`);
           const candidatosInteresados = await utils.request(`/stats/candidatos-interesados/${estadoApp.usuario.id}`);
 
-          // Contar contactados (usuarios a los que hemos enviado mensaje desde la empresa)
-          const todasPubs = await utils.request("/publicaciones");
-          const misOfertas = todasPubs.filter(p => p.tipo === 'oferta' && p.usuario_id === estadoApp.usuario.id).map(p => p.id);
-          let contactados = 0;
-          if (misOfertas.length > 0) {
-            for (const ofertaId of misOfertas) {
-              const mensajes = await utils.request(`/mensajes/${ofertaId}`);
-              contactados += new Set(mensajes.map(m => m.usuario_id).filter(id => id !== null)).size;
-            }
-          }
+          // Contar contactados (dentistas a los que hemos enviado mensaje)
+          const contactadosList = await utils.request(`/stats/contactados-lista/${estadoApp.usuario.id}`);
+          const contactados = contactadosList.length;
 
           statsGrid.innerHTML = `
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarTotalDentistas()">
