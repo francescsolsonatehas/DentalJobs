@@ -425,7 +425,7 @@ const app = {
       // Actualizar título de filtros
       const filtersTitle = document.getElementById("filtrosTitle");
       if (estadoApp.tipoUsuario === 'clinica') {
-        filtersTitle.textContent = "Todas las solicitudes";
+        filtersTitle.textContent = "Solicitudes";
       } else {
         filtersTitle.textContent = "Todas las ofertas";
       }
@@ -932,7 +932,7 @@ const app = {
 
       if (estadoApp.tipoUsuario === 'clinica') {
         heroTitle.textContent = "🦷 Solicitudes de Dentistas";
-        filtersTitle.textContent = "Todas las solicitudes";
+        filtersTitle.textContent = "Solicitudes";
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "inline-block";
