@@ -284,9 +284,10 @@ app.get("/stats/candidatos-interesados/:empresa_id", verifyToken, (req, res) => 
 
 app.get("/stats/posibles-candidatos-lista/:empresa_id", verifyToken, (req, res) => {
   db.all(
-    `SELECT DISTINCT s.usuario_id, u.nombre, u.email
+    `SELECT DISTINCT s.usuario_id, u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais, s.ciudad, e.nombre as especialidad
      FROM publicaciones s
      INNER JOIN usuarios u ON s.usuario_id = u.id
+     LEFT JOIN especialidades e ON s.especialidad_id = e.id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
      AND (
        SELECT COUNT(*) FROM publicaciones o
@@ -307,10 +308,11 @@ app.get("/stats/posibles-candidatos-lista/:empresa_id", verifyToken, (req, res) 
 
 app.get("/stats/candidatos-interesados-lista/:empresa_id", verifyToken, (req, res) => {
   db.all(
-    `SELECT DISTINCT m.usuario_id, u.nombre, u.email
+    `SELECT DISTINCT m.usuario_id, u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais, p.ciudad, e.nombre as especialidad
      FROM mensajes m
      INNER JOIN usuarios u ON m.usuario_id = u.id
      INNER JOIN publicaciones p ON m.publicacion_id = p.id
+     LEFT JOIN especialidades e ON p.especialidad_id = e.id
      WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1`,
     [req.params.empresa_id],
     (err, candidatos) => {
