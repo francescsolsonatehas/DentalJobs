@@ -142,6 +142,23 @@ app.get("/publicaciones", (req, res) => {
   });
 });
 
+app.get("/publicaciones/contactadas/:usuario_id", verifyToken, (req, res) => {
+  db.all(
+    `SELECT DISTINCT p.* FROM publicaciones p
+     INNER JOIN mensajes m ON p.id = m.publicacion_id
+     WHERE m.usuario_id = ? AND p.tipo = 'solicitud'
+     ORDER BY p.creado_en DESC`,
+    [req.params.usuario_id],
+    (err, publicaciones) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener solicitudes contactadas" });
+      }
+      res.json(publicaciones || []);
+    }
+  );
+});
+
 app.get("/publicaciones/:id", (req, res) => {
   db.get(
     "SELECT * FROM publicaciones WHERE id = ? AND activo = 1",
@@ -224,23 +241,6 @@ app.get("/mensajes/:publicacion_id", (req, res) => {
         return res.status(500).json({ error: "Error al obtener mensajes" });
       }
       res.json(mensajes || []);
-    }
-  );
-});
-
-app.get("/publicaciones/contactadas/:usuario_id", verifyToken, (req, res) => {
-  db.all(
-    `SELECT DISTINCT p.* FROM publicaciones p
-     INNER JOIN mensajes m ON p.id = m.publicacion_id
-     WHERE m.usuario_id = ? AND p.tipo = 'solicitud'
-     ORDER BY p.creado_en DESC`,
-    [req.params.usuario_id],
-    (err, publicaciones) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener solicitudes contactadas" });
-      }
-      res.json(publicaciones || []);
     }
   );
 });
