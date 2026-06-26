@@ -325,9 +325,11 @@ app.get("/stats/candidatos-interesados-lista/:empresa_id", verifyToken, (req, re
 
 app.get("/stats/contactados-lista/:empresa_id", verifyToken, (req, res) => {
   db.all(
-    `SELECT DISTINCT m.usuario_id, u.nombre, u.email
-     FROM mensajes m
-     INNER JOIN usuarios u ON m.usuario_id = u.id
+    `SELECT DISTINCT u.id as usuario_id, u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais, p.ciudad, e.nombre as especialidad
+     FROM usuarios u
+     INNER JOIN publicaciones p ON u.id = p.usuario_id AND p.tipo = 'solicitud'
+     INNER JOIN mensajes m ON p.id = m.publicacion_id
+     LEFT JOIN especialidades e ON p.especialidad_id = e.id
      WHERE m.usuario_id = ?`,
     [req.params.empresa_id],
     (err, contactados) => {
