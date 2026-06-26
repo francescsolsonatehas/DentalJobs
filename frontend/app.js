@@ -729,6 +729,61 @@ const app = {
   },
 
   // ============================================
+  // Módulo: Stats
+  // ============================================
+
+  stats: {
+    async mostrarPosiblesCandidatos() {
+      try {
+        const candidatos = await utils.request(`/stats/posibles-candidatos-lista/${estadoApp.usuario.id}`);
+        app.stats.mostrarListaCandidatos(candidatos, "Posibles Candidatos");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarCandidatosInteresados() {
+      try {
+        const candidatos = await utils.request(`/stats/candidatos-interesados-lista/${estadoApp.usuario.id}`);
+        app.stats.mostrarListaCandidatos(candidatos, "Candidatos Interesados");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarContactados() {
+      try {
+        const contactados = await utils.request(`/stats/contactados-lista/${estadoApp.usuario.id}`);
+        app.stats.mostrarListaCandidatos(contactados, "Dentistas Contactados");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    mostrarListaCandidatos(candidatos, titulo) {
+      if (candidatos.length === 0) {
+        utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
+        return;
+      }
+
+      let html = `<h3>${candidatos.length} ${titulo}</h3><div class="candidatos-list">`;
+      candidatos.forEach(c => {
+        html += `
+          <div class="candidato-item">
+            <strong>${c.nombre}</strong>
+            <p>${c.email}</p>
+          </div>
+        `;
+      });
+      html += "</div>";
+
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = titulo;
+      document.getElementById("modalInteresados").classList.add("active");
+    }
+  },
+
+  // ============================================
   // Módulo: Archivos
   // ============================================
 
@@ -1008,26 +1063,46 @@ const app = {
         const statsGrid = document.getElementById("statsGrid");
 
         if (estadoApp.tipoUsuario === 'clinica') {
-          // Empresa: mostrar Total Dentistas, Posibles Candidatos, Candidatos Interesados
+          // Empresa: mostrar Total Dentistas, Posibles Candidatos, Candidatos Interesados, Contactados
           const totalDentistas = await utils.request("/stats/total-dentistas");
           const posiblesCandidatos = await utils.request(`/stats/posibles-candidatos/${estadoApp.usuario.id}`);
           const candidatosInteresados = await utils.request(`/stats/candidatos-interesados/${estadoApp.usuario.id}`);
 
+          // Contar contactados (usuarios a los que hemos enviado mensaje desde la empresa)
+          const todasPubs = await utils.request("/publicaciones");
+          const misOfertas = todasPubs.filter(p => p.tipo === 'oferta' && p.usuario_id === estadoApp.usuario.id).map(p => p.id);
+          let contactados = 0;
+          if (misOfertas.length > 0) {
+            for (const ofertaId of misOfertas) {
+              const mensajes = await utils.request(`/mensajes/${ofertaId}`);
+              contactados += new Set(mensajes.map(m => m.usuario_id).filter(id => id !== null)).size;
+            }
+          }
+
           statsGrid.innerHTML = `
-            <div class="stat-item">
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarPosiblesCandidatos()">
               <span>👥</span>
               <h3>${totalDentistas.total}</h3>
               <p>Total Dentistas</p>
+              <div class="stat-tooltip">Todos los dentistas en la plataforma</div>
             </div>
-            <div class="stat-item">
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarPosiblesCandidatos()">
               <span>🔍</span>
               <h3>${posiblesCandidatos.total}</h3>
               <p>Posibles Candidatos</p>
+              <div class="stat-tooltip">Dentistas que la Ciudad y Especialidad coinciden con una de mis ofertas</div>
             </div>
-            <div class="stat-item">
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarCandidatosInteresados()">
               <span>📧</span>
               <h3>${candidatosInteresados.total}</h3>
               <p>Candidatos</p>
+              <div class="stat-tooltip">Dentistas que han aplicado en nuestras ofertas</div>
+            </div>
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarContactados()">
+              <span>✉️</span>
+              <h3>${contactados}</h3>
+              <p>Contactados</p>
+              <div class="stat-tooltip">Dentistas que hemos enviado un mail</div>
             </div>
           `;
         } else {

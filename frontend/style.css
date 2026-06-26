@@ -285,6 +285,63 @@ button {
   margin-right: 0.8rem;
 }
 
+.stat-clickable {
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.2s ease;
+}
+
+.stat-clickable:hover {
+  transform: scale(1.05);
+}
+
+.stat-tooltip {
+  display: none;
+  position: absolute;
+  bottom: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--primary);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  z-index: 10;
+}
+
+.stat-clickable:hover .stat-tooltip {
+  display: block;
+}
+
+.candidatos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.candidato-item {
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 1rem;
+  background: var(--gray-100);
+  text-align: left;
+}
+
+.candidato-item strong {
+  display: block;
+  color: var(--primary);
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.candidato-item p {
+  margin: 0;
+  color: var(--gray-600);
+  font-size: 0.9rem;
+}
+
 /* ============ CONTAINER ============ */
 
 .container {

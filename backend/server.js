@@ -282,6 +282,64 @@ app.get("/stats/candidatos-interesados/:empresa_id", verifyToken, (req, res) => 
   );
 });
 
+app.get("/stats/posibles-candidatos-lista/:empresa_id", verifyToken, (req, res) => {
+  db.all(
+    `SELECT DISTINCT s.usuario_id, u.nombre, u.email
+     FROM publicaciones s
+     INNER JOIN usuarios u ON s.usuario_id = u.id
+     WHERE s.tipo = 'solicitud' AND s.activo = 1
+     AND (
+       SELECT COUNT(*) FROM publicaciones o
+       WHERE o.usuario_id = ? AND o.tipo = 'oferta' AND o.activo = 1
+       AND (o.ciudad = s.ciudad OR s.ciudad LIKE '%' || o.ciudad || '%' OR o.ciudad LIKE '%' || s.ciudad || '%')
+       AND (o.especialidad_id = s.especialidad_id OR o.especialidad_id IS NULL OR s.especialidad_id IS NULL)
+     ) > 0`,
+    [req.params.empresa_id],
+    (err, candidatos) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener posibles candidatos" });
+      }
+      res.json(candidatos || []);
+    }
+  );
+});
+
+app.get("/stats/candidatos-interesados-lista/:empresa_id", verifyToken, (req, res) => {
+  db.all(
+    `SELECT DISTINCT m.usuario_id, u.nombre, u.email
+     FROM mensajes m
+     INNER JOIN usuarios u ON m.usuario_id = u.id
+     INNER JOIN publicaciones p ON m.publicacion_id = p.id
+     WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1`,
+    [req.params.empresa_id],
+    (err, candidatos) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener candidatos interesados" });
+      }
+      res.json(candidatos || []);
+    }
+  );
+});
+
+app.get("/stats/contactados-lista/:empresa_id", verifyToken, (req, res) => {
+  db.all(
+    `SELECT DISTINCT m.usuario_id, u.nombre, u.email
+     FROM mensajes m
+     INNER JOIN usuarios u ON m.usuario_id = u.id
+     WHERE m.usuario_id = ?`,
+    [req.params.empresa_id],
+    (err, contactados) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener contactados" });
+      }
+      res.json(contactados || []);
+    }
+  );
+});
+
 /* ===========================
    🔹 MENSAJES
 =========================== */
