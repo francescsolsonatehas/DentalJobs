@@ -882,28 +882,13 @@ const app = {
       }
     },
 
-    async mostrarMisSolicitudes() {
+    async mostrarTodasMisSolicitudes() {
       try {
         const todas = await utils.request("/publicaciones");
-        const misSolicitudes = [];
-
-        // Obtener mis solicitudes (donde soy autor)
-        const solicitudesMias = todas.filter(p => p.tipo === 'solicitud' && p.usuario_id === estadoApp.usuario.id);
-
-        // Para cada una, verificar si me han respondido
-        for (const solicitud of solicitudesMias) {
-          const mensajes = await utils.request(`/mensajes/${solicitud.id}`);
-          if (mensajes.length > 0) {
-            misSolicitudes.push({
-              ...solicitud,
-              respondido: true,
-              respuestas: mensajes
-            });
-          }
-        }
+        const misSolicitudes = todas.filter(p => p.tipo === 'solicitud' && p.usuario_id === estadoApp.usuario.id);
 
         if (misSolicitudes.length === 0) {
-          utils.mostrarAlerta("No tienes solicitudes con respuestas", "info");
+          utils.mostrarAlerta("No has publicado ninguna solicitud", "info");
           return;
         }
 
@@ -915,18 +900,17 @@ const app = {
         });
 
         // Ordenar ciudades y especialidades
-        let html = `<h3>${misSolicitudes.length} Mis Solicitudes</h3><div class="desglose-grupos">`;
+        let html = `<h3>${misSolicitudes.length} Todas mis solicitudes</h3><div class="desglose-grupos">`;
 
         Object.keys(agrupadoPorCiudad).sort().forEach(ciudad => {
           html += `<div class="desglose-grupo"><h4>${ciudad}</h4>`;
 
           agrupadoPorCiudad[ciudad].sort((a, b) => (a.especialidad_id || 0) - (b.especialidad_id || 0)).forEach(s => {
             const esp = estadoApp.especialidades.find(e => e.id === s.especialidad_id);
-            const respuestasCount = s.respuestas ? s.respuestas.length : 0;
             html += `
-              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarPerfilDentista({id: ${s.id}, nombre: '${s.titulo.replace(/'/g, "\\'")}', email: '${s.email_contacto}', ciudad: '${s.ciudad}', respuestas: ${respuestasCount}})">
+              <div class="desglose-item-sub">
                 <strong>${s.titulo}</strong>
-                <span class="desglose-numero">${respuestasCount} respuesta${respuestasCount !== 1 ? 's' : ''}</span>
+                <span class="desglose-numero">${esp?.nombre || 'Sin especialidad'}</span>
               </div>
             `;
           });
@@ -934,6 +918,56 @@ const app = {
           html += "</div>";
         });
 
+        html += "</div>";
+
+        document.getElementById("interesadosBody").innerHTML = html;
+        document.getElementById("modalInteresados").classList.add("active");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarMisSolicitudesConRespuesta() {
+      try {
+        const todas = await utils.request("/publicaciones");
+        const solicitudesMias = todas.filter(p => p.tipo === 'solicitud' && p.usuario_id === estadoApp.usuario.id);
+
+        const clinicasInteresadas = [];
+        const clinicasVistas = new Set();
+
+        // Para cada solicitud, obtener quién me ha contactado
+        for (const solicitud of solicitudesMias) {
+          const mensajes = await utils.request(`/mensajes/${solicitud.id}`);
+          for (const mensaje of mensajes) {
+            const key = `${mensaje.remitente_email}`;
+            if (!clinicasVistas.has(key)) {
+              clinicasVistas.add(key);
+              clinicasInteresadas.push({
+                nombre: mensaje.remitente_nombre,
+                email: mensaje.remitente_email,
+                ciudad: solicitud.ciudad,
+                mensaje: mensaje.cuerpo
+              });
+            }
+          }
+        }
+
+        if (clinicasInteresadas.length === 0) {
+          utils.mostrarAlerta("No tienes clínicas interesadas aún", "info");
+          return;
+        }
+
+        let html = `<h3>${clinicasInteresadas.length} Clínicas interesadas</h3><div class="candidatos-list">`;
+        clinicasInteresadas.forEach(c => {
+          html += `
+            <div class="candidato-item">
+              <div>
+                <strong>${c.nombre}</strong>
+                <p>${c.email}</p>
+              </div>
+            </div>
+          `;
+        });
         html += "</div>";
 
         document.getElementById("interesadosBody").innerHTML = html;
@@ -1348,34 +1382,31 @@ const app = {
             </div>
           `;
         } else {
-          // Candidato: mostrar Ofertas activas y Mis solicitudes
+          // Candidato: mostrar Mis solicitudes y Mis solicitudes con respuesta
           const todas = await utils.request("/publicaciones");
-          const ofertas = todas.filter(p => p.tipo === 'oferta').length;
-
-          // Contar mis solicitudes (a las que me han respondido)
-          const misSolicitudesIds = [];
           const misSolicitudes = todas.filter(p => p.tipo === 'solicitud' && p.usuario_id === estadoApp.usuario.id);
 
+          // Contar mis solicitudes con respuesta
+          const misSolicitudesConRespuestaIds = [];
           for (const solicitud of misSolicitudes) {
             const mensajes = await utils.request(`/mensajes/${solicitud.id}`);
             if (mensajes.length > 0) {
-              misSolicitudesIds.push(solicitud.id);
+              misSolicitudesConRespuestaIds.push(solicitud.id);
             }
           }
-          const misSolicitudesConRespuesta = misSolicitudesIds.length;
 
           statsGrid.innerHTML = `
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarOfertasActivas()">
-              <span>📋</span>
-              <h3>${ofertas}</h3>
-              <p>Ofertas activas</p>
-              <div class="stat-tooltip">Ofertas activas de todas las especialidades y ciudades</div>
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarTodasMisSolicitudes()">
+              <span>📝</span>
+              <h3>${misSolicitudes.length}</h3>
+              <p>Todas mis solicitudes</p>
+              <div class="stat-tooltip">Todas las solicitudes de empleo que he publicado</div>
             </div>
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisSolicitudes()">
-              <span>✉️</span>
-              <h3>${misSolicitudesConRespuesta}</h3>
-              <p>Mis solicitudes</p>
-              <div class="stat-tooltip">Mis solicitudes a las que me han respondido</div>
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisSolicitudesConRespuesta()">
+              <span>💬</span>
+              <h3>${misSolicitudesConRespuestaIds.length}</h3>
+              <p>Clínicas interesadas</p>
+              <div class="stat-tooltip">Clínicas que se han puesto en contacto conmigo</div>
             </div>
           `;
         }
