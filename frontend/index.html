@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DentalJobs - Ofertas de trabajo para dentistas</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header id="mainHeader">
+        <nav>
+            <div class="logo">🦷 DentalJobs</div>
+            <div class="nav-buttons" id="navButtonsLogueado">
+                <button class="btn-primary btn-small" id="btnPublicar" onclick="app.modal.abrirPublicar()" style="display: none;">Publicar</button>
+                <button class="btn-outline btn-small" id="btnPerfil" onclick="app.modal.abrirPerfil()" style="display: none;">Mi perfil</button>
+                <button class="btn-text btn-small" id="btnLogout" onclick="app.auth.logout()" style="display: none;">Logout</button>
+            </div>
+            <div class="nav-buttons-landing" id="navButtonsLanding" style="display: none;">
+                <button class="btn-primary" onclick="app.landing.seleccionarTipo('empresa')">🏥 Soy Empresa</button>
+                <button class="btn-secondary" onclick="app.landing.seleccionarTipo('candidato')">👨‍⚕️ Soy Candidato</button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Hero Landing -->
+    <section class="hero" id="heroLanding">
+        <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; gap: 2rem;">
+            <h1 style="font-size: 3rem; margin: 0;">🦷 Tu plataforma de empleo en odontología</h1>
+            <p style="font-size: 1.2rem; margin: 0; max-width: 600px;">Conecta clínicas dentales con profesionales especializados. Rápido, fácil y seguro.</p>
+        </div>
+    </section>
+
+    <!-- Hero Plataforma (oculto inicialmente) -->
+    <section class="hero" id="heroPlataforma" style="display: none;">
+        <h1>🦷 Ofertas de Trabajo</h1>
+        <div class="hero-buttons">
+            <button class="btn-primary" id="btnVer1" onclick="app.ui.mostrarVerTodas()">Ver Ofertas</button>
+            <button class="btn-secondary" id="btnVer2" onclick="app.ui.mostrarMisPublicaciones()">Mis Solicitudes</button>
+        </div>
+    </section>
+
+    <!-- Stats -->
+    <div class="container" id="statsContainer" style="display: none;">
+        <div class="stats">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span>📋</span>
+                    <h3 id="statOfertas">0</h3>
+                    <p>Ofertas activas</p>
+                </div>
+                <div class="stat-item">
+                    <span>👤</span>
+                    <h3 id="statCandidatos">0</h3>
+                    <p>Candidatos</p>
+                </div>
+                <div class="stat-item">
+                    <span>🏥</span>
+                    <h3 id="statEspecialidades">8</h3>
+                    <p>Especialidades</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor principal -->
+    <div class="container" id="mainContainer" style="display: none;">
+        <!-- Filtros -->
+        <div class="filters" id="filtros">
+            <h3 id="filtrosTitle">Todas las solicitudes</h3>
+
+            <div class="tipo-toggle">
+                <button class="active" id="btnTodas" onclick="app.filtros.mostrarTodas()">Ver publicaciones</button>
+                <button id="btnMias" onclick="app.filtros.mostrarMias()">Mis publicaciones</button>
+            </div>
+
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="filterCiudad">Ciudad o zona</label>
+                    <input id="filterCiudad" placeholder="Ej: Madrid, Barcelona..." oninput="app.publicaciones.cargar()">
+                </div>
+                <div class="filter-group">
+                    <label for="filterEspecialidad">Especialidad</label>
+                    <select id="filterEspecialidad" onchange="app.publicaciones.cargar()">
+                        <option value="">Todas las especialidades</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filterContrato">Tipo de contrato</label>
+                    <select id="filterContrato" onchange="app.publicaciones.cargar()">
+                        <option value="">Todos los tipos</option>
+                        <option value="Indefinido">Indefinido</option>
+                        <option value="Temporal">Temporal</option>
+                        <option value="Autónomo">Autónomo</option>
+                        <option value="Prácticas">Prácticas</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filterJornada">Jornada</label>
+                    <select id="filterJornada" onchange="app.publicaciones.cargar()">
+                        <option value="">Todas las jornadas</option>
+                        <option value="Completa">Completa</option>
+                        <option value="Parcial">Parcial</option>
+                        <option value="Flexible">Flexible</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid de publicaciones -->
+        <div id="publicacionesContainer"></div>
+    </div>
+
+    <!-- Modal: Detalle de publicación -->
+    <div id="modalDetalle" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="detalleTitle">Detalle</h2>
+                <button class="close-btn" onclick="app.modal.cerrarDetalle()">✕</button>
+            </div>
+            <div id="detalleBody" style="margin-bottom: 1.5rem;"></div>
+            <button class="btn-secondary" onclick="app.modal.abrirContacto()" style="width: 100%;">Enviar mensaje</button>
+        </div>
+    </div>
+
+    <!-- Modal: Formulario de contacto -->
+    <div id="modalContacto" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Enviar mensaje</h2>
+                <button class="close-btn" onclick="app.modal.cerrarContacto()">✕</button>
+            </div>
+            <form onsubmit="event.preventDefault(); app.contacto.enviar();">
+                <div class="form-group">
+                    <label for="contactoNombre">Tu nombre</label>
+                    <input id="contactoNombre" type="text" required>
+                </div>
+                <div class="form-group">
+                    <label for="contactoEmail">Tu email</label>
+                    <input id="contactoEmail" type="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="contactoMensaje">Mensaje</label>
+                    <textarea id="contactoMensaje" required></textarea>
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%;">Enviar mensaje</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Publicar oferta/solicitud -->
+    <div id="modalPublicar" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Publicar nueva oferta</h2>
+                <button class="close-btn" onclick="app.modal.cerrarPublicar()">✕</button>
+            </div>
+
+            <div class="tabs">
+                <button class="tab-btn active" id="tabBtnOferta" onclick="app.modal.switchTab('oferta')">Oferta de trabajo</button>
+                <button class="tab-btn" id="tabBtnSolicitud" onclick="app.modal.switchTab('solicitud')">Solicitud de empleo</button>
+            </div>
+
+            <!-- Tab: Oferta -->
+            <div id="tab-oferta" class="tab-content active" class="tab-oferta-content">
+                <form onsubmit="event.preventDefault(); app.publicaciones.crear('oferta');">
+                    <div class="form-group">
+                        <label for="ofertaTitulo">Título de la oferta *</label>
+                        <input id="ofertaTitulo" type="text" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="ofertaCiudad">Ciudad *</label>
+                        <input id="ofertaCiudad" type="text" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="ofertaEspecialidad">Especialidad</label>
+                        <select id="ofertaEspecialidad"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="ofertaContrato">Tipo de contrato</label>
+                        <select id="ofertaContrato">
+                            <option value="">Seleccionar...</option>
+                            <option value="Indefinido">Indefinido</option>
+                            <option value="Temporal">Temporal</option>
+                            <option value="Autónomo">Autónomo</option>
+                            <option value="Prácticas">Prácticas</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="ofertaJornada">Jornada</label>
+                        <select id="ofertaJornada">
+                            <option value="">Seleccionar...</option>
+                            <option value="Completa">Completa</option>
+                            <option value="Parcial">Parcial</option>
+                            <option value="Flexible">Flexible</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="ofertaSalario">Salario orientativo</label>
+                        <input id="ofertaSalario" type="text" placeholder="Ej: 2000-2500€/mes">
+                    </div>
+                    <div class="form-group">
+                        <label for="ofertaDescripcion">Descripción *</label>
+                        <textarea id="ofertaDescripcion" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="ofertaNombreContacto">Nombre de clínica/contacto *</label>
+                        <input id="ofertaNombreContacto" type="text" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="ofertaEmailContacto">Email de contacto *</label>
+                        <input id="ofertaEmailContacto" type="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="ofertaTelefonoContacto">Teléfono de contacto</label>
+                        <input id="ofertaTelefonoContacto" type="tel" placeholder="+34 xxx xxx xxx">
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%;">Publicar oferta</button>
+                </form>
+            </div>
+
+            <!-- Tab: Solicitud -->
+            <div id="tab-solicitud" class="tab-content">
+                <form onsubmit="event.preventDefault(); app.publicaciones.crear('solicitud');">
+                    <div class="form-group">
+                        <label for="solicitudTitulo">Título de la solicitud *</label>
+                        <input id="solicitudTitulo" type="text" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="solicitudCiudad">Ciudad preferida *</label>
+                        <input id="solicitudCiudad" type="text" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="solicitudEspecialidad">Especialidad</label>
+                        <select id="solicitudEspecialidad"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="solicitudContrato">Tipo de contrato deseado</label>
+                        <select id="solicitudContrato">
+                            <option value="">Seleccionar...</option>
+                            <option value="Indefinido">Indefinido</option>
+                            <option value="Temporal">Temporal</option>
+                            <option value="Autónomo">Autónomo</option>
+                            <option value="Prácticas">Prácticas</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="solicitudJornada">Jornada preferida</label>
+                        <select id="solicitudJornada">
+                            <option value="">Seleccionar...</option>
+                            <option value="Completa">Completa</option>
+                            <option value="Parcial">Parcial</option>
+                            <option value="Flexible">Flexible</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="solicitudDescripcion">Perfil y experiencia *</label>
+                        <textarea id="solicitudDescripcion" required placeholder="Cuéntanos sobre tu experiencia, especialización, habilidades..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="solicitudNombreContacto">Tu nombre *</label>
+                        <input id="solicitudNombreContacto" type="text" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="solicitudEmailContacto">Tu email *</label>
+                        <input id="solicitudEmailContacto" type="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="solicitudTelefonoContacto">Tu teléfono</label>
+                        <input id="solicitudTelefonoContacto" type="tel" placeholder="+34 xxx xxx xxx">
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%;">Publicar solicitud</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Auth Empresa -->
+    <div id="modalAuthEmpresa" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🏥 Acceso Empresa</h2>
+                <button class="close-btn" onclick="app.modal.cerrarAuthEmpresa()">✕</button>
+            </div>
+
+            <div class="tabs">
+                <button class="tab-btn active" onclick="app.auth.switchAuthTab('loginEmpresa')">Login</button>
+                <button class="tab-btn" onclick="app.auth.switchAuthTab('registroEmpresa')">Registro</button>
+            </div>
+
+            <!-- Tab: Login Empresa -->
+            <div id="tab-loginEmpresa" class="tab-content active">
+                <form onsubmit="event.preventDefault(); app.auth.loginEmpresa();">
+                    <div class="form-group">
+                        <label for="loginEmailEmp">Email</label>
+                        <input id="loginEmailEmp" type="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPasswordEmp">Contraseña</label>
+                        <input id="loginPasswordEmp" type="password" required>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%;">Entrar</button>
+                </form>
+            </div>
+
+            <!-- Tab: Registro Empresa -->
+            <div id="tab-registroEmpresa" class="tab-content">
+                <form onsubmit="event.preventDefault(); app.auth.registroEmpresa();">
+                    <div class="form-group">
+                        <label for="regNombreEmp">Nombre de clínica *</label>
+                        <input id="regNombreEmp" type="text" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regEmailEmp">Email *</label>
+                        <input id="regEmailEmp" type="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regPasswordEmp">Contraseña *</label>
+                        <input id="regPasswordEmp" type="password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regDireccionEmp">Dirección *</label>
+                        <input id="regDireccionEmp" type="text" placeholder="Calle, número, piso" required>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label for="regCodigoPostalEmp">Código Postal *</label>
+                            <input id="regCodigoPostalEmp" type="text" placeholder="28001" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="regPaisEmp">País *</label>
+                            <select id="regPaisEmp" required>
+                                <option value="España" selected>España</option>
+                                <option value="Portugal">Portugal</option>
+                                <option value="Francia">Francia</option>
+                                <option value="Italia">Italia</option>
+                                <option value="Alemania">Alemania</option>
+                                <option value="Otro">Otro</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="regMovilEmp">Móvil *</label>
+                        <input id="regMovilEmp" type="tel" placeholder="+34 600 123 456" required>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%;">Registrarse</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Auth Candidato -->
+    <div id="modalAuthCandidato" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>👨‍⚕️ Acceso Candidato</h2>
+                <button class="close-btn" onclick="app.modal.cerrarAuthCandidato()">✕</button>
+            </div>
+
+            <div class="tabs">
+                <button class="tab-btn active" onclick="app.auth.switchAuthTab('loginCandidato')">Login</button>
+                <button class="tab-btn" onclick="app.auth.switchAuthTab('registroCandidato')">Registro</button>
+            </div>
+
+            <!-- Tab: Login Candidato -->
+            <div id="tab-loginCandidato" class="tab-content active">
+                <form onsubmit="event.preventDefault(); app.auth.loginCandidato();">
+                    <div class="form-group">
+                        <label for="loginEmailCand">Email</label>
+                        <input id="loginEmailCand" type="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPasswordCand">Contraseña</label>
+                        <input id="loginPasswordCand" type="password" required>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%;">Entrar</button>
+                </form>
+            </div>
+
+            <!-- Tab: Registro Candidato -->
+            <div id="tab-registroCandidato" class="tab-content">
+                <form onsubmit="event.preventDefault(); app.auth.registroCandidato();">
+                    <div class="form-group">
+                        <label for="regNombreCand">Tu nombre *</label>
+                        <input id="regNombreCand" type="text" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regEmailCand">Email *</label>
+                        <input id="regEmailCand" type="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regPasswordCand">Contraseña *</label>
+                        <input id="regPasswordCand" type="password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regMovilCand">Móvil</label>
+                        <input id="regMovilCand" type="tel" placeholder="+34 600 123 456">
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%;">Registrarse</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Perfil -->
+    <div id="modalPerfil" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="perfilTitle">Mi perfil</h2>
+                <button class="close-btn" onclick="app.modal.cerrarPerfil()">✕</button>
+            </div>
+
+            <div class="tabs">
+                <button class="tab-btn active" id="tabDatos" onclick="app.perfil.switchTab('datos')">Mis datos</button>
+                <button class="tab-btn" id="tabCv" onclick="app.perfil.switchTab('cv')">Mi CV</button>
+                <button class="tab-btn" id="tabPortfolio" onclick="app.perfil.switchTab('portfolio')">Portfolio</button>
+            </div>
+
+            <!-- Tab: Mis datos -->
+            <div id="tab-datos" class="tab-content active">
+                <div id="misDatosContainer">
+                    <p style="text-align: center; color: #999;">Cargando...</p>
+                </div>
+            </div>
+
+            <!-- Tab: CV -->
+            <div id="tab-cv" class="tab-content">
+                <div id="cvContainer">
+                    <div class="drag-drop-zone" id="cvDropZone" ondrop="event.preventDefault(); app.archivos.manejarDrop(event, 'cv')" ondragover="event.preventDefault(); document.getElementById('cvDropZone').classList.add('dragover')" ondragleave="document.getElementById('cvDropZone').classList.remove('dragover')">
+                        <p>📄 Sube tu CV (PDF, máx 5 MB)</p>
+                        <span>Arrastra y suelta o haz clic para seleccionar</span>
+                        <input type="file" id="cvInput" accept=".pdf" style="display: none;" onchange="app.archivos.subirCV()">
+                    </div>
+                    <button class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('cvInput').click()">Seleccionar archivo</button>
+                </div>
+            </div>
+
+            <!-- Tab: Portfolio -->
+            <div id="tab-portfolio" class="tab-content">
+                <div id="portfolioContainer">
+                    <div class="drag-drop-zone" id="portfolioDropZone" ondrop="event.preventDefault(); app.archivos.manejarDrop(event, 'portfolio')" ondragover="event.preventDefault(); document.getElementById('portfolioDropZone').classList.add('dragover')" ondragleave="document.getElementById('portfolioDropZone').classList.remove('dragover')">
+                        <p>🎨 Sube tu Portfolio (PDF o imágenes, máx 10 MB)</p>
+                        <span>Arrastra y suelta o haz clic para seleccionar</span>
+                        <input type="file" id="portfolioInput" accept=".pdf,.jpg,.jpeg,.png,.gif" style="display: none;" onchange="app.archivos.subirPortfolio()">
+                    </div>
+                    <button class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('portfolioInput').click()">Añadir archivo</button>
+                    <div id="portfolioList" style="margin-top: 1.5rem;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Interesados -->
+    <div id="modalInteresados" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Interesados</h2>
+                <button class="close-btn" onclick="app.modal.cerrarInteresados()">✕</button>
+            </div>
+            <div id="interesadosBody"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

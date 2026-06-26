@@ -1,0 +1,22 @@
+{
+  "name": "dentaljobs",
+  "version": "1.0.0",
+  "description": "Backend para un portal de ofertas de trabajo dental",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"No hay tests definidos aún\" && exit 0"
+  },
+  "keywords": ["dental", "empleo", "ofertas", "dentistas"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "sqlite3": "^5.1.7",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "multer": "^1.4.5-lts.1"
+  }
+}

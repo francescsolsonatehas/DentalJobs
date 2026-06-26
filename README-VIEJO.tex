@@ -1,0 +1,70 @@
+  
+ Instal·lant mysql
+ 
+ $ cd backend
+ 
+ $  npm init -y     
+ 
+  
+  Es crea el fitxer
+  
+   package.json    defineix el projecte
+   
+   amb valors per defecte
+   
+    
+ $  npm install express cors mysql2
+  
+   Es creen:
+
+ package.json    defineix el projecte s'actualitza amb valors correctes
+  package-lock.json  fixa versions
+ node_modules      conté les llibreries reals
+
+
+
+ 
+  ARRANCANT EL SERVIDOR
+  
+  $ cd backend
+  $ node server.js   # per arrencar el servidor, en el backend
+   
+   
+ Fent anar la BBDD MySQL
+ 
+ 
+  $ ls /opt/homebrew/var/mysql/dental_jobs/  # lloc on està la BBDD
+  
+  $ brew services start mysql    # arrencant mysql
+  
+  $  brew services stop mysql # parant mysql
+  
+  $ mysql -u root  # per entrar a mysql
+  
+  $ show databases;
+  
+  +---------------------------+
+| Database                    |
++-----------------------------+
+| dental_jobs                 |
+| information_schema   |
+| mysql                          |
+| performance_schema |
+| sys                              |
++-----------------------------+
+
+  $ use dental_jobs;
+  $ show tables;
+  
++------------------------------+
+| Tables_in_dental_jobs |
++------------------------------+
+| ofertas                          |
+| usuarios                       |
++------------------------------+
+
+  $ SELECT * FROM ofertas;
+  $ SELECT * FROM ofertas;
+  
+
+
