@@ -342,6 +342,69 @@ button {
   font-size: 0.9rem;
 }
 
+.desglose-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-top: 1.5rem;
+}
+
+.desglose-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 1rem;
+  background: var(--gray-100);
+}
+
+.desglose-item strong {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.desglose-numero {
+  background: var(--primary);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.desglose-grupos {
+  margin-top: 1.5rem;
+}
+
+.desglose-grupo {
+  margin-bottom: 2rem;
+}
+
+.desglose-grupo h4 {
+  color: var(--primary);
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--primary);
+}
+
+.desglose-item-sub {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem;
+  background: white;
+  border-left: 4px solid var(--primary);
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+}
+
+.desglose-item-sub strong {
+  color: var(--gray-700);
+  font-weight: 600;
+}
+
 /* ============ CONTAINER ============ */
 
 .container {

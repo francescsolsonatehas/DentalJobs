@@ -434,6 +434,23 @@
     </div>
 
     <!-- Modal: Interesados -->
+    <!-- Modal: Opciones para Total Dentistas -->
+    <div id="modalOpcionesStats" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>Total Dentistas</h2>
+                <button class="close-btn" onclick="document.getElementById('modalOpcionesStats').classList.remove('active')">✕</button>
+            </div>
+            <div style="padding: 2rem; text-align: center;">
+                <p style="margin-bottom: 1.5rem; color: var(--gray-600);">Selecciona cómo desglosas los datos:</p>
+                <button onclick="app.stats.mostrarDesglosePorEspecialidad()" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">Por Especialidad</button>
+                <button onclick="app.stats.mostrarDesglosePorCiudad()" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">Por Ciudad</button>
+                <button onclick="app.stats.mostrarDesglosePorCiudadEspecialidad()" class="btn-primary" style="width: 100%;">Por Ciudad y Especialidad</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Interesados / Desglose de Stats -->
     <div id="modalInteresados" class="modal">
         <div class="modal-content">
             <div class="modal-header">

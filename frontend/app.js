@@ -733,6 +733,100 @@ const app = {
   // ============================================
 
   stats: {
+    async mostrarTotalDentistas() {
+      document.getElementById("modalOpcionesStats").classList.add("active");
+    },
+
+    async mostrarDesglosePorEspecialidad() {
+      try {
+        const datos = await utils.request("/stats/dentistas-por-especialidad");
+        let html = "<h3>Dentistas por Especialidad</h3><div class='desglose-list'>";
+
+        if (datos.length === 0) {
+          html += "<p>Sin datos</p>";
+        } else {
+          datos.forEach(d => {
+            html += `
+              <div class="desglose-item">
+                <strong>${d.especialidad || "Sin especialidad"}</strong>
+                <span class="desglose-numero">${d.total}</span>
+              </div>
+            `;
+          });
+        }
+
+        html += "</div>";
+        document.getElementById("interesadosBody").innerHTML = html;
+        document.getElementById("modalOpcionesStats").classList.remove("active");
+        document.getElementById("modalInteresados").classList.add("active");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarDesglosePorCiudad() {
+      try {
+        const datos = await utils.request("/stats/dentistas-por-ciudad");
+        let html = "<h3>Dentistas por Ciudad</h3><div class='desglose-list'>";
+
+        if (datos.length === 0) {
+          html += "<p>Sin datos</p>";
+        } else {
+          datos.forEach(d => {
+            html += `
+              <div class="desglose-item">
+                <strong>${d.ciudad}</strong>
+                <span class="desglose-numero">${d.total}</span>
+              </div>
+            `;
+          });
+        }
+
+        html += "</div>";
+        document.getElementById("interesadosBody").innerHTML = html;
+        document.getElementById("modalOpcionesStats").classList.remove("active");
+        document.getElementById("modalInteresados").classList.add("active");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarDesglosePorCiudadEspecialidad() {
+      try {
+        const datos = await utils.request("/stats/dentistas-por-ciudad-especialidad");
+        let html = "<h3>Dentistas por Ciudad y Especialidad</h3><div class='desglose-grupos'>";
+
+        if (datos.length === 0) {
+          html += "<p>Sin datos</p>";
+        } else {
+          let ciudadActual = null;
+          datos.forEach(d => {
+            if (d.ciudad !== ciudadActual) {
+              if (ciudadActual !== null) {
+                html += "</div>";
+              }
+              ciudadActual = d.ciudad;
+              html += `<div class='desglose-grupo'><h4>${ciudadActual}</h4>`;
+            }
+            html += `
+              <div class="desglose-item-sub">
+                <strong>${d.especialidad || "Sin especialidad"}</strong>
+                <span class="desglose-numero">${d.total}</span>
+              </div>
+            `;
+          });
+          html += "</div>";
+        }
+
+        html += "</div>";
+        document.getElementById("interesadosBody").innerHTML = html;
+        document.getElementById("modalOpcionesStats").classList.remove("active");
+        document.getElementById("modalInteresados").classList.add("active");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
     async mostrarPosiblesCandidatos() {
       try {
         const candidatos = await utils.request(`/stats/posibles-candidatos-lista/${estadoApp.usuario.id}`);
@@ -1080,11 +1174,11 @@ const app = {
           }
 
           statsGrid.innerHTML = `
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarPosiblesCandidatos()">
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarTotalDentistas()">
               <span>👥</span>
               <h3>${totalDentistas.total}</h3>
               <p>Total Dentistas</p>
-              <div class="stat-tooltip">Todos los dentistas en la plataforma</div>
+              <div class="stat-tooltip">Clic para ver desglose por especialidad, ciudad o ambas</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarPosiblesCandidatos()">
               <span>🔍</span>

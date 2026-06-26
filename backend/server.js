@@ -340,6 +340,59 @@ app.get("/stats/contactados-lista/:empresa_id", verifyToken, (req, res) => {
   );
 });
 
+app.get("/stats/dentistas-por-especialidad", (req, res) => {
+  db.all(
+    `SELECT e.nombre as especialidad, COUNT(DISTINCT s.usuario_id) as total
+     FROM publicaciones s
+     LEFT JOIN especialidades e ON s.especialidad_id = e.id
+     WHERE s.tipo = 'solicitud' AND s.activo = 1
+     GROUP BY s.especialidad_id, e.nombre
+     ORDER BY total DESC`,
+    (err, resultado) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener dentistas por especialidad" });
+      }
+      res.json(resultado || []);
+    }
+  );
+});
+
+app.get("/stats/dentistas-por-ciudad", (req, res) => {
+  db.all(
+    `SELECT s.ciudad, COUNT(DISTINCT s.usuario_id) as total
+     FROM publicaciones s
+     WHERE s.tipo = 'solicitud' AND s.activo = 1
+     GROUP BY s.ciudad
+     ORDER BY total DESC`,
+    (err, resultado) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener dentistas por ciudad" });
+      }
+      res.json(resultado || []);
+    }
+  );
+});
+
+app.get("/stats/dentistas-por-ciudad-especialidad", (req, res) => {
+  db.all(
+    `SELECT s.ciudad, e.nombre as especialidad, COUNT(DISTINCT s.usuario_id) as total
+     FROM publicaciones s
+     LEFT JOIN especialidades e ON s.especialidad_id = e.id
+     WHERE s.tipo = 'solicitud' AND s.activo = 1
+     GROUP BY s.ciudad, s.especialidad_id, e.nombre
+     ORDER BY s.ciudad, e.nombre`,
+    (err, resultado) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener dentistas por ciudad y especialidad" });
+      }
+      res.json(resultado || []);
+    }
+  );
+});
+
 /* ===========================
    🔹 MENSAJES
 =========================== */
