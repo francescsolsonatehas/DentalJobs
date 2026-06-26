@@ -854,6 +854,86 @@ const app = {
       }
     },
 
+    async mostrarOfertasActivas() {
+      try {
+        const todas = await utils.request("/publicaciones");
+        const ofertas = todas.filter(p => p.tipo === 'oferta' && p.activo === 1);
+
+        if (ofertas.length === 0) {
+          utils.mostrarAlerta("No hay ofertas activas", "info");
+          return;
+        }
+
+        let html = `<h3>${ofertas.length} Ofertas Activas</h3><div class="desglose-list">`;
+        ofertas.forEach(o => {
+          html += `
+            <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarPerfilDentista({id: ${o.id}, nombre: '${o.titulo.replace(/'/g, "\\'")}', email: '${o.email_contacto}', ciudad: '${o.ciudad}'})">
+              <strong>${o.titulo}</strong>
+              <span class="desglose-numero">${o.ciudad}</span>
+            </div>
+          `;
+        });
+        html += "</div>";
+
+        document.getElementById("interesadosBody").innerHTML = html;
+        document.getElementById("modalInteresados").classList.add("active");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarMisSolicitudes() {
+      try {
+        const todas = await utils.request("/publicaciones");
+        const misSolicitudes = [];
+
+        for (const pub of todas.filter(p => p.tipo === 'oferta')) {
+          const mensajes = await utils.request(`/mensajes/${pub.id}`);
+          if (mensajes.some(m => m.usuario_id === estadoApp.usuario.id)) {
+            misSolicitudes.push(pub);
+          }
+        }
+
+        if (misSolicitudes.length === 0) {
+          utils.mostrarAlerta("No has aplicado a ninguna solicitud", "info");
+          return;
+        }
+
+        // Agrupar por ciudad, luego por especialidad
+        const agrupadoPorCiudad = {};
+        misSolicitudes.forEach(s => {
+          if (!agrupadoPorCiudad[s.ciudad]) agrupadoPorCiudad[s.ciudad] = [];
+          agrupadoPorCiudad[s.ciudad].push(s);
+        });
+
+        // Ordenar ciudades y especialidades
+        let html = `<h3>${misSolicitudes.length} Mis Solicitudes</h3><div class="desglose-grupos">`;
+
+        Object.keys(agrupadoPorCiudad).sort().forEach(ciudad => {
+          html += `<div class="desglose-grupo"><h4>${ciudad}</h4>`;
+
+          agrupadoPorCiudad[ciudad].sort((a, b) => (a.especialidad_id || 0) - (b.especialidad_id || 0)).forEach(s => {
+            const esp = estadoApp.especialidades.find(e => e.id === s.especialidad_id);
+            html += `
+              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarPerfilDentista({id: ${s.id}, nombre: '${s.titulo.replace(/'/g, "\\'")}', email: '${s.email_contacto}', ciudad: '${s.ciudad}'})">
+                <strong>${s.titulo}</strong>
+                <span class="desglose-numero">${esp?.nombre || 'Sin especialidad'}</span>
+              </div>
+            `;
+          });
+
+          html += "</div>";
+        });
+
+        html += "</div>";
+
+        document.getElementById("interesadosBody").innerHTML = html;
+        document.getElementById("modalInteresados").classList.add("active");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
     async mostrarPosiblesCandidatos() {
       try {
         const candidatos = await utils.request(`/stats/posibles-candidatos-lista/${estadoApp.usuario.id}`);
@@ -1197,8 +1277,11 @@ const app = {
         btnTodas.textContent = "Ver solicitudes";
         btnMias.textContent = "Mis ofertas";
       } else {
-        heroTitle.textContent = "🦷 Ofertas de Trabajo";
-        filtersTitle.textContent = "Todas las ofertas";
+        // Mostrar nombre + 1 apellido del candidato
+        const nombrePartes = (estadoApp.usuario?.nombre || 'Candidato').split(' ');
+        const nombreCorto = nombrePartes.length >= 2 ? `${nombrePartes[0]} ${nombrePartes[1]}` : nombrePartes[0];
+        heroTitle.textContent = `🦷 ${nombreCorto}`;
+        filtersTitle.textContent = "Ofertas";
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "inline-block";
@@ -1256,20 +1339,32 @@ const app = {
             </div>
           `;
         } else {
-          // Candidato: mostrar Ofertas activas y Especialidades
+          // Candidato: mostrar Ofertas activas y Mis solicitudes
           const todas = await utils.request("/publicaciones");
           const ofertas = todas.filter(p => p.tipo === 'oferta').length;
 
+          // Contar mis solicitudes (las que he aplicado enviando mensajes)
+          const misSolicitudesIds = [];
+          for (const pub of todas.filter(p => p.tipo === 'oferta')) {
+            const mensajes = await utils.request(`/mensajes/${pub.id}`);
+            if (mensajes.some(m => m.usuario_id === estadoApp.usuario.id)) {
+              if (!misSolicitudesIds.includes(pub.id)) misSolicitudesIds.push(pub.id);
+            }
+          }
+          const misSolicitudes = misSolicitudesIds.length;
+
           statsGrid.innerHTML = `
-            <div class="stat-item">
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarOfertasActivas()">
               <span>📋</span>
               <h3>${ofertas}</h3>
               <p>Ofertas activas</p>
+              <div class="stat-tooltip">Ofertas activas de todas las especialidades y ciudades</div>
             </div>
-            <div class="stat-item">
-              <span>🏥</span>
-              <h3>8</h3>
-              <p>Especialidades</p>
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisSolicitudes()">
+              <span>✉️</span>
+              <h3>${misSolicitudes}</h3>
+              <p>Mis solicitudes</p>
+              <div class="stat-tooltip">Solicitudes que he enviado un mail aplicando por ellas</div>
             </div>
           `;
         }
