@@ -649,12 +649,14 @@ app.get("/stats/posibles-candidatos-lista/:empresa_id", verifyToken, (req, res) 
 
 app.get("/stats/candidatos-interesados-lista/:empresa_id", verifyToken, (req, res) => {
   db.all(
-    `SELECT DISTINCT c.usuario_id, u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais,
-            u.ciudad
+    `SELECT c.id, c.usuario_id, c.estado, c.mensaje, c.creado_en,
+            u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais, u.ciudad,
+            p.id as publicacion_id, p.titulo as oferta_titulo, p.descripcion as oferta_descripcion
      FROM candidaturas c
      INNER JOIN usuarios u ON c.usuario_id = u.id
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
-     WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1`,
+     WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1
+     ORDER BY p.id, c.creado_en DESC`,
     [req.params.empresa_id],
     (err, candidatos) => {
       if (err) {
@@ -668,11 +670,14 @@ app.get("/stats/candidatos-interesados-lista/:empresa_id", verifyToken, (req, re
 
 app.get("/stats/contactados-lista/:empresa_id", verifyToken, (req, res) => {
   db.all(
-    `SELECT DISTINCT c.usuario_id, u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais, u.ciudad
+    `SELECT c.id, c.usuario_id, c.estado, c.mensaje, c.creado_en,
+            u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais, u.ciudad,
+            p.id as publicacion_id, p.titulo as oferta_titulo, p.descripcion as oferta_descripcion
      FROM candidaturas c
      INNER JOIN usuarios u ON c.usuario_id = u.id
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
-     WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1 AND c.estado = 'aceptada'`,
+     WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1 AND c.estado = 'aceptada'
+     ORDER BY p.id, c.creado_en DESC`,
     [req.params.empresa_id],
     (err, aceptados) => {
       if (err) {
