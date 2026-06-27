@@ -1,29 +1,44 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --primary: #0F4C75;
-  --primary-lt: #1B6CA8;
-  --primary-dark: #082840;
-  --accent: #D4A574;
-  --teal: #2ec4b6;
-  --dark: #1a1a2e;
-  --light: #F8FAFF;
-  --white: #ffffff;
-  --gray-100: #f8f9fa;
-  --gray-200: #e9ecef;
-  --gray-300: #dee2e6;
-  --gray-600: #6c757d;
-  --gray-700: #495057;
-  --gray-800: #343a40;
+  /* Colores Primarios - Azul Profesional Moderno */
+  --primary: #2563eb;
+  --primary-lt: #3b82f6;
+  --primary-dark: #1e40af;
 
-  --color-cirgia: #dc3545;
-  --color-implantologia: #0F4C75;
-  --color-endodoncia: #6f42c1;
-  --color-periodoncia: #28a745;
-  --color-ortodoncia: #fd7e14;
-  --color-estetica: #D4A574;
-  --color-odontopediatria: #20c997;
-  --color-generalista: #6c757d;
+  /* Colores Secundarios */
+  --secondary: #0891b2;
+  --accent: #f59e0b;
+
+  /* Colores de Estado */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+
+  /* Colores Neutros */
+  --dark: #0f172a;
+  --light: #f8fafc;
+  --white: #ffffff;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+
+  /* Colores por Especialidad - Actualizados */
+  --color-cirgia: #ef4444;
+  --color-implantologia: #2563eb;
+  --color-endodoncia: #a855f7;
+  --color-periodoncia: #10b981;
+  --color-ortodoncia: #f59e0b;
+  --color-estetica: #ec4899;
+  --color-odontopediatria: #06b6d4;
+  --color-generalista: #6b7280;
 }
 
 * {
@@ -119,24 +134,24 @@ button {
 .btn-primary {
   background: linear-gradient(135deg, var(--primary), var(--primary-lt));
   color: var(--white);
-  box-shadow: 0 4px 15px rgba(15, 76, 117, 0.2);
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
 }
 
 .btn-primary:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(15, 76, 117, 0.4);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
   background: linear-gradient(135deg, var(--primary-dark), var(--primary));
 }
 
 .btn-secondary {
-  background: linear-gradient(135deg, var(--teal), #1ba89f);
+  background: linear-gradient(135deg, var(--secondary), #0369a1);
   color: var(--white);
-  box-shadow: 0 4px 15px rgba(46, 196, 182, 0.2);
+  box-shadow: 0 4px 15px rgba(8, 145, 178, 0.2);
 }
 
 .btn-secondary:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(46, 196, 182, 0.4);
+  box-shadow: 0 8px 20px rgba(8, 145, 178, 0.4);
 }
 
 .btn-outline {
@@ -595,7 +610,7 @@ input:focus, select:focus {
 }
 
 .card.type-solicitud {
-  border-top-color: var(--teal);
+  border-top-color: var(--secondary);
 }
 
 .card:hover {
@@ -628,7 +643,7 @@ input:focus, select:focus {
 
 .type-solicitud {
   background: rgba(46, 196, 182, 0.1);
-  color: var(--teal);
+  color: var(--secondary);
 }
 
 .card h3 {
@@ -732,7 +747,7 @@ input:focus, select:focus {
 }
 
 .btn-interesados {
-  background: var(--teal);
+  background: var(--secondary);
   color: var(--white);
   border: none;
   padding: 0.7rem;
