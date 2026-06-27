@@ -1009,15 +1009,24 @@ const app = {
             <h3 style="margin-top: 0; color: var(--primary);">${solicitud.titulo}</h3>
 
             <div class="info-section">
-              <h4>Mi Solicitud</h4>
+              <h4>Detalles</h4>
               <p><strong>Ciudad:</strong> ${solicitud.ciudad}</p>
               <p><strong>Especialidad:</strong> ${esp?.nombre || 'No especificada'}</p>
-              <p><strong>Disponibilidad:</strong> ${solicitud.jornada || 'No especificada'}</p>
+              ${solicitud.jornada ? `<p><strong>Disponibilidad:</strong> ${solicitud.jornada}</p>` : ''}
+              ${solicitud.salario ? `<p><strong>Salario esperado:</strong> ${solicitud.salario}</p>` : ''}
+              ${solicitud.contrato ? `<p><strong>Tipo de contrato:</strong> ${solicitud.contrato}</p>` : ''}
             </div>
 
             <div class="info-section">
               <h4>Descripción</h4>
               <p style="white-space: pre-wrap;">${solicitud.descripcion}</p>
+            </div>
+
+            <div class="info-section">
+              <h4>Mi Contacto</h4>
+              ${solicitud.nombre_contacto ? `<p><strong>Nombre:</strong> ${solicitud.nombre_contacto}</p>` : ''}
+              ${solicitud.email_contacto ? `<p><strong>Email:</strong> <a href="mailto:${solicitud.email_contacto}">${solicitud.email_contacto}</a></p>` : ''}
+              ${solicitud.telefono_contacto ? `<p><strong>Teléfono:</strong> <a href="tel:${solicitud.telefono_contacto}">${solicitud.telefono_contacto}</a></p>` : ''}
             </div>
         `;
 
@@ -1025,7 +1034,7 @@ const app = {
         if (mensajes && mensajes.length > 0) {
           html += `
             <div class="info-section">
-              <h4>Mensajes Recibidos (${mensajes.length})</h4>
+              <h4>Respuestas Recibidas (${mensajes.length})</h4>
           `;
 
           mensajes.forEach(m => {
@@ -1040,6 +1049,12 @@ const app = {
           });
 
           html += `</div>`;
+        } else {
+          html += `
+            <div class="info-section">
+              <p style="color: var(--gray-600); font-style: italic;">Sin respuestas aún</p>
+            </div>
+          `;
         }
 
         html += `</div>`;
