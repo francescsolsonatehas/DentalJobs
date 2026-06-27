@@ -2050,7 +2050,7 @@ const app = {
 
       if (estadoApp.tipoUsuario === 'clinica') {
         heroTitle.textContent = `🦷 ${estadoApp.usuario?.nombre || 'Mi Empresa'}`;
-        filtersTitle.textContent = "Búsqueda de Dentistas";
+        filtersTitle.textContent = "Dentistas";
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "inline-block";
@@ -2059,7 +2059,7 @@ const app = {
         document.getElementById("btnMisAceptadas").style.display = "none";
         document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
-        btnTodas.textContent = "Búsqueda de Dentistas";
+        btnTodas.textContent = "Dentistas";
         btnMias.textContent = "Mis Ofertas";
       } else {
         // Dentista
