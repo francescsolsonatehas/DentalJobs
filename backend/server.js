@@ -585,9 +585,9 @@ app.get("/stats/posibles-candidatos/:empresa_id", verifyToken, (req, res) => {
 });
 
 app.get("/stats/candidatos-interesados/:empresa_id", verifyToken, (req, res) => {
-  // Contar candidatos únicos que se han postulado a mis ofertas (candidaturas)
+  // Contar total de candidaturas que se han hecho a mis ofertas
   db.get(
-    `SELECT COUNT(DISTINCT c.usuario_id) as total
+    `SELECT COUNT(*) as total
      FROM candidaturas c
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
      WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1`,

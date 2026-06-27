@@ -2022,7 +2022,7 @@ const app = {
             </div>
             <div class="card-footer" style="display: flex; gap: 0.5rem;">
               <button class="btn-primary" onclick="app.modal.abrirDetalle(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
-              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && pub.usuario_id === estadoApp.usuario.id ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${pub.titulo.replace(/'/g, "\\'")}'" style="flex: 1;">👥 Candidatos</button>` : ''}
+              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${pub.titulo.replace(/'/g, "\\'")}')" style="flex: 1;">👥 Candidatos</button>` : ''}
               ${interesadosHTML}
             </div>
           </div>
