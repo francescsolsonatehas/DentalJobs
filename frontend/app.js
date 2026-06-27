@@ -1358,7 +1358,7 @@ const app = {
             </div>
 
             <div class="form-group">
-              <label>Teléfono Móbil</label>
+              <label>Fijo</label>
               <input type="tel" id="perfilTelefono" value="${u.telefono || ''}">
             </div>
 
@@ -1408,7 +1408,7 @@ const app = {
             </div>
 
             <div class="form-group">
-              <label>Teléfono Móbil</label>
+              <label>Fijo</label>
               <input type="tel" id="perfilTelefono" value="${u.telefono || ''}">
             </div>
 
