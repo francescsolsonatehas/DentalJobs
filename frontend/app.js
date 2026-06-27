@@ -1042,15 +1042,25 @@ const app = {
         const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[post.estado];
         html += `
           <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
-            <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75;">📋 ${post.titulo}</h4>
-            <p style="margin: 0 0 0.5rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Empresa:</strong> ${post.empresa_nombre}</p>
-            <p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;">${post.descripcion || 'Sin descripción'}</p>
-            <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 3px solid ${estadoColor};">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <strong>Estado de la postulación</strong>
-                <span style="background: ${estadoColor}; color: white; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.8rem; text-transform: capitalize;">${post.estado}</span>
+            <div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+              <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75; font-size: 1.1rem;">📋 ${post.titulo}</h4>
+              <p style="margin: 0 0 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Empresa:</strong> ${post.empresa_nombre}</p>
+              <p style="margin: 0 0 0.5rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${post.ciudad}</p>
+              ${post.contrato ? `<p style="margin: 0 0 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Contrato:</strong> ${post.contrato} | <strong>Jornada:</strong> ${post.jornada}</p>` : ''}
+              ${post.salario ? `<p style="margin: 0 0 0.5rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Salario:</strong> ${post.salario}</p>` : ''}
+              <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem; margin-top: 1rem;">
+                <p style="margin: 0; color: #6b7280; white-space: pre-wrap; line-height: 1.6;">${post.descripcion || 'Sin descripción'}</p>
               </div>
-              ${post.mensaje ? `<p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; padding: 0.75rem; background: #f0f9ff; border-radius: 4px; border-left: 2px solid #0ea5e9; color: #0c4a6e;"><strong>Tu mensaje:</strong> ${post.mensaje}</p>` : ''}
+            </div>
+            <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 4px solid ${estadoColor};">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <strong style="font-size: 0.95rem;">Estado de tu postulación</strong>
+                <span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize;">${post.estado}</span>
+              </div>
+              ${post.mensaje ? `<div style="margin-top: 1rem; padding: 1rem; background: #f0f9ff; border-radius: 4px; border-left: 3px solid #0ea5e9;">
+                <p style="margin: 0; font-size: 0.9rem; color: #0c4a6e;"><strong>Tu mensaje:</strong></p>
+                <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #0c4a6e; white-space: pre-wrap;">${post.mensaje}</p>
+              </div>` : '<p style="margin-top: 0.5rem; color: #9ca3af; font-size: 0.9rem;">Sin mensaje</p>'}
             </div>
           </div>
         `;
@@ -2175,6 +2185,7 @@ const app = {
             </div>
             <div class="card-footer" style="display: flex; gap: 0.5rem;">
               <button class="btn-primary" onclick="app.modal.abrirDetalle(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
+              ${estadoApp.tipoUsuario === 'dentista' && pub.tipo === 'oferta' ? `<button class="btn-secondary" onclick="app.modal.abrirPostularseModal()" style="flex: 1;">Postularme</button>` : ''}
               ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${pub.titulo.replace(/'/g, "\\'")}')" style="flex: 1;">👥 Candidatos (${candidatosPorOferta[pub.id]})</button>` : ''}
               ${interesadosHTML}
             </div>
