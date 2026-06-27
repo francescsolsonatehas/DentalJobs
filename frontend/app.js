@@ -2283,13 +2283,24 @@ const app = {
             </div>
             <div class="card-footer" style="display: flex; gap: 0.5rem;">
               <button class="btn-primary" onclick="app.modal.abrirDetalle(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
-              ${estadoApp.tipoUsuario === 'dentista' && pub.tipo === 'oferta' ? `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>` : ''}
+              ${(() => {
+                if (estadoApp.tipoUsuario === 'dentista' && pub.tipo === 'oferta') {
+                  const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
+                  if (yaPostulada) {
+                    return `<button class="btn-success" style="flex: 1; opacity: 0.7;">✓ Postulada</button>
+                            <button class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Borrar Postulación</button>`;
+                  } else {
+                    return `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>`;
+                  }
+                }
+                return '';
+              })()}
               ${(() => {
                 if (estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'solicitud') {
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
                   if (yaPostulada) {
-                    return `<button class="btn-success" style="flex: 1; opacity: 0.7;">✓ Postulado</button>
-                            <button class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Retirar</button>`;
+                    return `<button class="btn-success" style="flex: 1; opacity: 0.7;">✓ Postulada</button>
+                            <button class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Borrar Postulación</button>`;
                   } else {
                     return `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>`;
                   }
