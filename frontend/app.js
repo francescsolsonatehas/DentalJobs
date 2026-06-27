@@ -932,12 +932,11 @@ const app = {
           html += `<div class="desglose-grupo"><h4>${ciudad}</h4>`;
 
           agrupadoPorCiudad[ciudad].forEach(s => {
-            const esp = estadoApp.especialidades.find(e => e.id === s.especialidad_id);
-            const respuestaText = s.respuestas > 0 ? `${s.respuestas} respuesta${s.respuestas !== 1 ? 's' : ''}` : 'Sin respuestas';
+            const resp = s.respuestas > 0 ? `${s.respuestas} respuesta${s.respuestas !== 1 ? 's' : ''}` : 'Sin respuestas';
             html += `
-              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarSolicitudConRespuesta(${JSON.stringify(s).replace(/"/g, '&quot;')})">
+              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarSolicitudConRespuesta(${s.id})">
                 <strong>${s.titulo}</strong>
-                <span class="desglose-numero">${respuestaText}</span>
+                <span class="desglose-numero">${resp}</span>
               </div>
             `;
           });
@@ -989,52 +988,68 @@ const app = {
       document.getElementById("modalInteresados").classList.add("active");
     },
 
-    mostrarSolicitudConRespuesta(solicitud) {
-      const esp = estadoApp.especialidades.find(e => e.id === solicitud.especialidad_id);
+    async mostrarSolicitudConRespuesta(solicitudId) {
+      try {
+        // Obtener la solicitud completa
+        const todas = await utils.request("/publicaciones");
+        const solicitud = todas.find(p => p.id === solicitudId);
 
-      let html = `
-        <div class="perfil-dentista">
-          <h3 style="margin-top: 0; color: var(--primary);">${solicitud.titulo}</h3>
+        if (!solicitud) {
+          utils.mostrarAlerta("Solicitud no encontrada", "error");
+          return;
+        }
 
-          <div class="info-section">
-            <h4>Mi Solicitud</h4>
-            <p><strong>Ciudad:</strong> ${solicitud.ciudad}</p>
-            <p><strong>Especialidad:</strong> ${esp?.nombre || 'No especificada'}</p>
-            <p><strong>Disponibilidad:</strong> ${solicitud.jornada || 'No especificada'}</p>
-          </div>
+        const esp = estadoApp.especialidades.find(e => e.id === solicitud.especialidad_id);
 
-          <div class="info-section">
-            <h4>Descripción</h4>
-            <p style="white-space: pre-wrap;">${solicitud.descripcion}</p>
-          </div>
-      `;
+        // Obtener mensajes
+        const mensajes = await utils.request(`/mensajes/${solicitudId}`);
 
-      // Mostrar mensajes recibidos
-      if (solicitud.mensajes && solicitud.mensajes.length > 0) {
-        html += `
-          <div class="info-section">
-            <h4>Mensajes Recibidos (${solicitud.mensajes.length})</h4>
+        let html = `
+          <div class="perfil-dentista">
+            <h3 style="margin-top: 0; color: var(--primary);">${solicitud.titulo}</h3>
+
+            <div class="info-section">
+              <h4>Mi Solicitud</h4>
+              <p><strong>Ciudad:</strong> ${solicitud.ciudad}</p>
+              <p><strong>Especialidad:</strong> ${esp?.nombre || 'No especificada'}</p>
+              <p><strong>Disponibilidad:</strong> ${solicitud.jornada || 'No especificada'}</p>
+            </div>
+
+            <div class="info-section">
+              <h4>Descripción</h4>
+              <p style="white-space: pre-wrap;">${solicitud.descripcion}</p>
+            </div>
         `;
 
-        solicitud.mensajes.forEach(m => {
+        // Mostrar mensajes recibidos
+        if (mensajes && mensajes.length > 0) {
           html += `
-            <div style="background: #F8FAFF; padding: 1rem; border-radius: 8px; border-left: 4px solid #2ec4b6; margin-bottom: 1rem;">
-              <p><strong>De:</strong> ${m.remitente_nombre}</p>
-              <p><strong>Email:</strong> <a href="mailto:${m.remitente_email}">${m.remitente_email}</a></p>
-              <p style="white-space: pre-wrap; margin-top: 1rem; font-style: italic;">💬 "${m.cuerpo}"</p>
-              <p style="font-size: 0.85rem; color: var(--gray-600); margin-top: 0.5rem;">📅 ${utils.formatearFecha(m.creado_en)}</p>
-            </div>
+            <div class="info-section">
+              <h4>Mensajes Recibidos (${mensajes.length})</h4>
           `;
-        });
+
+          mensajes.forEach(m => {
+            html += `
+              <div style="background: #F8FAFF; padding: 1rem; border-radius: 8px; border-left: 4px solid #2ec4b6; margin-bottom: 1rem;">
+                <p><strong>De:</strong> ${m.remitente_nombre}</p>
+                <p><strong>Email:</strong> <a href="mailto:${m.remitente_email}">${m.remitente_email}</a></p>
+                <p style="white-space: pre-wrap; margin-top: 1rem; font-style: italic;">💬 "${m.cuerpo}"</p>
+                <p style="font-size: 0.85rem; color: var(--gray-600); margin-top: 0.5rem;">📅 ${utils.formatearFecha(m.creado_en)}</p>
+              </div>
+            `;
+          });
+
+          html += `</div>`;
+        }
 
         html += `</div>`;
+
+        document.getElementById("interesadosBody").innerHTML = html;
+        document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "Mi Solicitud";
+        document.getElementById("modalInteresados").classList.add("active");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
       }
-
-      html += `</div>`;
-
-      document.getElementById("interesadosBody").innerHTML = html;
-      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "Mi Solicitud";
-      document.getElementById("modalInteresados").classList.add("active");
     },
 
     async mostrarPosiblesCandidatos() {
