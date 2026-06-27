@@ -1093,6 +1093,23 @@ const app = {
       }
     },
 
+    async mostrarMisPostulacionesDentistasAceptadas() {
+      try {
+        const data = await utils.request("/candidaturas/mis-postulaciones");
+        const misPostulaciones = data.candidaturas || [];
+
+        // Filtrar solo postulaciones aceptadas a solicitudes de dentistas
+        const postulacionesAceptadas = misPostulaciones.filter(p => {
+          const pub = estadoApp.publicaciones.find(pub => pub.id === p.publicacion_id);
+          return pub && pub.tipo === 'solicitud' && p.estado === 'aceptada';
+        });
+
+        app.stats.mostrarListaPostulaciones(postulacionesAceptadas, "Mis Postulaciones a Dentistas Aceptadas");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
     async mostrarMisSolicitudes() {
       try {
         const todas = await utils.request("/publicaciones");
@@ -2057,6 +2074,10 @@ const app = {
           const contactadosList = await utils.request(`/stats/contactados-lista/${estadoApp.usuario.id}`);
           const contactados = contactadosList.length;
 
+          // Postulaciones a dentistas (solicitudes que he visto)
+          const miPostulacionesDentistas = await utils.request(`/stats/mis-postulaciones/${estadoApp.usuario.id}`);
+          const misPostulacionesDentistasAceptadas = await utils.request(`/stats/mis-postulaciones-aceptadas/${estadoApp.usuario.id}`);
+
           // Mostrar stats de "Mis Ofertas"
           if (estadoApp.filtros.soloMias) {
             // En "Mis Ofertas" mostrar Postulaciones Recibidas y Aceptadas
@@ -2101,6 +2122,18 @@ const app = {
               <h3>${contactados}</h3>
               <p>Candidatos Aceptados</p>
               <div class="stat-tooltip">Dentistas que hemos aceptado en nuestras ofertas</div>
+            </div>
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulacionesDentistas()">
+              <span>📬</span>
+              <h3>${miPostulacionesDentistas.total}</h3>
+              <p>Postulaciones a Dentistas</p>
+              <div class="stat-tooltip">Postulaciones que he hecho a solicitudes de dentistas</div>
+            </div>
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulacionesDentistasAceptadas()">
+              <span>✅</span>
+              <h3>${misPostulacionesDentistasAceptadas.total}</h3>
+              <p>Postulaciones a Dentistas Aceptadas</p>
+              <div class="stat-tooltip">Solicitudes de dentistas donde aceptaron mi postulación</div>
             </div>
           `;
         } else {
