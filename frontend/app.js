@@ -1063,6 +1063,7 @@ const app = {
                 <p style="margin: 0; font-size: 0.9rem; color: #0c4a6e;"><strong>Tu mensaje:</strong></p>
                 <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #0c4a6e; white-space: pre-wrap;">${post.mensaje}</p>
               </div>` : '<p style="margin-top: 0.5rem; color: #9ca3af; font-size: 0.9rem;">Sin mensaje</p>'}
+              <button onclick="app.candidaturas.retirarPostulacion(${post.id})" style="margin-top: 1rem; background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; width: 100%;">🗑️ Retirar postulación</button>
             </div>
           </div>
         `;
