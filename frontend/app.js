@@ -689,6 +689,28 @@ const app = {
       document.getElementById("modalContacto").classList.remove("active");
     },
 
+    abrirPostulaciones() {
+      document.getElementById("modalPostulaciones").classList.add("active");
+      app.candidaturas.cargarMisPostulaciones();
+    },
+
+    cerrarPostulaciones() {
+      document.getElementById("modalPostulaciones").classList.remove("active");
+    },
+
+    abrirCandidatos(publicacionId, publicacionTitulo) {
+      document.getElementById("modalCandidatos").classList.add("active");
+      const titulo = document.querySelector("#modalCandidatos .modal-header h2");
+      if (titulo) {
+        titulo.textContent = `Candidatos: ${publicacionTitulo}`;
+      }
+      app.candidaturas.cargarCandidatos(publicacionId);
+    },
+
+    cerrarCandidatos() {
+      document.getElementById("modalCandidatos").classList.remove("active");
+    },
+
     async abrirInteresados(publicacionId, tipo) {
       try {
         const mensajes = await utils.request(`/mensajes/${publicacionId}`);
@@ -1821,6 +1843,7 @@ const app = {
       document.getElementById("navButtonsLanding").style.display = "none";
       document.getElementById("navButtonsLogueado").style.display = "flex";
       document.getElementById("btnPublicar").style.display = "inline-block";
+      document.getElementById("btnPostulaciones").style.display = estadoApp.tipoUsuario === 'dentista' ? "inline-block" : "none";
       document.getElementById("btnPerfil").style.display = "inline-block";
       document.getElementById("btnLogout").style.display = "inline-block";
 
@@ -1982,8 +2005,9 @@ const app = {
               ${pub.nombre_contacto ? `<span class="badge">${pub.nombre_contacto}</span>` : ""}
               <span class="badge" style="margin-left: auto;">${utils.formatearFecha(pub.creado_en)}</span>
             </div>
-            <div class="card-footer">
-              <button class="btn-primary" onclick="app.modal.abrirDetalle(${JSON.stringify(pub).replace(/"/g, '&quot;')})">Ver detalles</button>
+            <div class="card-footer" style="display: flex; gap: 0.5rem;">
+              <button class="btn-primary" onclick="app.modal.abrirDetalle(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
+              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && pub.usuario_id === estadoApp.usuario.id ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${pub.titulo.replace(/'/g, "\\'")}'" style="flex: 1;">👥 Candidatos</button>` : ''}
               ${interesadosHTML}
             </div>
           </div>
