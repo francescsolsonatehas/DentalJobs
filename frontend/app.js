@@ -2300,7 +2300,11 @@ const app = {
       try {
         await utils.request(`/candidaturas/${candidaturaId}`, { method: "DELETE" });
         utils.mostrarAlerta("✅ Postulación retirada", "success");
-        app.candidaturas.cargarMisPostulaciones();
+        // Recargar postulaciones en el modal
+        const data = await utils.request("/candidaturas/mis-postulaciones");
+        app.stats.mostrarMisPostulaciones();
+        // Actualizar stats
+        await app.ui.actualizarStats();
       } catch (error) {
         utils.mostrarAlerta("❌ " + error.message, "error");
       }
