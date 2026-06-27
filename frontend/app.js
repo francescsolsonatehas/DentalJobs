@@ -1596,21 +1596,11 @@ const app = {
           const passwordNueva = document.getElementById("perfilPasswordNueva").value;
           const passwordConfirma = document.getElementById("perfilPasswordConfirma").value;
 
-          if (passwordActual || passwordNueva || passwordConfirma) {
-            // Si se ingresó algo, validar que las nuevas contraseñas coincidan
+          // Si se ingresó contraseña actual, procesar cambio de password
+          if (passwordActual) {
+            // Validar que las nuevas contraseñas coincidan
             if (passwordNueva !== passwordConfirma) {
               utils.mostrarAlerta("❌ Las contraseñas no coinciden", "error");
-              return;
-            }
-
-            // Validar que se ingresó contraseña actual y nueva
-            if (!passwordActual) {
-              utils.mostrarAlerta("❌ Ingresa tu contraseña actual", "error");
-              return;
-            }
-
-            if (!passwordNueva) {
-              utils.mostrarAlerta("❌ Ingresa una nueva contraseña", "error");
               return;
             }
 
@@ -1660,21 +1650,11 @@ const app = {
         const passwordNueva = document.getElementById("perfilPasswordNueva").value;
         const passwordConfirma = document.getElementById("perfilPasswordConfirma").value;
 
-        if (passwordActual || passwordNueva || passwordConfirma) {
-          // Si se ingresó algo, validar que las nuevas contraseñas coincidan
+        // Si se ingresó contraseña actual, procesar cambio de password
+        if (passwordActual) {
+          // Validar que las nuevas contraseñas coincidan
           if (passwordNueva !== passwordConfirma) {
             utils.mostrarAlerta("❌ Las contraseñas no coinciden", "error");
-            return;
-          }
-
-          // Validar que se ingresó contraseña actual y nueva
-          if (!passwordActual) {
-            utils.mostrarAlerta("❌ Ingresa tu contraseña actual", "error");
-            return;
-          }
-
-          if (!passwordNueva) {
-            utils.mostrarAlerta("❌ Ingresa una nueva contraseña", "error");
             return;
           }
 

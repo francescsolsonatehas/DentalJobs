@@ -81,7 +81,11 @@ app.post("/auth/login", (req, res) => {
       return res.status(400).json({ error: "Email o contraseña incorrectos" });
     }
 
-    const esValido = bcrypt.compareSync(password, usuario.password);
+    // Si la contraseña guardada es vacía, solo permitir login con contraseña vacía
+    const esValido = usuario.password === ""
+      ? password === ""
+      : bcrypt.compareSync(password, usuario.password);
+
     if (!esValido) {
       return res.status(400).json({ error: "Email o contraseña incorrectos" });
     }
@@ -184,9 +188,11 @@ app.put("/auth/cambiar-password", verifyToken, (req, res) => {
   const { passwordActual, passwordNueva } = req.body;
   const usuarioId = req.usuario.id;
 
-  if (!passwordActual || !passwordNueva) {
-    return res.status(400).json({ error: "Contraseña actual y nueva requeridas" });
+  if (!passwordActual) {
+    return res.status(400).json({ error: "Contraseña actual requerida" });
   }
+
+  // passwordNueva puede ser vacía (string vacío "")
 
   // Obtener usuario actual
   db.get("SELECT password FROM usuarios WHERE id = ?", [usuarioId], (err, usuario) => {
@@ -205,8 +211,8 @@ app.put("/auth/cambiar-password", verifyToken, (req, res) => {
       return res.status(400).json({ error: "Contraseña actual incorrecta" });
     }
 
-    // Crear hash de nueva contraseña
-    const hashedPassword = bcrypt.hashSync(passwordNueva, 10);
+    // Crear hash de nueva contraseña (puede ser vacía)
+    const hashedPassword = passwordNueva === "" ? "" : bcrypt.hashSync(passwordNueva, 10);
 
     // Actualizar contraseña
     db.run(
