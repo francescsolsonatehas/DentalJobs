@@ -1995,14 +1995,14 @@ const app = {
         const tipoClase = pub.tipo === "oferta" ? "type-oferta" : "type-solicitud";
 
         let interesadosHTML = "";
-        if (estadoApp.filtros.soloMias && estadoApp.usuario && pub.usuario_id === estadoApp.usuario.id) {
+        // Solo mostrar interesados para solicitudes (dentistas buscando trabajo), no para ofertas (usamos candidaturas)
+        if (estadoApp.filtros.soloMias && estadoApp.usuario && pub.usuario_id === estadoApp.usuario.id && pub.tipo === 'solicitud') {
           try {
             const mensajes = await utils.request(`/mensajes/${pub.id}`);
             const interesados = new Set(mensajes.map(m => m.remitente_email)).size;
-            const label = pub.tipo === "oferta" ? "Candidatos" : "Empresas";
             interesadosHTML = `
               <button class="btn-interesados" onclick="app.modal.abrirInteresados(${pub.id}, '${pub.tipo}')">
-                👥 ${interesados} ${label}
+                👥 ${interesados} Empresas
               </button>
             `;
           } catch (error) {
