@@ -1388,8 +1388,8 @@ const app = {
             </div>
 
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-              <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
               <button type="button" class="btn-outline" style="flex: 1;" onclick="app.perfil.cancelarEdicion()">❌ Deshacer cambios</button>
+              <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
             </div>
           </form>
         `;
@@ -1438,8 +1438,8 @@ const app = {
             </div>
 
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-              <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
               <button type="button" class="btn-outline" style="flex: 1;" onclick="app.perfil.cancelarEdicion()">❌ Deshacer cambios</button>
+              <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
             </div>
           </form>
         `;
@@ -1486,8 +1486,13 @@ const app = {
           utils.mostrarAlerta("✅ Perfil actualizado correctamente", "success");
 
           setTimeout(() => {
-            app.perfil.cargar();
-          }, 500);
+            // Cerrar el modal
+            const modal = document.getElementById("modalPerfil");
+            if (modal) {
+              modal.classList.remove("active");
+              modal.style.display = "none";
+            }
+          }, 800);
         }
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
