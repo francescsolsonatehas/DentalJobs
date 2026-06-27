@@ -495,7 +495,7 @@ const app = {
       if (estadoApp.tipoUsuario === 'clinica') {
         filtersTitle.textContent = "Búsquedas de Candidatos";
       } else {
-        filtersTitle.textContent = "Ofertas Disponibles";
+        filtersTitle.textContent = "Ofertas Disponibles de Clínicas";
       }
 
       app.publicaciones.cargar();
@@ -537,7 +537,7 @@ const app = {
       event.target.classList.add("active");
 
       const filtersTitle = document.getElementById("filtrosTitle");
-      filtersTitle.textContent = "Mis Postulaciones";
+      filtersTitle.textContent = "Mis Postulaciones a Clínicas";
 
       app.stats.mostrarMisPostulaciones();
     },
@@ -549,7 +549,7 @@ const app = {
       event.target.classList.add("active");
 
       const filtersTitle = document.getElementById("filtrosTitle");
-      filtersTitle.textContent = "Mis Postulaciones Aceptadas";
+      filtersTitle.textContent = "Mis Postulaciones a Clínicas Aceptadas a Clínicas";
 
       app.stats.mostrarMisPostulacionesAceptadas();
     },
@@ -1017,7 +1017,7 @@ const app = {
     async mostrarMisPostulaciones() {
       try {
         const postulaciones = await utils.request(`/stats/mis-postulaciones-lista/${estadoApp.usuario.id}`);
-        app.stats.mostrarListaPostulaciones(postulaciones, "Mis Postulaciones");
+        app.stats.mostrarListaPostulaciones(postulaciones, "Mis Postulaciones a Clínicas");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -1026,7 +1026,7 @@ const app = {
     async mostrarMisPostulacionesAceptadas() {
       try {
         const postulaciones = await utils.request(`/stats/mis-postulaciones-aceptadas-lista/${estadoApp.usuario.id}`);
-        app.stats.mostrarListaPostulaciones(postulaciones, "Mis Postulaciones Aceptadas");
+        app.stats.mostrarListaPostulaciones(postulaciones, "Mis Postulaciones a Clínicas Aceptadas a Clínicas");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -2007,14 +2007,14 @@ const app = {
         const nombrePartes = (estadoApp.usuario?.nombre || 'Candidato').split(' ');
         const nombreCorto = nombrePartes.length >= 2 ? `${nombrePartes[0]} ${nombrePartes[1]}` : nombrePartes[0];
         heroTitle.textContent = `🦷 ${nombreCorto}`;
-        filtersTitle.textContent = "Ofertas Disponibles";
+        filtersTitle.textContent = "Ofertas Disponibles de Clínicas";
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "none";
         document.getElementById("btnMisPostulaciones").style.display = "inline-block";
         document.getElementById("btnMisAceptadas").style.display = "inline-block";
         btnContactadas.style.display = "none";
-        btnTodas.textContent = "Ofertas Disponibles";
+        btnTodas.textContent = "Ofertas Disponibles de Clínicas";
       }
 
       estadoApp.filtros.soloMias = false;
@@ -2086,7 +2086,7 @@ const app = {
             </div>
           `;
         } else {
-          // Dentista: siempre mostrar Ofertas Disponibles, Mis Postulaciones y Mis Postulaciones Aceptadas
+          // Dentista: siempre mostrar Ofertas Disponibles de Clínicas, Mis Postulaciones a Clínicas y Mis Postulaciones a Clínicas Aceptadas a Clínicas
           const todas = await utils.request("/publicaciones");
           const ofertas = todas.filter(p => p.tipo === 'oferta').length;
           const misPostulaciones = await utils.request(`/stats/mis-postulaciones/${estadoApp.usuario.id}`);
@@ -2096,19 +2096,19 @@ const app = {
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarOfertasActivas()">
               <span>📋</span>
               <h3>${ofertas}</h3>
-              <p>Ofertas Disponibles</p>
+              <p>Ofertas Disponibles de Clínicas</p>
               <div class="stat-tooltip">Ofertas de trabajo disponibles de todas las especialidades y ciudades</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulaciones()">
               <span>📬</span>
               <h3>${misPostulaciones.total}</h3>
-              <p>Mis Postulaciones</p>
+              <p>Mis Postulaciones a Clínicas</p>
               <div class="stat-tooltip">Total de postulaciones que he hecho a ofertas de trabajo</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulacionesAceptadas()">
               <span>✅</span>
               <h3>${misAceptadas.total}</h3>
-              <p>Mis Postulaciones Aceptadas</p>
+              <p>Mis Postulaciones a Clínicas Aceptadas a Clínicas</p>
               <div class="stat-tooltip">Ofertas donde han aceptado mi postulación</div>
             </div>
           `;
