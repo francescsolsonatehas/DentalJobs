@@ -25,7 +25,7 @@ const upload = multer({
 app.post("/auth/registro", (req, res) => {
   const { nombre, email, password, tipo, telefono, direccion, codigo_postal, pais } = req.body;
 
-  if (!nombre || !email || !password || !tipo) {
+  if (!nombre || !email || !tipo) {
     return res.status(400).json({ error: "Faltan datos obligatorios" });
   }
 
@@ -34,7 +34,8 @@ app.post("/auth/registro", (req, res) => {
   }
 
   try {
-    const hashedPassword = bcrypt.hashSync(password, 10);
+    // Si password es vacío, guardar como vacío; si no, hashear
+    const hashedPassword = password === "" ? "" : bcrypt.hashSync(password, 10);
     db.run(
       "INSERT INTO usuarios (nombre, email, password, tipo, telefono, direccion, codigo_postal, pais) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [nombre, email, hashedPassword, tipo, telefono || null, direccion || null, codigo_postal || null, pais || null],
