@@ -475,6 +475,47 @@ app.post("/publicaciones", verifyToken, (req, res) => {
   );
 });
 
+app.post("/publicaciones/:id/especialidades", verifyToken, (req, res) => {
+  const { especialidades } = req.body;
+  const publicacionId = req.params.id;
+
+  if (!Array.isArray(especialidades)) {
+    return res.status(400).json({ error: "Especialidades debe ser un array" });
+  }
+
+  // Verificar que la publicación pertenece al usuario
+  db.get("SELECT usuario_id FROM publicaciones WHERE id = ?", [publicacionId], (err, pub) => {
+    if (err || !pub) {
+      return res.status(404).json({ error: "Publicación no encontrada" });
+    }
+
+    if (pub.usuario_id !== req.usuario.id) {
+      return res.status(403).json({ error: "No tienes permiso para modificar esta publicación" });
+    }
+
+    if (especialidades.length === 0) {
+      return res.json({ success: true });
+    }
+
+    const stmt = db.prepare(
+      "INSERT INTO publicacion_especialidades (publicacion_id, especialidad_id) VALUES (?, ?)"
+    );
+
+    especialidades.forEach(espId => {
+      stmt.run(publicacionId, espId);
+    });
+
+    stmt.finalize((err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al guardar especialidades" });
+      }
+
+      res.json({ success: true });
+    });
+  });
+});
+
 app.delete("/publicaciones/:id", verifyToken, (req, res) => {
   db.get("SELECT usuario_id FROM publicaciones WHERE id = ?", [req.params.id], (err, pub) => {
     if (err) {

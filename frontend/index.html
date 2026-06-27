@@ -156,8 +156,14 @@
                         <input id="ofertaCiudad" type="text" required>
                     </div>
                     <div class="form-group">
-                        <label for="ofertaEspecialidad">Especialidad</label>
-                        <select id="ofertaEspecialidad"></select>
+                        <label>Especialidades</label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.5rem;">
+                          <input type="checkbox" id="ofertaMarcarTodas" onchange="app.publicaciones.marcarTodasEspecialidades('oferta')">
+                          <strong>Marcar todas</strong>
+                        </label>
+                        <div id="ofertaEspecialidadesContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                          <!-- Se llenarán dinámicamente -->
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="ofertaContrato">Tipo de contrato</label>
@@ -214,8 +220,14 @@
                         <input id="solicitudCiudad" type="text" required>
                     </div>
                     <div class="form-group">
-                        <label for="solicitudEspecialidad">Especialidad</label>
-                        <select id="solicitudEspecialidad"></select>
+                        <label>Especialidades</label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.5rem;">
+                          <input type="checkbox" id="solicitudMarcarTodas" onchange="app.publicaciones.marcarTodasEspecialidades('solicitud')">
+                          <strong>Marcar todas</strong>
+                        </label>
+                        <div id="solicitudEspecialidadesContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                          <!-- Se llenarán dinámicamente -->
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="solicitudContrato">Tipo de contrato deseado</label>

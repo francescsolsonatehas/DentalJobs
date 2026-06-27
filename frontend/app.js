@@ -360,12 +360,16 @@ const app = {
 
       let formData;
       if (tipo === "oferta") {
+        // Obtener especialidades seleccionadas
+        const especialidadesCheckboxes = document.querySelectorAll('#ofertaEspecialidadesContainer input[type="checkbox"]:checked');
+        const especialidades = Array.from(especialidadesCheckboxes).map(cb => parseInt(cb.value));
+
         formData = {
           tipo: "oferta",
           titulo: document.getElementById("ofertaTitulo").value,
           descripcion: document.getElementById("ofertaDescripcion").value,
           ciudad: document.getElementById("ofertaCiudad").value,
-          especialidad_id: document.getElementById("ofertaEspecialidad").value || null,
+          especialidades: especialidades,
           contrato: document.getElementById("ofertaContrato").value || null,
           jornada: document.getElementById("ofertaJornada").value || null,
           salario: document.getElementById("ofertaSalario").value || null,
@@ -374,12 +378,16 @@ const app = {
           telefono_contacto: document.getElementById("ofertaTelefonoContacto").value || null
         };
       } else {
+        // Obtener especialidades seleccionadas
+        const especialidadesCheckboxes = document.querySelectorAll('#solicitudEspecialidadesContainer input[type="checkbox"]:checked');
+        const especialidades = Array.from(especialidadesCheckboxes).map(cb => parseInt(cb.value));
+
         formData = {
           tipo: "solicitud",
           titulo: document.getElementById("solicitudTitulo").value,
           descripcion: document.getElementById("solicitudDescripcion").value,
           ciudad: document.getElementById("solicitudCiudad").value,
-          especialidad_id: document.getElementById("solicitudEspecialidad").value || null,
+          especialidades: especialidades,
           contrato: document.getElementById("solicitudContrato").value || null,
           jornada: document.getElementById("solicitudJornada").value || null,
           nombre_contacto: document.getElementById("solicitudNombreContacto").value,
@@ -394,10 +402,23 @@ const app = {
       }
 
       try {
-        await utils.request("/publicaciones", {
+        // Separar especialidades del formData
+        const especialidades = formData.especialidades || [];
+        const datosPublicacion = { ...formData };
+        delete datosPublicacion.especialidades;
+
+        const respuesta = await utils.request("/publicaciones", {
           method: "POST",
-          body: JSON.stringify(formData)
+          body: JSON.stringify(datosPublicacion)
         });
+
+        // Si hay especialidades, guardarlas
+        if (especialidades.length > 0 && respuesta.id) {
+          await utils.request(`/publicaciones/${respuesta.id}/especialidades`, {
+            method: "POST",
+            body: JSON.stringify({ especialidades })
+          });
+        }
 
         utils.mostrarAlerta("¡Publicación creada exitosamente!", "success");
         app.modal.cerrarPublicar();
@@ -425,6 +446,37 @@ const app = {
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
+    },
+
+    async cargarEspecialidadesPublicar(tipo) {
+      try {
+        if (!estadoApp.especialidades || estadoApp.especialidades.length === 0) {
+          await app.especialidades.cargar();
+        }
+
+        const containerId = `${tipo}EspecialidadesContainer`;
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        container.innerHTML = estadoApp.especialidades.map(esp => `
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="checkbox" value="${esp.id}" style="cursor: pointer;">
+            ${esp.nombre}
+          </label>
+        `).join('');
+      } catch (error) {
+        console.error("Error al cargar especialidades:", error);
+      }
+    },
+
+    marcarTodasEspecialidades(tipo) {
+      const containerId = `${tipo}EspecialidadesContainer`;
+      const checkboxes = document.querySelectorAll(`#${containerId} input[type="checkbox"]`);
+      const marcarTodas = document.getElementById(`${tipo}MarcarTodas`);
+
+      checkboxes.forEach(cb => {
+        cb.checked = marcarTodas.checked;
+      });
     }
   },
 
@@ -506,6 +558,7 @@ const app = {
         document.getElementById("tab-oferta").classList.add("active");
         document.getElementById("tab-solicitud").classList.remove("active");
         document.getElementById("tabBtnOferta").classList.add("active");
+        app.publicaciones.cargarEspecialidadesPublicar('oferta');
       } else {
         // Candidato solo ve tab de Solicitud
         document.getElementById("tabBtnOferta").style.display = "none";
@@ -513,6 +566,7 @@ const app = {
         document.getElementById("tab-solicitud").classList.add("active");
         document.getElementById("tab-oferta").classList.remove("active");
         document.getElementById("tabBtnSolicitud").classList.add("active");
+        app.publicaciones.cargarEspecialidadesPublicar('solicitud');
       }
 
       document.getElementById("modalPublicar").classList.add("active");
