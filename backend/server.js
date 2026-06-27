@@ -119,6 +119,94 @@ app.put("/auth/actualizar-perfil", verifyToken, (req, res) => {
   );
 });
 
+app.post("/auth/solicitar-cambio-email", verifyToken, (req, res) => {
+  const { nuevoEmail, datos } = req.body;
+  const usuarioId = req.usuario.id;
+
+  if (!nuevoEmail) {
+    return res.status(400).json({ error: "Email requerido" });
+  }
+
+  // Verificar que el nuevo email no esté en uso
+  db.get("SELECT id FROM usuarios WHERE email = ? AND id != ?", [nuevoEmail, usuarioId], (err, usuario) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al verificar email" });
+    }
+
+    if (usuario) {
+      return res.status(400).json({ error: "Este email ya está registrado" });
+    }
+
+    // Generar token de confirmación
+    const token = require('crypto').randomBytes(32).toString('hex');
+    const expiracion = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+
+    // Guardar token en BD (usar tabla temporal o campo en usuarios)
+    db.run(
+      "INSERT INTO confirmacion_email (usuario_id, nuevo_email, token, expiracion, datos) VALUES (?, ?, ?, ?, ?)",
+      [usuarioId, nuevoEmail, token, expiracion.toISOString(), JSON.stringify(datos)],
+      function(err) {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al procesar cambio de email" });
+        }
+
+        // En producción, aquí enviarías un email real con el link de confirmación
+        // Por ahora, simularemos que se envió
+        console.log(`📧 Email de confirmación simulated para: ${nuevoEmail}`);
+        console.log(`Link de confirmación: http://localhost:9000/confirmar-email?token=${token}`);
+
+        res.json({
+          success: true,
+          message: "Email de confirmación enviado"
+        });
+      }
+    );
+  });
+});
+
+app.get("/auth/confirmar-cambio-email/:token", (req, res) => {
+  const { token } = req.params;
+
+  db.get(
+    "SELECT * FROM confirmacion_email WHERE token = ? AND expiracion > datetime('now')",
+    [token],
+    (err, confirmacion) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al confirmar email" });
+      }
+
+      if (!confirmacion) {
+        return res.status(400).json({ error: "Token inválido o expirado" });
+      }
+
+      const datos = JSON.parse(confirmacion.datos);
+
+      // Actualizar usuario con nuevo email y otros datos
+      db.run(
+        "UPDATE usuarios SET email = ?, nombre = ?, telefono = ?, direccion = ?, codigo_postal = ?, pais = ? WHERE id = ?",
+        [confirmacion.nuevo_email, datos.nombre, datos.telefono, datos.direccion, datos.codigo_postal, datos.pais, confirmacion.usuario_id],
+        function(err) {
+          if (err) {
+            console.error(err);
+            return res.status(500).json({ error: "Error al actualizar email" });
+          }
+
+          // Eliminar token usado
+          db.run("DELETE FROM confirmacion_email WHERE id = ?", [confirmacion.id]);
+
+          res.json({
+            success: true,
+            message: "Email confirmado y actualizado correctamente"
+          });
+        }
+      );
+    }
+  );
+});
+
 /* ===========================
    🔹 ESPECIALIDADES
 =========================== */

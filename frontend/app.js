@@ -1344,8 +1344,9 @@ const app = {
             </div>
 
             <div class="form-group">
-              <label>Email (no editable)</label>
-              <input type="email" value="${u.email}" disabled>
+              <label>Email</label>
+              <input type="email" id="perfilEmail" value="${u.email}" required>
+              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Se enviará un email de confirmación al cambiar</small>
             </div>
 
             <div class="form-group">
@@ -1383,8 +1384,9 @@ const app = {
             </div>
 
             <div class="form-group">
-              <label>Email (no editable)</label>
-              <input type="email" value="${u.email}" disabled>
+              <label>Email</label>
+              <input type="email" id="perfilEmail" value="${u.email}" required>
+              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Se enviará un email de confirmación al cambiar</small>
             </div>
 
             <div class="form-group">
@@ -1419,8 +1421,12 @@ const app = {
     async guardar(event) {
       event.preventDefault();
 
+      const nuevoEmail = document.getElementById("perfilEmail").value;
+      const emailCambio = nuevoEmail !== estadoApp.usuario.email;
+
       const datosActualizados = {
         nombre: document.getElementById("perfilNombre").value,
+        email: nuevoEmail,
         telefono: document.getElementById("perfilTelefono").value || null,
         direccion: document.getElementById("perfilDireccion").value || null,
         codigo_postal: document.getElementById("perfilCodigoPostal").value || null,
@@ -1428,9 +1434,47 @@ const app = {
       };
 
       try {
-        const response = await utils.request("/auth/actualizar-perfil", {
-          method: "PUT",
-          body: JSON.stringify(datosActualizados)
+        if (emailCambio) {
+          // Si cambió el email, solicitar confirmación
+          await app.perfil.solicitarCambioEmail(datosActualizados);
+        } else {
+          // Si no cambió el email, solo actualizar otros datos
+          const response = await utils.request("/auth/actualizar-perfil", {
+            method: "PUT",
+            body: JSON.stringify(datosActualizados)
+          });
+
+          if (response.error) {
+            utils.mostrarAlerta(response.error, "error");
+            return;
+          }
+
+          estadoApp.usuario = { ...estadoApp.usuario, ...datosActualizados };
+          utils.mostrarAlerta("✅ Perfil actualizado correctamente", "success");
+
+          setTimeout(() => {
+            app.perfil.cargar();
+          }, 500);
+        }
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async solicitarCambioEmail(datosActualizados) {
+      try {
+        const response = await utils.request("/auth/solicitar-cambio-email", {
+          method: "POST",
+          body: JSON.stringify({
+            nuevoEmail: datosActualizados.email,
+            datos: {
+              nombre: datosActualizados.nombre,
+              telefono: datosActualizados.telefono,
+              direccion: datosActualizados.direccion,
+              codigo_postal: datosActualizados.codigo_postal,
+              pais: datosActualizados.pais
+            }
+          })
         });
 
         if (response.error) {
@@ -1438,15 +1482,41 @@ const app = {
           return;
         }
 
-        // Actualizar estado
-        estadoApp.usuario = { ...estadoApp.usuario, ...datosActualizados };
+        // Mostrar modal de confirmación
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.id = 'modalConfirmacionEmail';
+        modal.innerHTML = `
+          <div class="modal-overlay"></div>
+          <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+              <h2>Confirmación de Email</h2>
+              <button class="close-btn" onclick="document.getElementById('modalConfirmacionEmail').remove()">✕</button>
+            </div>
+            <div style="padding: 1.5rem;">
+              <div style="background: #F0F9FF; padding: 1rem; border-radius: 8px; border-left: 4px solid #3b82f6; margin-bottom: 1rem;">
+                <p style="margin: 0; font-size: 0.95rem;">
+                  📧 Se ha enviado un email de confirmación a <strong>${datosActualizados.email}</strong>
+                </p>
+              </div>
+              <p style="color: var(--gray-600); margin: 1rem 0;">
+                Haz clic en el link de confirmación en el email para completar el cambio de email. Tu email actual seguirá siendo válido hasta confirmar.
+              </p>
+              <div style="background: #FEF3C7; padding: 0.75rem; border-radius: 6px; border-left: 3px solid #F59E0B;">
+                <small style="color: #92400E;">💡 Verifica tu carpeta de spam si no ves el email</small>
+              </div>
+              <button class="btn-primary" style="width: 100%; margin-top: 1.5rem;" onclick="document.getElementById('modalConfirmacionEmail').remove(); app.perfil.cargar();">
+                Entendido
+              </button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
 
-        utils.mostrarAlerta("✅ Perfil actualizado correctamente", "success");
+        // Actualizar otros datos sin email
+        const { email, ...datosOtros } = datosActualizados;
+        estadoApp.usuario = { ...estadoApp.usuario, ...datosOtros };
 
-        // Recargar el perfil
-        setTimeout(() => {
-          app.perfil.cargar();
-        }, 500);
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }

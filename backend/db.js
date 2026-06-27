@@ -62,6 +62,18 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS confirmacion_email (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER REFERENCES usuarios(id),
+      nuevo_email TEXT NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      datos TEXT,
+      expiracion DATETIME NOT NULL,
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Agregar columnas si no existen (para compatibilidad)
   db.run(`ALTER TABLE mensajes ADD COLUMN usuario_id INTEGER REFERENCES usuarios(id)`, (err) => {
     // Ignorar error si la columna ya existe
