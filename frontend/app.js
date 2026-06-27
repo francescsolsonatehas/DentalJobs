@@ -2410,9 +2410,8 @@ const app = {
         if (modalDetalle) {
           modalDetalle.classList.remove("active");
         }
-        // Recargar publicaciones y stats
-        await app.publicaciones.cargar();
-        await app.ui.actualizarStats();
+        // Forzar recarga completa de página
+        location.reload();
       } catch (error) {
         utils.mostrarAlerta("❌ " + error.message, "error");
       }
