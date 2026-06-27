@@ -167,7 +167,7 @@ const app = {
       const pais = document.getElementById("regPaisEmp").value;
       const telefono = document.getElementById("regMovilEmp").value;
 
-      if (!nombre || !email || !password || !direccion || !codigo_postal || !telefono) {
+      if (!nombre || !email || !direccion || !codigo_postal || !telefono) {
         utils.mostrarAlerta("Por favor completa todos los campos obligatorios", "error");
         return;
       }
@@ -236,8 +236,8 @@ const app = {
       const password = document.getElementById("regPasswordCand").value;
       const telefono = document.getElementById("regMovilCand").value || null;
 
-      if (!nombre || !email || !password) {
-        utils.mostrarAlerta("Por favor completa todos los campos", "error");
+      if (!nombre || !email) {
+        utils.mostrarAlerta("Por favor completa todos los campos obligatorios", "error");
         return;
       }
 
