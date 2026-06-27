@@ -1331,9 +1331,17 @@ const app = {
       event.target.classList.add("active");
     },
 
-    mostrarFormularioEdicion() {
+    async mostrarFormularioEdicion() {
       const misDatosContainer = document.getElementById("misDatosContainer");
-      const u = estadoApp.usuario;
+
+      try {
+        // Obtener datos completos del usuario desde el backend
+        const u = await utils.request("/auth/mi-perfil");
+
+        if (!u) {
+          utils.mostrarAlerta("Error al cargar perfil", "error");
+          return;
+        }
 
       if (estadoApp.tipoUsuario === 'clinica') {
         misDatosContainer.innerHTML = `
@@ -1415,6 +1423,9 @@ const app = {
             </div>
           </form>
         `;
+      }
+      } catch (error) {
+        utils.mostrarAlerta("Error al cargar perfil: " + error.message, "error");
       }
     },
 

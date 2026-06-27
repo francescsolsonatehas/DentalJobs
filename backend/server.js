@@ -196,6 +196,27 @@ app.post("/auth/solicitar-cambio-email", verifyToken, (req, res) => {
   });
 });
 
+app.get("/auth/mi-perfil", verifyToken, (req, res) => {
+  const usuarioId = req.usuario.id;
+
+  db.get(
+    "SELECT id, nombre, email, tipo, telefono, direccion, codigo_postal, pais, creado_en FROM usuarios WHERE id = ?",
+    [usuarioId],
+    (err, usuario) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener perfil" });
+      }
+
+      if (!usuario) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
+
+      res.json(usuario);
+    }
+  );
+});
+
 app.get("/auth/confirmar-cambio-email/:token", (req, res) => {
   const { token } = req.params;
 
