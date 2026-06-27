@@ -2257,7 +2257,8 @@ const app = {
         utils.mostrarAlerta("✅ ¡Postulación enviada!", "success");
         app.modal.cerrarPostularseModal();
         app.modal.cerrarDetalle();
-        app.publicaciones.cargar();
+        await app.publicaciones.cargar();
+        await app.ui.actualizarStats();
       } catch (error) {
         utils.mostrarAlerta("❌ " + error.message, "error");
       }
