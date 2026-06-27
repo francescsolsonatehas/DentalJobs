@@ -126,8 +126,8 @@ const app = {
       const email = document.getElementById("loginEmailEmp").value;
       const password = document.getElementById("loginPasswordEmp").value;
 
-      if (!email || !password) {
-        utils.mostrarAlerta("Por favor completa todos los campos", "error");
+      if (!email) {
+        utils.mostrarAlerta("Por favor ingresa tu email", "error");
         return;
       }
 
@@ -198,8 +198,8 @@ const app = {
       const email = document.getElementById("loginEmailCand").value;
       const password = document.getElementById("loginPasswordCand").value;
 
-      if (!email || !password) {
-        utils.mostrarAlerta("Por favor completa todos los campos", "error");
+      if (!email) {
+        utils.mostrarAlerta("Por favor ingresa tu email", "error");
         return;
       }
 
