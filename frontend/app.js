@@ -2029,6 +2029,85 @@ const app = {
         select.value = valorActual;
       });
     }
+  },
+
+  candidaturas: {
+    async postularse(publicacionId) {
+      try {
+        await utils.request("/candidaturas", {
+          method: "POST",
+          body: JSON.stringify({ publicacion_id: publicacionId })
+        });
+        utils.mostrarAlerta("✅ ¡Postulación enviada!", "success");
+        app.publicaciones.cargar();
+      } catch (error) {
+        utils.mostrarAlerta("❌ " + error.message, "error");
+      }
+    },
+
+    async cargarMisPostulaciones() {
+      try {
+        const data = await utils.request("/candidaturas/mis-postulaciones");
+        const candidaturas = data.candidaturas || [];
+        const container = document.getElementById("misPostulacionesContainer");
+        if (!container) return;
+        if (candidaturas.length === 0) {
+          container.innerHTML = `<div style="padding: 2rem; text-align: center; color: #6b7280;"><p>No tienes postulaciones aún</p></div>`;
+          return;
+        }
+        const html = candidaturas.map(c => {
+          const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[c.estado];
+          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${c.titulo}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Empresa:</strong> ${c.empresa_nombre}</p><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${c.ciudad || 'No especificada'}</p><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Contrato:</strong> ${c.contrato} | <strong>Jornada:</strong> ${c.jornada}</p></div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize;">${c.estado}</span><button class="btn-text btn-small" onclick="app.candidaturas.retirarPostulacion(${c.id})" style="margin-top: 0.5rem; display: block;">Retirar</button></div></div></div>`;
+        });
+        container.innerHTML = `<div>${html.join('')}</div>`;
+      } catch (error) {
+        console.error(error);
+      }
+    },
+
+    async retirarPostulacion(candidaturaId) {
+      if (!confirm("¿Retirar postulación?")) return;
+      try {
+        await utils.request(`/candidaturas/${candidaturaId}`, { method: "DELETE" });
+        utils.mostrarAlerta("✅ Postulación retirada", "success");
+        app.candidaturas.cargarMisPostulaciones();
+      } catch (error) {
+        utils.mostrarAlerta("❌ " + error.message, "error");
+      }
+    },
+
+    async cargarCandidatos(publicacionId) {
+      try {
+        const data = await utils.request(`/publicaciones/${publicacionId}/candidatos`);
+        const candidatos = data.candidatos || [];
+        const container = document.getElementById("candidatosBody");
+        if (!container) return;
+        if (candidatos.length === 0) {
+          container.innerHTML = `<div style="padding: 2rem; text-align: center; color: #6b7280;"><p>No hay candidatos aún</p></div>`;
+          return;
+        }
+        const html = candidatos.map(c => {
+          const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[c.estado];
+          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${c.nombre}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Email:</strong> ${c.email}</p>${c.telefono ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Teléfono:</strong> ${c.telefono}</p>` : ''}${c.movil ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Móvil:</strong> ${c.movil}</p>` : ''}${c.ciudad ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${c.ciudad}</p>` : ''}</div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize; display: inline-block; margin-bottom: 0.5rem;">${c.estado}</span><div style="display: flex; gap: 0.5rem; flex-direction: column;">${c.estado === 'pendiente' ? `<button class="btn-primary btn-small" onclick="app.candidaturas.actualizarEstado(${c.id}, 'aceptada', ${publicacionId})" style="font-size: 0.85rem;">✓ Aceptar</button><button class="btn-outline btn-small" onclick="app.candidaturas.actualizarEstado(${c.id}, 'rechazada', ${publicacionId})" style="font-size: 0.85rem;">✗ Rechazar</button>` : ''}</div></div></div></div>`;
+        });
+        container.innerHTML = `<div>${html.join('')}</div>`;
+      } catch (error) {
+        console.error(error);
+      }
+    },
+
+    async actualizarEstado(candidaturaId, nuevoEstado, publicacionId) {
+      try {
+        await utils.request(`/candidaturas/${candidaturaId}`, {
+          method: "PUT",
+          body: JSON.stringify({ estado: nuevoEstado })
+        });
+        utils.mostrarAlerta(`✅ Candidatura ${nuevoEstado}`, "success");
+        app.candidaturas.cargarCandidatos(publicacionId);
+      } catch (error) {
+        utils.mostrarAlerta("❌ " + error.message, "error");
+      }
+    }
   }
 };
 
