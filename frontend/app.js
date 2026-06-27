@@ -2001,6 +2001,26 @@ const app = {
           const contactadosList = await utils.request(`/stats/contactados-lista/${estadoApp.usuario.id}`);
           const contactados = contactadosList.length;
 
+          // Mostrar stats de "Mis Ofertas"
+          if (estadoApp.filtros.soloMias) {
+            // En "Mis Ofertas" mostrar Postulaciones Recibidas y Aceptadas
+            statsGrid.innerHTML = `
+              <div class="stat-item stat-clickable" onclick="app.stats.mostrarCandidatosInteresados()">
+                <span>📧</span>
+                <h3>${candidatosInteresados.total}</h3>
+                <p>Postulaciones Recibidas</p>
+                <div class="stat-tooltip">Dentistas que se han postulado a mis ofertas</div>
+              </div>
+              <div class="stat-item stat-clickable" onclick="app.stats.mostrarContactados()">
+                <span>✅</span>
+                <h3>${contactados}</h3>
+                <p>Candidatos Aceptados</p>
+                <div class="stat-tooltip">Dentistas que hemos aceptado en nuestras ofertas</div>
+              </div>
+            `;
+            return;
+          }
+
           statsGrid.innerHTML = `
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarTotalDentistas()">
               <span>👥</span>
@@ -2028,11 +2048,32 @@ const app = {
             </div>
           `;
         } else {
-          // Dentista: mostrar Ofertas Disponibles, Mis Postulaciones y Mis Postulaciones Aceptadas
-          const todas = await utils.request("/publicaciones");
-          const ofertas = todas.filter(p => p.tipo === 'oferta').length;
+          // Dentista
           const misPostulaciones = await utils.request(`/stats/mis-postulaciones/${estadoApp.usuario.id}`);
           const misAceptadas = await utils.request(`/stats/mis-postulaciones-aceptadas/${estadoApp.usuario.id}`);
+
+          // Si está viendo "Mis publicaciones" (Mi Búsqueda)
+          if (estadoApp.filtros.soloMias) {
+            statsGrid.innerHTML = `
+              <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulaciones()">
+                <span>📬</span>
+                <h3>${misPostulaciones.total}</h3>
+                <p>Mis Postulaciones</p>
+                <div class="stat-tooltip">Total de postulaciones que he hecho a ofertas de trabajo</div>
+              </div>
+              <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulacionesAceptadas()">
+                <span>✅</span>
+                <h3>${misAceptadas.total}</h3>
+                <p>Mis Postulaciones Aceptadas</p>
+                <div class="stat-tooltip">Ofertas donde han aceptado mi postulación</div>
+              </div>
+            `;
+            return;
+          }
+
+          // Por defecto: mostrar Ofertas Disponibles, Mis Postulaciones y Mis Postulaciones Aceptadas
+          const todas = await utils.request("/publicaciones");
+          const ofertas = todas.filter(p => p.tipo === 'oferta').length;
 
           statsGrid.innerHTML = `
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarOfertasActivas()">
