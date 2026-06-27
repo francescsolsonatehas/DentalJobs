@@ -711,6 +711,26 @@ const app = {
       document.getElementById("modalCandidatos").classList.remove("active");
     },
 
+    abrirMensajes() {
+      document.getElementById("modalMensajes").classList.add("active");
+      app.mensajes.cargarConversaciones();
+    },
+
+    cerrarMensajes() {
+      document.getElementById("modalMensajes").classList.remove("active");
+    },
+
+    abrirConversacion(email, nombre) {
+      document.getElementById("modalMensajes").classList.remove("active");
+      document.getElementById("modalConversacion").classList.add("active");
+      app.mensajes.cargarConversacion(email, nombre);
+    },
+
+    cerrarConversacion() {
+      document.getElementById("modalConversacion").classList.remove("active");
+      app.modal.abrirMensajes();
+    },
+
     async abrirInteresados(publicacionId, tipo) {
       try {
         const mensajes = await utils.request(`/mensajes/${publicacionId}`);
@@ -1844,8 +1864,12 @@ const app = {
       document.getElementById("navButtonsLogueado").style.display = "flex";
       document.getElementById("btnPublicar").style.display = "inline-block";
       document.getElementById("btnPostulaciones").style.display = estadoApp.tipoUsuario === 'dentista' ? "inline-block" : "none";
+      document.getElementById("btnMensajes").style.display = "inline-flex";
       document.getElementById("btnPerfil").style.display = "inline-block";
       document.getElementById("btnLogout").style.display = "inline-block";
+
+      // Cargar badge de mensajes no leídos
+      app.mensajes.actualizarBadge();
 
       // Actualizar texto del hero según tipo de usuario
       const heroTitle = document.querySelector("#heroPlataforma h1");
@@ -2130,6 +2154,97 @@ const app = {
         app.candidaturas.cargarCandidatos(publicacionId);
       } catch (error) {
         utils.mostrarAlerta("❌ " + error.message, "error");
+      }
+    }
+  },
+
+  mensajes: {
+    async cargarConversaciones() {
+      try {
+        const data = await utils.request("/mensajes/conversaciones");
+        const conversaciones = data.conversaciones || [];
+
+        const container = document.getElementById("conversacionesContainer");
+        if (!container) return;
+
+        if (conversaciones.length === 0) {
+          container.innerHTML = `<div style="padding: 2rem; text-align: center; color: #6b7280;"><p>No tienes mensajes aún</p></div>`;
+          return;
+        }
+
+        const html = conversaciones.map(c => `
+          <div onclick="app.modal.abrirConversacion('${c.remitente_email}', '${c.remitente_nombre}')" style="cursor: pointer; background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; hover: background #f9fafb;">
+            <div style="flex: 1;">
+              <p style="margin: 0; font-weight: 500; color: #1f2937;">${c.remitente_nombre}</p>
+              <p style="margin: 0.3rem 0 0 0; font-size: 0.85rem; color: #6b7280;">${c.remitente_email}</p>
+            </div>
+            ${c.no_leidos > 0 ? `<span style="background: #ef4444; color: white; padding: 0.3rem 0.6rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">${c.no_leidos}</span>` : ''}
+          </div>
+        `);
+
+        container.innerHTML = html.join('');
+      } catch (error) {
+        console.error(error);
+      }
+    },
+
+    async cargarConversacion(email, nombre) {
+      try {
+        const data = await utils.request(`/mensajes/conversacion/${encodeURIComponent(email)}`);
+        const mensajes = data.mensajes || [];
+
+        const container = document.getElementById("conversacionBody");
+        if (!container) return;
+
+        const titulo = document.querySelector("#modalConversacion .modal-header h2");
+        if (titulo) titulo.textContent = nombre;
+
+        if (mensajes.length === 0) {
+          container.innerHTML = `<div style="padding: 2rem; text-align: center; color: #6b7280;"><p>No hay mensajes aún</p></div>`;
+          return;
+        }
+
+        const html = mensajes.map(m => {
+          const esPropio = m.usuario_id === estadoApp.usuario.id;
+          return `
+            <div style="margin-bottom: 1rem; display: flex; ${esPropio ? 'justify-content: flex-end' : 'justify-content: flex-start'};">
+              <div style="background: ${esPropio ? '#2563eb' : '#e5e7eb'}; color: ${esPropio ? 'white' : '#1f2937'}; padding: 1rem; border-radius: 8px; max-width: 70%;">
+                <p style="margin: 0; word-wrap: break-word;">${m.cuerpo}</p>
+                <small style="opacity: 0.7; margin-top: 0.3rem; display: block;">${new Date(m.creado_en).toLocaleString('es-ES')}</small>
+              </div>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html.join('');
+
+        // Marcar como leídos
+        mensajes.forEach(m => {
+          if (m.leido === 0) {
+            utils.request(`/mensajes/${m.id}/leer`, { method: "PUT" }).catch(e => console.error(e));
+          }
+        });
+
+        app.mensajes.actualizarBadge();
+      } catch (error) {
+        console.error(error);
+      }
+    },
+
+    async actualizarBadge() {
+      try {
+        const data = await utils.request("/mensajes/no-leidos/count");
+        const badge = document.getElementById("badgeMensajes");
+        if (badge) {
+          if (data.no_leidos > 0) {
+            badge.textContent = data.no_leidos;
+            badge.style.display = "inline-block";
+          } else {
+            badge.style.display = "none";
+          }
+        }
+      } catch (error) {
+        console.error(error);
       }
     }
   }

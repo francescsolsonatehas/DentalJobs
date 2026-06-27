@@ -13,6 +13,11 @@
             <div class="logo">🦷 DentalJobs</div>
             <div class="nav-buttons" id="navButtonsLogueado">
                 <button class="btn-primary btn-small" id="btnPublicar" onclick="app.modal.abrirPublicar()" style="display: none;">Publicar</button>
+                <button class="btn-outline btn-small" id="btnPostulaciones" onclick="app.modal.abrirPostulaciones()" style="display: none;">📬 Mis postulaciones</button>
+                <button class="btn-outline btn-small" id="btnMensajes" onclick="app.modal.abrirMensajes()" style="display: none; position: relative;">
+                    📬 Mensajes
+                    <span id="badgeMensajes" style="position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; width: 20px; height: 20px; display: none; justify-content: center; align-items: center; font-size: 0.8rem; font-weight: 600;"></span>
+                </button>
                 <button class="btn-outline btn-small" id="btnPerfil" onclick="app.modal.abrirPerfil()" style="display: none;">Mi perfil</button>
                 <button class="btn-text btn-small" id="btnLogout" onclick="app.auth.logout()" style="display: none;">Logout</button>
             </div>
@@ -492,6 +497,32 @@
                 <button class="close-btn" onclick="app.modal.cerrarCandidatos()">✕</button>
             </div>
             <div id="candidatosBody" style="padding: 1.5rem;"></div>
+        </div>
+    </div>
+
+    <!-- Modal: Mensajes (Bandeja de entrada) -->
+    <div id="modalMensajes" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Mensajes</h2>
+                <button class="close-btn" onclick="app.modal.cerrarMensajes()">✕</button>
+            </div>
+            <div id="conversacionesContainer" style="padding: 1.5rem;"></div>
+        </div>
+    </div>
+
+    <!-- Modal: Conversación -->
+    <div id="modalConversacion" class="modal">
+        <div class="modal-content" style="max-height: 80vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h2>Conversación</h2>
+                <button class="close-btn" onclick="app.modal.cerrarConversacion()">✕</button>
+            </div>
+            <div id="conversacionBody" style="padding: 1.5rem; overflow-y: auto; flex: 1; display: flex; flex-direction: column;"></div>
+            <div style="padding: 1.5rem; border-top: 1px solid #e5e7eb;">
+                <textarea id="nuevoMensaje" placeholder="Escribe tu respuesta..." style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; resize: none; min-height: 80px; font-family: inherit;"></textarea>
+                <button class="btn-primary" onclick="app.contacto.enviar()" style="width: 100%; margin-top: 0.75rem;">Enviar respuesta</button>
+            </div>
         </div>
     </div>
 
