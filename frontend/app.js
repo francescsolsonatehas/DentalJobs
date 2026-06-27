@@ -2028,11 +2028,19 @@ const app = {
             </div>
           `;
         } else {
-          // Dentista: mostrar Mis Postulaciones y Mis Postulaciones Aceptadas
+          // Dentista: mostrar Ofertas Disponibles, Mis Postulaciones y Mis Postulaciones Aceptadas
+          const todas = await utils.request("/publicaciones");
+          const ofertas = todas.filter(p => p.tipo === 'oferta').length;
           const misPostulaciones = await utils.request(`/stats/mis-postulaciones/${estadoApp.usuario.id}`);
           const misAceptadas = await utils.request(`/stats/mis-postulaciones-aceptadas/${estadoApp.usuario.id}`);
 
           statsGrid.innerHTML = `
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarOfertasActivas()">
+              <span>📋</span>
+              <h3>${ofertas}</h3>
+              <p>Ofertas Disponibles</p>
+              <div class="stat-tooltip">Ofertas de trabajo disponibles de todas las especialidades y ciudades</div>
+            </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulaciones()">
               <span>📬</span>
               <h3>${misPostulaciones.total}</h3>
