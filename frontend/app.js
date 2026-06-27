@@ -686,20 +686,11 @@ const app = {
       document.getElementById("detalleBody").innerHTML = html;
       document.getElementById("detalleTitle").textContent = publicacion.tipo === "oferta" ? "Oferta de trabajo" : "Solicitud de empleo";
 
-      // Mostrar botón "Postularme" solo para dentistas viendo ofertas
-      const btnPostularme = document.getElementById("btnPostularme");
+      // Ocultar sección de contacto si es propia publicación
       const detalleContacto = document.getElementById("detalleContacto");
       if (publicacion.usuario_id === estadoApp.usuario?.id) {
-        // Es propia publicación
-        btnPostularme.style.display = "none";
-        detalleContacto.style.display = "none";
-      } else if (estadoApp.tipoUsuario === 'dentista' && publicacion.tipo === 'oferta') {
-        // Dentista viendo oferta
-        btnPostularme.style.display = "block";
         detalleContacto.style.display = "none";
       } else {
-        // Otros casos
-        btnPostularme.style.display = "none";
         detalleContacto.style.display = "block";
       }
 
