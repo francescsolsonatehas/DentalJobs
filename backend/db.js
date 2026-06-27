@@ -92,6 +92,18 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS candidaturas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      publicacion_id INTEGER NOT NULL REFERENCES publicaciones(id),
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      estado TEXT DEFAULT 'pendiente',
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+      actualizado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(publicacion_id, usuario_id)
+    )
+  `);
+
   // Agregar columnas si no existen (para compatibilidad)
   db.run(`ALTER TABLE mensajes ADD COLUMN usuario_id INTEGER REFERENCES usuarios(id)`, (err) => {
     // Ignorar error si la columna ya existe

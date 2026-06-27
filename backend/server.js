@@ -934,6 +934,143 @@ app.delete("/archivos/:id", verifyToken, (req, res) => {
 });
 
 /* ===========================
+   🔹 CANDIDATURAS
+=========================== */
+
+// Crear candidatura (dentista postulándose a oferta)
+app.post("/candidaturas", verifyToken, (req, res) => {
+  const { publicacion_id } = req.body;
+  const usuario_id = req.usuario.id;
+
+  if (!publicacion_id) {
+    return res.status(400).json({ error: "publicacion_id requerido" });
+  }
+
+  db.run(
+    "INSERT INTO candidaturas (publicacion_id, usuario_id, estado) VALUES (?, ?, 'pendiente')",
+    [publicacion_id, usuario_id],
+    function(err) {
+      if (err) {
+        if (err.message.includes("UNIQUE")) {
+          return res.status(400).json({ error: "Ya te has postulado a esta oferta" });
+        }
+        console.error(err);
+        return res.status(500).json({ error: "Error al postularse" });
+      }
+
+      res.json({
+        mensaje: "Postulación creada",
+        candidatura_id: this.lastID
+      });
+    }
+  );
+});
+
+// Obtener mis postulaciones (dentista)
+app.get("/candidaturas/mis-postulaciones", verifyToken, (req, res) => {
+  const usuario_id = req.usuario.id;
+
+  db.all(
+    `SELECT c.*, p.titulo, p.descripcion, p.ciudad, p.contrato, p.jornada, p.salario,
+            u.nombre as empresa_nombre, u.email as empresa_email
+     FROM candidaturas c
+     JOIN publicaciones p ON c.publicacion_id = p.id
+     JOIN usuarios u ON p.usuario_id = u.id
+     WHERE c.usuario_id = ?
+     ORDER BY c.creado_en DESC`,
+    [usuario_id],
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener postulaciones" });
+      }
+
+      res.json({ candidaturas: rows || [] });
+    }
+  );
+});
+
+// Obtener candidatos de una oferta (clínica)
+app.get("/publicaciones/:id/candidatos", verifyToken, (req, res) => {
+  const publicacion_id = req.params.id;
+
+  db.all(
+    `SELECT c.*, u.nombre, u.email, u.telefono, u.movil, u.ciudad, u.direccion, u.tipo
+     FROM candidaturas c
+     JOIN usuarios u ON c.usuario_id = u.id
+     WHERE c.publicacion_id = ?
+     ORDER BY c.creado_en DESC`,
+    [publicacion_id],
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener candidatos" });
+      }
+
+      res.json({ candidatos: rows || [] });
+    }
+  );
+});
+
+// Cambiar estado de candidatura (aceptar/rechazar)
+app.put("/candidaturas/:id", verifyToken, (req, res) => {
+  const { estado } = req.body;
+  const candidatura_id = req.params.id;
+
+  if (!["pendiente", "aceptada", "rechazada"].includes(estado)) {
+    return res.status(400).json({ error: "Estado inválido" });
+  }
+
+  db.run(
+    "UPDATE candidaturas SET estado = ?, actualizado_en = CURRENT_TIMESTAMP WHERE id = ?",
+    [estado, candidatura_id],
+    function(err) {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al actualizar candidatura" });
+      }
+
+      res.json({ mensaje: "Candidatura actualizada" });
+    }
+  );
+});
+
+// Eliminar candidatura (retirar postulación)
+app.delete("/candidaturas/:id", verifyToken, (req, res) => {
+  const candidatura_id = req.params.id;
+  const usuario_id = req.usuario.id;
+
+  // Verificar que el usuario sea el que se postuló
+  db.get(
+    "SELECT usuario_id FROM candidaturas WHERE id = ?",
+    [candidatura_id],
+    (err, candidatura) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al eliminar candidatura" });
+      }
+
+      if (!candidatura || candidatura.usuario_id !== usuario_id) {
+        return res.status(403).json({ error: "No tienes permiso para eliminar esta candidatura" });
+      }
+
+      db.run(
+        "DELETE FROM candidaturas WHERE id = ?",
+        [candidatura_id],
+        (err) => {
+          if (err) {
+            console.error(err);
+            return res.status(500).json({ error: "Error al eliminar candidatura" });
+          }
+
+          res.json({ mensaje: "Candidatura eliminada" });
+        }
+      );
+    }
+  );
+});
+
+/* ===========================
    🔹 INICIAR SERVIDOR
 =========================== */
 
