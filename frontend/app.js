@@ -2405,6 +2405,11 @@ const app = {
       try {
         await utils.request(`/candidaturas/${candidaturaId}`, { method: "DELETE" });
         utils.mostrarAlerta("✅ Postulación retirada", "success");
+        // Cerrar modal de detalles si está abierto
+        const modalDetalle = document.getElementById("modalDetalle");
+        if (modalDetalle) {
+          modalDetalle.classList.remove("active");
+        }
         // Recargar publicaciones y stats
         await app.publicaciones.cargar();
         await app.ui.actualizarStats();
