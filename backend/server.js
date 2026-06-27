@@ -142,25 +142,55 @@ app.post("/auth/solicitar-cambio-email", verifyToken, (req, res) => {
     const token = require('crypto').randomBytes(32).toString('hex');
     const expiracion = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
 
-    // Guardar token en BD (usar tabla temporal o campo en usuarios)
+    // Guardar token en BD
     db.run(
       "INSERT INTO confirmacion_email (usuario_id, nuevo_email, token, expiracion, datos) VALUES (?, ?, ?, ?, ?)",
       [usuarioId, nuevoEmail, token, expiracion.toISOString(), JSON.stringify(datos)],
       function(err) {
         if (err) {
-          console.error(err);
-          return res.status(500).json({ error: "Error al procesar cambio de email" });
+          console.error("Error al insertar token:", err);
+          // Intentar crear la tabla si no existe
+          db.run(`
+            CREATE TABLE IF NOT EXISTS confirmacion_email (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              usuario_id INTEGER REFERENCES usuarios(id),
+              nuevo_email TEXT NOT NULL,
+              token TEXT UNIQUE NOT NULL,
+              datos TEXT,
+              expiracion DATETIME NOT NULL,
+              creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+          `, (createErr) => {
+            if (createErr) {
+              console.error(createErr);
+              return res.status(500).json({ error: "Error al procesar cambio de email" });
+            }
+
+            // Reintentar insert
+            db.run(
+              "INSERT INTO confirmacion_email (usuario_id, nuevo_email, token, expiracion, datos) VALUES (?, ?, ?, ?, ?)",
+              [usuarioId, nuevoEmail, token, expiracion.toISOString(), JSON.stringify(datos)],
+              function(err) {
+                if (err) {
+                  console.error(err);
+                  return res.status(500).json({ error: "Error al procesar cambio de email" });
+                }
+
+                res.json({
+                  success: true,
+                  message: "Email de confirmación enviado",
+                  token: token // Retornar token para desarrollo
+                });
+              }
+            );
+          });
+        } else {
+          res.json({
+            success: true,
+            message: "Email de confirmación enviado",
+            token: token // Retornar token para desarrollo
+          });
         }
-
-        // En producción, aquí enviarías un email real con el link de confirmación
-        // Por ahora, simularemos que se envió
-        console.log(`📧 Email de confirmación simulated para: ${nuevoEmail}`);
-        console.log(`Link de confirmación: http://localhost:9000/confirmar-email?token=${token}`);
-
-        res.json({
-          success: true,
-          message: "Email de confirmación enviado"
-        });
       }
     );
   });
