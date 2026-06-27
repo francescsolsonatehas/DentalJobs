@@ -1604,13 +1604,18 @@ const app = {
           const passwordNueva = document.getElementById("perfilPasswordNueva").value;
           const passwordConfirma = document.getElementById("perfilPasswordConfirma").value;
 
-          // Si se ingresó contraseña actual, procesar cambio de password
-          if (passwordActual) {
+          // Procesar cambio si hay intención: si se ingresó algo en cualquier campo
+          const hayIntencionCambio = passwordActual || passwordNueva || passwordConfirma;
+
+          if (hayIntencionCambio) {
             // Validar que las nuevas contraseñas coincidan
             if (passwordNueva !== passwordConfirma) {
               utils.mostrarAlerta("❌ Las contraseñas no coinciden", "error");
               return;
             }
+
+            // Nota: passwordActual puede ser vacío si la contraseña actual es también vacía
+            // Se enviará al backend para validar
 
             const resPassword = await utils.request("/auth/cambiar-password", {
               method: "PUT",
@@ -1663,8 +1668,10 @@ const app = {
         const passwordNueva = document.getElementById("perfilPasswordNueva").value;
         const passwordConfirma = document.getElementById("perfilPasswordConfirma").value;
 
-        // Si se ingresó contraseña actual, procesar cambio de password
-        if (passwordActual) {
+        // Procesar cambio si hay intención: si se ingresó algo en cualquier campo
+        const hayIntencionCambio = passwordActual || passwordNueva || passwordConfirma;
+
+        if (hayIntencionCambio) {
           // Validar que las nuevas contraseñas coincidan
           if (passwordNueva !== passwordConfirma) {
             utils.mostrarAlerta("❌ Las contraseñas no coinciden", "error");
