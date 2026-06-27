@@ -83,6 +83,15 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS publicacion_especialidades (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      publicacion_id INTEGER REFERENCES publicaciones(id),
+      especialidad_id INTEGER REFERENCES especialidades(id),
+      UNIQUE(publicacion_id, especialidad_id)
+    )
+  `);
+
   // Agregar columnas si no existen (para compatibilidad)
   db.run(`ALTER TABLE mensajes ADD COLUMN usuario_id INTEGER REFERENCES usuarios(id)`, (err) => {
     // Ignorar error si la columna ya existe

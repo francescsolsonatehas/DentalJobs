@@ -180,6 +180,54 @@ app.post("/auth/guardar-especialidades", verifyToken, (req, res) => {
   );
 });
 
+app.put("/auth/cambiar-password", verifyToken, (req, res) => {
+  const { passwordActual, passwordNueva } = req.body;
+  const usuarioId = req.usuario.id;
+
+  if (!passwordActual || !passwordNueva) {
+    return res.status(400).json({ error: "Contraseña actual y nueva requeridas" });
+  }
+
+  if (passwordNueva.length < 4) {
+    return res.status(400).json({ error: "La contraseña debe tener al menos 4 caracteres" });
+  }
+
+  // Obtener usuario actual
+  db.get("SELECT password FROM usuarios WHERE id = ?", [usuarioId], (err, usuario) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al cambiar contraseña" });
+    }
+
+    if (!usuario) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    // Verificar contraseña actual
+    const esValida = bcrypt.compareSync(passwordActual, usuario.password);
+    if (!esValida) {
+      return res.status(400).json({ error: "Contraseña actual incorrecta" });
+    }
+
+    // Crear hash de nueva contraseña
+    const hashedPassword = bcrypt.hashSync(passwordNueva, 10);
+
+    // Actualizar contraseña
+    db.run(
+      "UPDATE usuarios SET password = ? WHERE id = ?",
+      [hashedPassword, usuarioId],
+      (err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al cambiar contraseña" });
+        }
+
+        res.json({ success: true, message: "Contraseña actualizada correctamente" });
+      }
+    );
+  });
+});
+
 app.post("/auth/solicitar-cambio-email", verifyToken, (req, res) => {
   const { nuevoEmail, datos } = req.body;
   const usuarioId = req.usuario.id;

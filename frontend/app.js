@@ -1394,6 +1394,15 @@ const app = {
               </div>
             </div>
 
+            <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
+
+            <div class="form-group">
+              <label>Cambiar Contraseña (Opcional)</label>
+              <input type="password" id="perfilPasswordActual" placeholder="Contraseña actual" style="margin-bottom: 0.5rem;">
+              <input type="password" id="perfilPasswordNueva" placeholder="Nueva contraseña">
+              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Solo ingresa si deseas cambiar tu contraseña</small>
+            </div>
+
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
               <button type="button" class="btn-outline" style="flex: 1;" onclick="app.perfil.cancelarEdicion()">❌ Deshacer cambios</button>
               <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
@@ -1452,6 +1461,15 @@ const app = {
               <div id="especialidadesContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
                 <!-- Se llenarán dinámicamente -->
               </div>
+            </div>
+
+            <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
+
+            <div class="form-group">
+              <label>Cambiar Contraseña (Opcional)</label>
+              <input type="password" id="perfilPasswordActual" placeholder="Contraseña actual" style="margin-bottom: 0.5rem;">
+              <input type="password" id="perfilPasswordNueva" placeholder="Nueva contraseña">
+              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Solo ingresa si deseas cambiar tu contraseña</small>
             </div>
 
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
@@ -1515,6 +1533,22 @@ const app = {
               method: "POST",
               body: JSON.stringify({ especialidades: especialidadesSeleccionadas })
             });
+          }
+
+          // Cambiar contraseña si se proporcionó
+          const passwordActual = document.getElementById("perfilPasswordActual").value;
+          const passwordNueva = document.getElementById("perfilPasswordNueva").value;
+
+          if (passwordActual && passwordNueva) {
+            const resPassword = await utils.request("/auth/cambiar-password", {
+              method: "PUT",
+              body: JSON.stringify({ passwordActual, passwordNueva })
+            });
+
+            if (resPassword.error) {
+              utils.mostrarAlerta("❌ " + resPassword.error, "error");
+              return;
+            }
           }
 
           utils.mostrarAlerta("✅ Perfil actualizado correctamente", "success");
