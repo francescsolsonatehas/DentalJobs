@@ -495,7 +495,7 @@ const app = {
       if (estadoApp.tipoUsuario === 'clinica') {
         filtersTitle.textContent = "Solicitudes Disponibles de Dentistas";
       } else {
-        filtersTitle.textContent = "Ofertas Disponibles de Clínicas";
+        filtersTitle.textContent = "Clínicas";
       }
 
       app.publicaciones.cargar();
@@ -2066,7 +2066,7 @@ const app = {
         const nombrePartes = (estadoApp.usuario?.nombre || 'Candidato').split(' ');
         const nombreCorto = nombrePartes.length >= 2 ? `${nombrePartes[0]} ${nombrePartes[1]}` : nombrePartes[0];
         heroTitle.textContent = `🦷 ${nombreCorto}`;
-        filtersTitle.textContent = "Ofertas Disponibles de Clínicas";
+        filtersTitle.textContent = "Clínicas";
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "none";
@@ -2075,7 +2075,7 @@ const app = {
         btnContactadas.style.display = "none";
         document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
-        btnTodas.textContent = "Ofertas Disponibles de Clínicas";
+        btnTodas.textContent = "Clínicas";
       }
 
       estadoApp.filtros.soloMias = false;
@@ -2173,7 +2173,7 @@ const app = {
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarOfertasActivas()">
               <span>📋</span>
               <h3>${ofertas}</h3>
-              <p>Ofertas Disponibles de Clínicas</p>
+              <p>Clínicas</p>
               <div class="stat-tooltip">Ofertas de trabajo disponibles de todas las especialidades y ciudades</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulaciones()">
