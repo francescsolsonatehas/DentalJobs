@@ -1358,8 +1358,18 @@ const app = {
             </div>
 
             <div class="form-group">
-              <label>Teléfono</label>
+              <label>Teléfono Móbil</label>
               <input type="tel" id="perfilTelefono" value="${u.telefono || ''}">
+            </div>
+
+            <div class="form-group">
+              <label>Móbil</label>
+              <input type="tel" id="perfilMovil" value="${u.movil || ''}">
+            </div>
+
+            <div class="form-group">
+              <label>Ciudad</label>
+              <input type="text" id="perfilCiudad" value="${u.ciudad || ''}">
             </div>
 
             <div class="form-group">
@@ -1398,8 +1408,18 @@ const app = {
             </div>
 
             <div class="form-group">
-              <label>Teléfono</label>
+              <label>Teléfono Móbil</label>
               <input type="tel" id="perfilTelefono" value="${u.telefono || ''}">
+            </div>
+
+            <div class="form-group">
+              <label>Móbil</label>
+              <input type="tel" id="perfilMovil" value="${u.movil || ''}">
+            </div>
+
+            <div class="form-group">
+              <label>Ciudad</label>
+              <input type="text" id="perfilCiudad" value="${u.ciudad || ''}">
             </div>
 
             <div class="form-group">
@@ -1439,6 +1459,8 @@ const app = {
         nombre: document.getElementById("perfilNombre").value,
         email: nuevoEmail,
         telefono: document.getElementById("perfilTelefono").value || null,
+        movil: document.getElementById("perfilMovil").value || null,
+        ciudad: document.getElementById("perfilCiudad").value || null,
         direccion: document.getElementById("perfilDireccion").value || null,
         codigo_postal: document.getElementById("perfilCodigoPostal").value || null,
         pais: document.getElementById("perfilPais").value || null

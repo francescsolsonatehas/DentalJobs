@@ -91,6 +91,14 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
+  db.run(`ALTER TABLE usuarios ADD COLUMN ciudad TEXT`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
+  db.run(`ALTER TABLE usuarios ADD COLUMN movil TEXT`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
   db.run(`
     CREATE TABLE IF NOT EXISTS archivos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

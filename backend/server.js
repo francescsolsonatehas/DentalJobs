@@ -95,7 +95,7 @@ app.post("/auth/login", (req, res) => {
 });
 
 app.put("/auth/actualizar-perfil", verifyToken, (req, res) => {
-  const { nombre, telefono, direccion, codigo_postal, pais } = req.body;
+  const { nombre, telefono, movil, direccion, codigo_postal, pais, ciudad } = req.body;
   const usuarioId = req.usuario.id;
 
   if (!nombre) {
@@ -103,8 +103,8 @@ app.put("/auth/actualizar-perfil", verifyToken, (req, res) => {
   }
 
   db.run(
-    "UPDATE usuarios SET nombre = ?, telefono = ?, direccion = ?, codigo_postal = ?, pais = ? WHERE id = ?",
-    [nombre, telefono || null, direccion || null, codigo_postal || null, pais || null, usuarioId],
+    "UPDATE usuarios SET nombre = ?, telefono = ?, movil = ?, direccion = ?, codigo_postal = ?, pais = ?, ciudad = ? WHERE id = ?",
+    [nombre, telefono || null, movil || null, direccion || null, codigo_postal || null, pais || null, ciudad || null, usuarioId],
     function(err) {
       if (err) {
         console.error(err);
@@ -200,7 +200,7 @@ app.get("/auth/mi-perfil", verifyToken, (req, res) => {
   const usuarioId = req.usuario.id;
 
   db.get(
-    "SELECT id, nombre, email, tipo, telefono, direccion, codigo_postal, pais, creado_en FROM usuarios WHERE id = ?",
+    "SELECT id, nombre, email, tipo, telefono, movil, direccion, codigo_postal, pais, ciudad, creado_en FROM usuarios WHERE id = ?",
     [usuarioId],
     (err, usuario) => {
       if (err) {
