@@ -1642,6 +1642,54 @@ const app = {
 
     async solicitarCambioEmail(datosActualizados) {
       try {
+        // Guardar especialidades primero si es candidato o empresa
+        if (['dentista', 'clinica'].includes(estadoApp.tipoUsuario)) {
+          const checkboxes = document.querySelectorAll('#especialidadesContainer input[type="checkbox"]');
+          const especialidadesSeleccionadas = Array.from(checkboxes)
+            .filter(cb => cb.checked)
+            .map(cb => parseInt(cb.value));
+
+          await utils.request("/auth/guardar-especialidades", {
+            method: "POST",
+            body: JSON.stringify({ especialidades: especialidadesSeleccionadas })
+          });
+        }
+
+        // Cambiar contraseña si se proporcionó (ANTES de cambiar email)
+        const passwordActual = document.getElementById("perfilPasswordActual").value;
+        const passwordNueva = document.getElementById("perfilPasswordNueva").value;
+        const passwordConfirma = document.getElementById("perfilPasswordConfirma").value;
+
+        if (passwordActual || passwordNueva || passwordConfirma) {
+          // Si se ingresó algo, validar que las nuevas contraseñas coincidan
+          if (passwordNueva !== passwordConfirma) {
+            utils.mostrarAlerta("❌ Las contraseñas no coinciden", "error");
+            return;
+          }
+
+          // Validar que se ingresó contraseña actual y nueva
+          if (!passwordActual) {
+            utils.mostrarAlerta("❌ Ingresa tu contraseña actual", "error");
+            return;
+          }
+
+          if (!passwordNueva) {
+            utils.mostrarAlerta("❌ Ingresa una nueva contraseña", "error");
+            return;
+          }
+
+          const resPassword = await utils.request("/auth/cambiar-password", {
+            method: "PUT",
+            body: JSON.stringify({ passwordActual, passwordNueva })
+          });
+
+          if (resPassword.error) {
+            utils.mostrarAlerta("❌ " + resPassword.error, "error");
+            return;
+          }
+        }
+
+        // Solicitar cambio de email
         const response = await utils.request("/auth/solicitar-cambio-email", {
           method: "POST",
           body: JSON.stringify({
@@ -1649,6 +1697,8 @@ const app = {
             datos: {
               nombre: datosActualizados.nombre,
               telefono: datosActualizados.telefono,
+              movil: datosActualizados.movil,
+              ciudad: datosActualizados.ciudad,
               direccion: datosActualizados.direccion,
               codigo_postal: datosActualizados.codigo_postal,
               pais: datosActualizados.pais
@@ -1660,6 +1710,10 @@ const app = {
           utils.mostrarAlerta(response.error, "error");
           return;
         }
+
+        // Actualizar estadoApp con los datos (sin email, que se confirmará después)
+        const { email, ...datosOtros } = datosActualizados;
+        estadoApp.usuario = { ...estadoApp.usuario, ...datosOtros };
 
         // Mostrar modal de confirmación
         const modal = document.createElement('div');
