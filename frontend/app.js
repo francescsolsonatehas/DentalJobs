@@ -2173,7 +2173,7 @@ const app = {
         }
 
         const html = conversaciones.map(c => `
-          <div onclick="app.modal.abrirConversacion('${c.remitente_email}', '${c.remitente_nombre}')" style="cursor: pointer; background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; hover: background #f9fafb;">
+          <div onclick="app.modal.abrirConversacion('${c.remitente_email.replace(/'/g, "\\'")}', '${c.remitente_nombre.replace(/'/g, "\\'")}')" style="cursor: pointer; background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
             <div style="flex: 1;">
               <p style="margin: 0; font-weight: 500; color: #1f2937;">${c.remitente_nombre}</p>
               <p style="margin: 0.3rem 0 0 0; font-size: 0.85rem; color: #6b7280;">${c.remitente_email}</p>
