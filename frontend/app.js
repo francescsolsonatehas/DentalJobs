@@ -549,7 +549,7 @@ const app = {
       event.target.classList.add("active");
 
       const filtersTitle = document.getElementById("filtrosTitle");
-      filtersTitle.textContent = "Mis Postulaciones a Clínicas Aceptadas a Clínicas";
+      filtersTitle.textContent = "Mis Postulaciones a Clínicas Aceptadas";
 
       app.stats.mostrarMisPostulacionesAceptadas();
     },
@@ -1026,7 +1026,7 @@ const app = {
     async mostrarMisPostulacionesAceptadas() {
       try {
         const postulaciones = await utils.request(`/stats/mis-postulaciones-aceptadas-lista/${estadoApp.usuario.id}`);
-        app.stats.mostrarListaPostulaciones(postulaciones, "Mis Postulaciones a Clínicas Aceptadas a Clínicas");
+        app.stats.mostrarListaPostulaciones(postulaciones, "Mis Postulaciones a Clínicas Aceptadas");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -2086,7 +2086,7 @@ const app = {
             </div>
           `;
         } else {
-          // Dentista: siempre mostrar Ofertas Disponibles de Clínicas, Mis Postulaciones a Clínicas y Mis Postulaciones a Clínicas Aceptadas a Clínicas
+          // Dentista: siempre mostrar Ofertas Disponibles de Clínicas, Mis Postulaciones a Clínicas y Mis Postulaciones a Clínicas Aceptadas
           const todas = await utils.request("/publicaciones");
           const ofertas = todas.filter(p => p.tipo === 'oferta').length;
           const misPostulaciones = await utils.request(`/stats/mis-postulaciones/${estadoApp.usuario.id}`);
@@ -2108,7 +2108,7 @@ const app = {
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulacionesAceptadas()">
               <span>✅</span>
               <h3>${misAceptadas.total}</h3>
-              <p>Mis Postulaciones a Clínicas Aceptadas a Clínicas</p>
+              <p>Mis Postulaciones a Clínicas Aceptadas</p>
               <div class="stat-tooltip">Ofertas donde han aceptado mi postulación</div>
             </div>
           `;
