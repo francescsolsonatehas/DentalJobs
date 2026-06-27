@@ -582,6 +582,81 @@ app.get("/stats/total-dentistas", (req, res) => {
   );
 });
 
+// Estadísticas para dentistas (candidatos)
+app.get("/stats/mis-postulaciones/:usuario_id", verifyToken, (req, res) => {
+  const usuario_id = req.params.usuario_id;
+  db.get(
+    `SELECT COUNT(*) as total FROM candidaturas WHERE usuario_id = ?`,
+    [usuario_id],
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener postulaciones" });
+      }
+      res.json({ total: result.total || 0 });
+    }
+  );
+});
+
+app.get("/stats/mis-postulaciones-lista/:usuario_id", verifyToken, (req, res) => {
+  const usuario_id = req.params.usuario_id;
+  db.all(
+    `SELECT c.id, c.estado, c.mensaje, c.creado_en, c.actualizado_en,
+            p.id as publicacion_id, p.titulo, p.descripcion, p.ciudad, p.contrato, p.jornada, p.salario,
+            u.nombre as empresa_nombre, u.email as empresa_email
+     FROM candidaturas c
+     INNER JOIN publicaciones p ON c.publicacion_id = p.id
+     INNER JOIN usuarios u ON p.usuario_id = u.id
+     WHERE c.usuario_id = ?
+     ORDER BY p.id, c.creado_en DESC`,
+    [usuario_id],
+    (err, postulaciones) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener postulaciones" });
+      }
+      res.json(postulaciones || []);
+    }
+  );
+});
+
+app.get("/stats/mis-postulaciones-aceptadas/:usuario_id", verifyToken, (req, res) => {
+  const usuario_id = req.params.usuario_id;
+  db.get(
+    `SELECT COUNT(*) as total FROM candidaturas WHERE usuario_id = ? AND estado = 'aceptada'`,
+    [usuario_id],
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener postulaciones aceptadas" });
+      }
+      res.json({ total: result.total || 0 });
+    }
+  );
+});
+
+app.get("/stats/mis-postulaciones-aceptadas-lista/:usuario_id", verifyToken, (req, res) => {
+  const usuario_id = req.params.usuario_id;
+  db.all(
+    `SELECT c.id, c.estado, c.mensaje, c.creado_en, c.actualizado_en,
+            p.id as publicacion_id, p.titulo, p.descripcion, p.ciudad, p.contrato, p.jornada, p.salario,
+            u.nombre as empresa_nombre, u.email as empresa_email
+     FROM candidaturas c
+     INNER JOIN publicaciones p ON c.publicacion_id = p.id
+     INNER JOIN usuarios u ON p.usuario_id = u.id
+     WHERE c.usuario_id = ? AND c.estado = 'aceptada'
+     ORDER BY p.id, c.creado_en DESC`,
+    [usuario_id],
+    (err, postulaciones) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener postulaciones aceptadas" });
+      }
+      res.json(postulaciones || []);
+    }
+  );
+});
+
 app.get("/stats/posibles-candidatos/:empresa_id", verifyToken, (req, res) => {
   // Contar candidatos únicos que coinciden con Ciudad y Especialidad de mis ofertas
   db.get(

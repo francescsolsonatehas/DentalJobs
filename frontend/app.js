@@ -988,6 +988,57 @@ const app = {
       }
     },
 
+    async mostrarMisPostulaciones() {
+      try {
+        const postulaciones = await utils.request(`/stats/mis-postulaciones-lista/${estadoApp.usuario.id}`);
+        app.stats.mostrarListaPostulaciones(postulaciones, "Mis Postulaciones");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarMisPostulacionesAceptadas() {
+      try {
+        const postulaciones = await utils.request(`/stats/mis-postulaciones-aceptadas-lista/${estadoApp.usuario.id}`);
+        app.stats.mostrarListaPostulaciones(postulaciones, "Mis Postulaciones Aceptadas");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    mostrarListaPostulaciones(postulaciones, titulo) {
+      if (postulaciones.length === 0) {
+        utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
+        return;
+      }
+
+      let html = `<h3>${postulaciones.length} ${titulo}</h3><div class="candidatos-list">`;
+
+      postulaciones.forEach(post => {
+        const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[post.estado];
+        html += `
+          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75;">📋 ${post.titulo}</h4>
+            <p style="margin: 0 0 0.5rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Empresa:</strong> ${post.empresa_nombre}</p>
+            <p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;">${post.descripcion || 'Sin descripción'}</p>
+            <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 3px solid ${estadoColor};">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <strong>Estado de la postulación</strong>
+                <span style="background: ${estadoColor}; color: white; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.8rem; text-transform: capitalize;">${post.estado}</span>
+              </div>
+              ${post.mensaje ? `<p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; padding: 0.75rem; background: #f0f9ff; border-radius: 4px; border-left: 2px solid #0ea5e9; color: #0c4a6e;"><strong>Tu mensaje:</strong> ${post.mensaje}</p>` : ''}
+            </div>
+          </div>
+        `;
+      });
+
+      html += "</div>";
+
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = titulo;
+      document.getElementById("modalInteresados").classList.add("active");
+    },
+
     async mostrarMisSolicitudes() {
       try {
         const todas = await utils.request("/publicaciones");
@@ -1977,23 +2028,22 @@ const app = {
             </div>
           `;
         } else {
-          // Candidato: mostrar Ofertas disponibles y Mi búsqueda
-          const todas = await utils.request("/publicaciones");
-          const ofertas = todas.filter(p => p.tipo === 'oferta').length;
-          const misSolicitudes = todas.filter(p => p.tipo === 'solicitud' && p.usuario_id === estadoApp.usuario.id);
+          // Dentista: mostrar Mis Postulaciones y Mis Postulaciones Aceptadas
+          const misPostulaciones = await utils.request(`/stats/mis-postulaciones/${estadoApp.usuario.id}`);
+          const misAceptadas = await utils.request(`/stats/mis-postulaciones-aceptadas/${estadoApp.usuario.id}`);
 
           statsGrid.innerHTML = `
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarOfertasActivas()">
-              <span>📋</span>
-              <h3>${ofertas}</h3>
-              <p>Ofertas Disponibles</p>
-              <div class="stat-tooltip">Ofertas de trabajo disponibles de todas las especialidades y ciudades</div>
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulaciones()">
+              <span>📬</span>
+              <h3>${misPostulaciones.total}</h3>
+              <p>Mis Postulaciones</p>
+              <div class="stat-tooltip">Total de postulaciones que he hecho a ofertas de trabajo</div>
             </div>
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisSolicitudes()">
-              <span>📝</span>
-              <h3>${misSolicitudes.length}</h3>
-              <p>Mi Búsqueda</p>
-              <div class="stat-tooltip">Mi perfil de búsqueda publicado. Clínicas interesadas pueden contactarme</div>
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulacionesAceptadas()">
+              <span>✅</span>
+              <h3>${misAceptadas.total}</h3>
+              <p>Mis Postulaciones Aceptadas</p>
+              <div class="stat-tooltip">Ofertas donde han aceptado mi postulación</div>
             </div>
           `;
         }
