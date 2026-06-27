@@ -1437,12 +1437,22 @@ const app = {
               <input type="text" id="perfilPais" value="${u.pais || ''}">
             </div>
 
+            <div class="form-group">
+              <label>Especialidades</label>
+              <div id="especialidadesContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                <!-- Se llenarán dinámicamente -->
+              </div>
+            </div>
+
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
               <button type="button" class="btn-outline" style="flex: 1;" onclick="app.perfil.cancelarEdicion()">❌ Deshacer cambios</button>
               <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
             </div>
           </form>
         `;
+
+        // Cargar especialidades para candidatos
+        await app.perfil.cargarEspecialidades();
       }
       } catch (error) {
         utils.mostrarAlerta("Error al cargar perfil: " + error.message, "error");
@@ -1483,6 +1493,20 @@ const app = {
           }
 
           estadoApp.usuario = { ...estadoApp.usuario, ...datosActualizados };
+
+          // Guardar especialidades si es candidato
+          if (estadoApp.tipoUsuario === 'dentista') {
+            const checkboxes = document.querySelectorAll('#especialidadesContainer input[type="checkbox"]');
+            const especialidadesSeleccionadas = Array.from(checkboxes)
+              .filter(cb => cb.checked)
+              .map(cb => parseInt(cb.value));
+
+            await utils.request("/auth/guardar-especialidades", {
+              method: "POST",
+              body: JSON.stringify({ especialidades: especialidadesSeleccionadas })
+            });
+          }
+
           utils.mostrarAlerta("✅ Perfil actualizado correctamente", "success");
 
           setTimeout(() => {
@@ -1562,6 +1586,33 @@ const app = {
 
     cancelarEdicion() {
       app.perfil.cargar();
+    },
+
+    async cargarEspecialidades() {
+      if (estadoApp.tipoUsuario !== 'dentista') return;
+
+      try {
+        // Obtener especialidades disponibles
+        if (!estadoApp.especialidades || estadoApp.especialidades.length === 0) {
+          await app.especialidades.cargar();
+        }
+
+        // Obtener especialidades del usuario
+        const respuesta = await utils.request("/auth/mi-especialidades");
+        const especialidadesUsuario = respuesta.especialidades || [];
+
+        const container = document.getElementById("especialidadesContainer");
+        if (!container) return;
+
+        container.innerHTML = estadoApp.especialidades.map(esp => `
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="checkbox" value="${esp.id}" ${especialidadesUsuario.includes(esp.id) ? 'checked' : ''} style="cursor: pointer;">
+            ${esp.nombre}
+          </label>
+        `).join('');
+      } catch (error) {
+        console.error("Error al cargar especialidades:", error);
+      }
     }
   },
 

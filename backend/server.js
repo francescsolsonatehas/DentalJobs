@@ -119,6 +119,67 @@ app.put("/auth/actualizar-perfil", verifyToken, (req, res) => {
   );
 });
 
+app.get("/auth/mi-especialidades", verifyToken, (req, res) => {
+  const usuarioId = req.usuario.id;
+
+  db.all(
+    "SELECT especialidad_id FROM usuario_especialidades WHERE usuario_id = ?",
+    [usuarioId],
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener especialidades" });
+      }
+
+      const especialidadIds = rows.map(r => r.especialidad_id);
+      res.json({ especialidades: especialidadIds });
+    }
+  );
+});
+
+app.post("/auth/guardar-especialidades", verifyToken, (req, res) => {
+  const { especialidades } = req.body;
+  const usuarioId = req.usuario.id;
+
+  if (!Array.isArray(especialidades)) {
+    return res.status(400).json({ error: "Especialidades debe ser un array" });
+  }
+
+  // Eliminar todas las especialidades actuales
+  db.run(
+    "DELETE FROM usuario_especialidades WHERE usuario_id = ?",
+    [usuarioId],
+    (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al guardar especialidades" });
+      }
+
+      // Insertar las nuevas especialidades
+      if (especialidades.length === 0) {
+        return res.json({ success: true, message: "Especialidades guardadas" });
+      }
+
+      const stmt = db.prepare(
+        "INSERT INTO usuario_especialidades (usuario_id, especialidad_id) VALUES (?, ?)"
+      );
+
+      especialidades.forEach(espId => {
+        stmt.run(usuarioId, espId);
+      });
+
+      stmt.finalize((err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al guardar especialidades" });
+        }
+
+        res.json({ success: true, message: "Especialidades guardadas correctamente" });
+      });
+    }
+  );
+});
+
 app.post("/auth/solicitar-cambio-email", verifyToken, (req, res) => {
   const { nuevoEmail, datos } = req.body;
   const usuarioId = req.usuario.id;
