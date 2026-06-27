@@ -1712,7 +1712,7 @@ const app = {
         }
 
         // Actualizar estadoApp con los datos (sin email, que se confirmará después)
-        const { email, ...datosOtros } = datosActualizados;
+        const { email: emailNuevo, ...datosOtros } = datosActualizados;
         estadoApp.usuario = { ...estadoApp.usuario, ...datosOtros };
 
         // Mostrar modal de confirmación
@@ -1745,10 +1745,6 @@ const app = {
           </div>
         `;
         document.body.appendChild(modal);
-
-        // Actualizar otros datos sin email
-        const { email, ...datosOtros } = datosActualizados;
-        estadoApp.usuario = { ...estadoApp.usuario, ...datosOtros };
 
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
