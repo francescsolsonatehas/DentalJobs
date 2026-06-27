@@ -530,6 +530,30 @@ const app = {
       app.publicaciones.cargarContactadas();
     },
 
+    mostrarMisPostulaciones() {
+      estadoApp.filtros.soloMias = false;
+      estadoApp.filtros.contactadas = false;
+      document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
+      event.target.classList.add("active");
+
+      const filtersTitle = document.getElementById("filtrosTitle");
+      filtersTitle.textContent = "Mis Postulaciones";
+
+      app.stats.mostrarMisPostulaciones();
+    },
+
+    mostrarMisAceptadas() {
+      estadoApp.filtros.soloMias = false;
+      estadoApp.filtros.contactadas = false;
+      document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
+      event.target.classList.add("active");
+
+      const filtersTitle = document.getElementById("filtrosTitle");
+      filtersTitle.textContent = "Mis Postulaciones Aceptadas";
+
+      app.stats.mostrarMisPostulacionesAceptadas();
+    },
+
     setTipo(tipo) {
       estadoApp.filtros.tipo = tipo;
       document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
@@ -1966,17 +1990,18 @@ const app = {
         btnTodas.textContent = "Búsquedas de Candidatos";
         btnMias.textContent = "Mis Ofertas";
       } else {
-        // Mostrar nombre + 1 apellido del candidato
+        // Dentista
         const nombrePartes = (estadoApp.usuario?.nombre || 'Candidato').split(' ');
         const nombreCorto = nombrePartes.length >= 2 ? `${nombrePartes[0]} ${nombrePartes[1]}` : nombrePartes[0];
         heroTitle.textContent = `🦷 ${nombreCorto}`;
         filtersTitle.textContent = "Ofertas Disponibles";
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
-        btnMias.style.display = "inline-block";
+        btnMias.style.display = "none";
+        document.getElementById("btnMisPostulaciones").style.display = "inline-block";
+        document.getElementById("btnMisAceptadas").style.display = "inline-block";
         btnContactadas.style.display = "none";
         btnTodas.textContent = "Ofertas Disponibles";
-        btnMias.textContent = "Mi Búsqueda";
       }
 
       estadoApp.filtros.soloMias = false;
