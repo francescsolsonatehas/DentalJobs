@@ -1451,11 +1451,15 @@ const app = {
             <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
 
             <div class="form-group">
-              <label>Cambiar Contraseña (Opcional)</label>
-              <input type="text" id="perfilPasswordActual" placeholder="Contraseña actual" style="margin-bottom: 0.5rem;">
-              <input type="text" id="perfilPasswordNueva" placeholder="Nueva contraseña" style="margin-bottom: 0.5rem;">
-              <input type="text" id="perfilPasswordConfirma" placeholder="Confirmar contraseña">
-              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Solo ingresa si deseas cambiar tu contraseña. Ambas casillas deben coincidir.</small>
+              <label>Contraseña actual (obligatorio para cambiar)</label>
+              <input type="text" id="perfilPasswordActual" placeholder="Ingresa tu contraseña actual" style="margin-bottom: 0.8rem;">
+
+              <label>Nueva contraseña (opcional)</label>
+              <input type="text" id="perfilPasswordNueva" placeholder="Deja vacío si no quieres cambiar" style="margin-bottom: 0.8rem;">
+
+              <label>Confirmar contraseña (debe coincidir)</label>
+              <input type="text" id="perfilPasswordConfirma" placeholder="Repite la nueva contraseña">
+              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Si no cambias contraseña, deja los últimos dos campos en blanco.</small>
             </div>
 
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
@@ -1521,11 +1525,15 @@ const app = {
             <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
 
             <div class="form-group">
-              <label>Cambiar Contraseña (Opcional)</label>
-              <input type="text" id="perfilPasswordActual" placeholder="Contraseña actual" style="margin-bottom: 0.5rem;">
-              <input type="text" id="perfilPasswordNueva" placeholder="Nueva contraseña" style="margin-bottom: 0.5rem;">
-              <input type="text" id="perfilPasswordConfirma" placeholder="Confirmar contraseña">
-              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Solo ingresa si deseas cambiar tu contraseña. Ambas casillas deben coincidir.</small>
+              <label>Contraseña actual (obligatorio para cambiar)</label>
+              <input type="text" id="perfilPasswordActual" placeholder="Ingresa tu contraseña actual" style="margin-bottom: 0.8rem;">
+
+              <label>Nueva contraseña (opcional)</label>
+              <input type="text" id="perfilPasswordNueva" placeholder="Deja vacío si no quieres cambiar" style="margin-bottom: 0.8rem;">
+
+              <label>Confirmar contraseña (debe coincidir)</label>
+              <input type="text" id="perfilPasswordConfirma" placeholder="Repite la nueva contraseña">
+              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Si no cambias contraseña, deja los últimos dos campos en blanco.</small>
             </div>
 
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
