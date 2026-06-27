@@ -1935,10 +1935,10 @@ const app = {
               <div class="stat-tooltip">Dentistas que se han postulado a mis ofertas</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarContactados()">
-              <span>✉️</span>
+              <span>✅</span>
               <h3>${contactados}</h3>
-              <p>Candidatos Contactados</p>
-              <div class="stat-tooltip">Dentistas a los que hemos enviado un mensaje</div>
+              <p>Candidatos Aceptados</p>
+              <div class="stat-tooltip">Dentistas que hemos aceptado en nuestras ofertas</div>
             </div>
           `;
         } else {
