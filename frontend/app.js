@@ -2239,6 +2239,7 @@ const app = {
       if (!estadoApp.publicacionActual) return;
 
       const mensaje = document.getElementById("postulacionMensaje").value;
+      const errorDiv = document.getElementById("postulacionError");
 
       try {
         await utils.request("/candidaturas", {
@@ -2248,6 +2249,8 @@ const app = {
             mensaje: mensaje || null
           })
         });
+
+        errorDiv.style.display = "none";
         utils.mostrarAlerta("✅ ¡Postulación enviada!", "success");
         app.modal.cerrarPostularseModal();
         app.modal.cerrarDetalle();
@@ -2255,13 +2258,11 @@ const app = {
         await app.ui.actualizarStats();
       } catch (error) {
         console.error("Error en postulación:", error);
-        const mensaje = error.message || "Error al enviar postulación";
+        const mensajeError = error.message || "Error al enviar postulación";
 
-        if (mensaje.includes("Ya te has postulado")) {
-          utils.mostrarAlerta("⚠️ Ya estás postulado en esta oferta", "error");
-        } else {
-          utils.mostrarAlerta("❌ " + mensaje, "error");
-        }
+        // Mostrar error dentro del modal
+        errorDiv.innerHTML = mensajeError;
+        errorDiv.style.display = "block";
       }
     },
 
