@@ -441,9 +441,9 @@ const app = {
       // Actualizar título de filtros
       const filtersTitle = document.getElementById("filtrosTitle");
       if (estadoApp.tipoUsuario === 'clinica') {
-        filtersTitle.textContent = "Solicitudes";
+        filtersTitle.textContent = "Búsquedas de Candidatos";
       } else {
-        filtersTitle.textContent = "Todas las ofertas";
+        filtersTitle.textContent = "Ofertas Disponibles";
       }
 
       app.publicaciones.cargar();
@@ -458,9 +458,9 @@ const app = {
       // Actualizar título de filtros
       const filtersTitle = document.getElementById("filtrosTitle");
       if (estadoApp.tipoUsuario === 'clinica') {
-        filtersTitle.textContent = "Mis ofertas";
+        filtersTitle.textContent = "Mis Ofertas";
       } else {
-        filtersTitle.textContent = "Mis solicitudes";
+        filtersTitle.textContent = "Mi Búsqueda";
       }
 
       app.publicaciones.cargar();
@@ -1064,7 +1064,7 @@ const app = {
         html += `</div>`;
 
         document.getElementById("interesadosBody").innerHTML = html;
-        document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "Mi Solicitud";
+        document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "Mi Búsqueda";
         document.getElementById("modalInteresados").classList.add("active");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
@@ -1083,7 +1083,7 @@ const app = {
     async mostrarCandidatosInteresados() {
       try {
         const candidatos = await utils.request(`/stats/candidatos-interesados-lista/${estadoApp.usuario.id}`);
-        app.stats.mostrarListaCandidatos(candidatos, "Candidatos Interesados");
+        app.stats.mostrarListaCandidatos(candidatos, "Postulaciones Recibidas");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -1092,7 +1092,7 @@ const app = {
     async mostrarContactados() {
       try {
         const contactados = await utils.request(`/stats/contactados-lista/${estadoApp.usuario.id}`);
-        app.stats.mostrarListaCandidatos(contactados, "Dentistas Contactados");
+        app.stats.mostrarListaCandidatos(contactados, "Candidatos Contactados");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -1313,7 +1313,7 @@ const app = {
       }
 
       // No cargar publicaciones del perfil
-      // Las ofertas/solicitudes se ven en la página principal con "Mis Ofertas" y "Mis Solicitudes"
+      // Las ofertas/búsquedas se ven en la página principal con "Mis Ofertas" y "Mi Búsqueda"
 
       // Cargar datos del usuario
       const misDatosContainer = document.getElementById("misDatosContainer");
@@ -1406,25 +1406,25 @@ const app = {
 
       if (estadoApp.tipoUsuario === 'clinica') {
         heroTitle.textContent = `🦷 ${estadoApp.usuario?.nombre || 'Mi Empresa'}`;
-        filtersTitle.textContent = "Solicitudes";
+        filtersTitle.textContent = "Búsquedas de Candidatos";
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "inline-block";
         btnContactadas.style.display = "inline-block";
-        btnTodas.textContent = "Ver solicitudes";
-        btnMias.textContent = "Mis ofertas";
+        btnTodas.textContent = "Búsquedas de Candidatos";
+        btnMias.textContent = "Mis Ofertas";
       } else {
         // Mostrar nombre + 1 apellido del candidato
         const nombrePartes = (estadoApp.usuario?.nombre || 'Candidato').split(' ');
         const nombreCorto = nombrePartes.length >= 2 ? `${nombrePartes[0]} ${nombrePartes[1]}` : nombrePartes[0];
         heroTitle.textContent = `🦷 ${nombreCorto}`;
-        filtersTitle.textContent = "Ofertas";
+        filtersTitle.textContent = "Ofertas Disponibles";
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "inline-block";
         btnContactadas.style.display = "none";
-        btnTodas.textContent = "Ver ofertas";
-        btnMias.textContent = "Mis solicitudes";
+        btnTodas.textContent = "Ofertas Disponibles";
+        btnMias.textContent = "Mi Búsqueda";
       }
 
       estadoApp.filtros.soloMias = false;
@@ -1440,7 +1440,7 @@ const app = {
         const statsGrid = document.getElementById("statsGrid");
 
         if (estadoApp.tipoUsuario === 'clinica') {
-          // Empresa: mostrar Total Dentistas, Posibles Candidatos, Candidatos Interesados, Contactados
+          // Empresa: mostrar Total Dentistas, Posibles Candidatos, Candidatos que se postularon, Candidatos contactados
           const totalDentistas = await utils.request("/stats/total-dentistas");
           const posiblesCandidatos = await utils.request(`/stats/posibles-candidatos/${estadoApp.usuario.id}`);
           const candidatosInteresados = await utils.request(`/stats/candidatos-interesados/${estadoApp.usuario.id}`);
@@ -1453,30 +1453,30 @@ const app = {
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarTotalDentistas()">
               <span>👥</span>
               <h3>${totalDentistas.total}</h3>
-              <p>Total Dentistas</p>
-              <div class="stat-tooltip">Clic para ver desglose por especialidad, ciudad o ambas</div>
+              <p>Dentistas Disponibles</p>
+              <div class="stat-tooltip">Total de dentistas en la plataforma. Clic para ver desglose por especialidad, ciudad o ambas</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarPosiblesCandidatos()">
               <span>🔍</span>
               <h3>${posiblesCandidatos.total}</h3>
-              <p>Posibles Candidatos</p>
-              <div class="stat-tooltip">Dentistas que la Ciudad y Especialidad coinciden con una de mis ofertas</div>
+              <p>Candidatos Coincidentes</p>
+              <div class="stat-tooltip">Dentistas que coinciden con ciudad y especialidad de mis ofertas</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarCandidatosInteresados()">
               <span>📧</span>
               <h3>${candidatosInteresados.total}</h3>
-              <p>Candidatos</p>
-              <div class="stat-tooltip">Dentistas que han aplicado en nuestras ofertas</div>
+              <p>Postulaciones Recibidas</p>
+              <div class="stat-tooltip">Dentistas que se han postulado a mis ofertas</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarContactados()">
               <span>✉️</span>
               <h3>${contactados}</h3>
-              <p>Contactados</p>
-              <div class="stat-tooltip">Dentistas que hemos enviado un mail</div>
+              <p>Candidatos Contactados</p>
+              <div class="stat-tooltip">Dentistas a los que hemos enviado un mensaje</div>
             </div>
           `;
         } else {
-          // Candidato: mostrar Ofertas activas y Mis solicitudes
+          // Candidato: mostrar Ofertas disponibles y Mi búsqueda
           const todas = await utils.request("/publicaciones");
           const ofertas = todas.filter(p => p.tipo === 'oferta').length;
           const misSolicitudes = todas.filter(p => p.tipo === 'solicitud' && p.usuario_id === estadoApp.usuario.id);
@@ -1485,14 +1485,14 @@ const app = {
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarOfertasActivas()">
               <span>📋</span>
               <h3>${ofertas}</h3>
-              <p>Ofertas activas</p>
-              <div class="stat-tooltip">Ofertas activas de todas las especialidades y ciudades</div>
+              <p>Ofertas Disponibles</p>
+              <div class="stat-tooltip">Ofertas de trabajo disponibles de todas las especialidades y ciudades</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisSolicitudes()">
               <span>📝</span>
               <h3>${misSolicitudes.length}</h3>
-              <p>Mis solicitudes</p>
-              <div class="stat-tooltip">Mis solicitudes de empleo publicadas</div>
+              <p>Mi Búsqueda</p>
+              <div class="stat-tooltip">Mi perfil de búsqueda publicado. Clínicas interesadas pueden contactarme</div>
             </div>
           `;
         }
