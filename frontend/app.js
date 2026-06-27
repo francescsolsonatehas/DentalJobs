@@ -493,7 +493,7 @@ const app = {
       // Actualizar título de filtros
       const filtersTitle = document.getElementById("filtrosTitle");
       if (estadoApp.tipoUsuario === 'clinica') {
-        filtersTitle.textContent = "Búsquedas de Candidatos";
+        filtersTitle.textContent = "Solicitudes Disponibles de Dentistas";
       } else {
         filtersTitle.textContent = "Ofertas Disponibles de Clínicas";
       }
@@ -1074,6 +1074,23 @@ const app = {
       document.getElementById("interesadosBody").innerHTML = html;
       document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = titulo;
       document.getElementById("modalInteresados").classList.add("active");
+    },
+
+    async mostrarMisPostulacionesDentistas() {
+      try {
+        const data = await utils.request("/candidaturas/mis-postulaciones");
+        const misPostulaciones = data.candidaturas || [];
+
+        // Filtrar solo postulaciones a solicitudes de dentistas
+        const postulacionesDentistas = misPostulaciones.filter(p => {
+          const pub = estadoApp.publicaciones.find(pub => pub.id === p.publicacion_id);
+          return pub && pub.tipo === 'solicitud';
+        });
+
+        app.stats.mostrarListaPostulaciones(postulacionesDentistas, "Mis Postulaciones a Dentistas");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
     },
 
     async mostrarMisSolicitudes() {
@@ -1982,6 +1999,7 @@ const app = {
       document.getElementById("navButtonsLogueado").style.display = "flex";
       document.getElementById("btnPublicar").style.display = "inline-block";
       document.getElementById("btnPostulaciones").style.display = estadoApp.tipoUsuario === 'dentista' ? "inline-block" : "none";
+      document.getElementById("btnPostulacionesDentistas").style.display = estadoApp.tipoUsuario === 'clinica' ? "inline-block" : "none";
       document.getElementById("btnPerfil").style.display = "inline-block";
       document.getElementById("btnLogout").style.display = "inline-block";
 
@@ -2189,6 +2207,7 @@ const app = {
             <div class="card-footer" style="display: flex; gap: 0.5rem;">
               <button class="btn-primary" onclick="app.modal.abrirDetalle(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
               ${estadoApp.tipoUsuario === 'dentista' && pub.tipo === 'oferta' ? `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>` : ''}
+              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'solicitud' ? `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>` : ''}
               ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${pub.titulo.replace(/'/g, "\\'")}')" style="flex: 1;">👥 Candidatos (${candidatosPorOferta[pub.id]})</button>` : ''}
               ${interesadosHTML}
             </div>
