@@ -188,10 +188,6 @@ app.put("/auth/cambiar-password", verifyToken, (req, res) => {
     return res.status(400).json({ error: "Contraseña actual y nueva requeridas" });
   }
 
-  if (passwordNueva.length < 4) {
-    return res.status(400).json({ error: "La contraseña debe tener al menos 4 caracteres" });
-  }
-
   // Obtener usuario actual
   db.get("SELECT password FROM usuarios WHERE id = ?", [usuarioId], (err, usuario) => {
     if (err) {

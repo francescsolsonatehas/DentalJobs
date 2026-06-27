@@ -1453,8 +1453,9 @@ const app = {
             <div class="form-group">
               <label>Cambiar Contraseña (Opcional)</label>
               <input type="password" id="perfilPasswordActual" placeholder="Contraseña actual" style="margin-bottom: 0.5rem;">
-              <input type="password" id="perfilPasswordNueva" placeholder="Nueva contraseña">
-              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Solo ingresa si deseas cambiar tu contraseña</small>
+              <input type="password" id="perfilPasswordNueva" placeholder="Nueva contraseña" style="margin-bottom: 0.5rem;">
+              <input type="password" id="perfilPasswordConfirma" placeholder="Confirmar contraseña">
+              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Solo ingresa si deseas cambiar tu contraseña. Ambas casillas deben coincidir.</small>
             </div>
 
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
@@ -1522,8 +1523,9 @@ const app = {
             <div class="form-group">
               <label>Cambiar Contraseña (Opcional)</label>
               <input type="password" id="perfilPasswordActual" placeholder="Contraseña actual" style="margin-bottom: 0.5rem;">
-              <input type="password" id="perfilPasswordNueva" placeholder="Nueva contraseña">
-              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Solo ingresa si deseas cambiar tu contraseña</small>
+              <input type="password" id="perfilPasswordNueva" placeholder="Nueva contraseña" style="margin-bottom: 0.5rem;">
+              <input type="password" id="perfilPasswordConfirma" placeholder="Confirmar contraseña">
+              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Solo ingresa si deseas cambiar tu contraseña. Ambas casillas deben coincidir.</small>
             </div>
 
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
@@ -1592,8 +1594,26 @@ const app = {
           // Cambiar contraseña si se proporcionó
           const passwordActual = document.getElementById("perfilPasswordActual").value;
           const passwordNueva = document.getElementById("perfilPasswordNueva").value;
+          const passwordConfirma = document.getElementById("perfilPasswordConfirma").value;
 
-          if (passwordActual && passwordNueva) {
+          if (passwordActual || passwordNueva || passwordConfirma) {
+            // Si se ingresó algo, validar que las nuevas contraseñas coincidan
+            if (passwordNueva !== passwordConfirma) {
+              utils.mostrarAlerta("❌ Las contraseñas no coinciden", "error");
+              return;
+            }
+
+            // Validar que se ingresó contraseña actual y nueva
+            if (!passwordActual) {
+              utils.mostrarAlerta("❌ Ingresa tu contraseña actual", "error");
+              return;
+            }
+
+            if (!passwordNueva) {
+              utils.mostrarAlerta("❌ Ingresa una nueva contraseña", "error");
+              return;
+            }
+
             const resPassword = await utils.request("/auth/cambiar-password", {
               method: "PUT",
               body: JSON.stringify({ passwordActual, passwordNueva })
