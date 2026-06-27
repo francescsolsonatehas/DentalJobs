@@ -747,6 +747,9 @@ const app = {
     },
 
     abrirPostularseDesdeOferta(oferta) {
+      if (typeof oferta === 'string') {
+        oferta = JSON.parse(oferta);
+      }
       estadoApp.publicacionActual = oferta;
       document.getElementById("modalPostularseForm").classList.add("active");
       document.getElementById("postulacionMensaje").value = "";
