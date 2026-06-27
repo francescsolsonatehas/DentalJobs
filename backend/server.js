@@ -94,6 +94,31 @@ app.post("/auth/login", (req, res) => {
   });
 });
 
+app.put("/auth/actualizar-perfil", verifyToken, (req, res) => {
+  const { nombre, telefono, direccion, codigo_postal, pais } = req.body;
+  const usuarioId = req.usuario.id;
+
+  if (!nombre) {
+    return res.status(400).json({ error: "El nombre es obligatorio" });
+  }
+
+  db.run(
+    "UPDATE usuarios SET nombre = ?, telefono = ?, direccion = ?, codigo_postal = ?, pais = ? WHERE id = ?",
+    [nombre, telefono || null, direccion || null, codigo_postal || null, pais || null, usuarioId],
+    function(err) {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al actualizar perfil" });
+      }
+
+      res.json({
+        success: true,
+        message: "Perfil actualizado correctamente"
+      });
+    }
+  );
+});
+
 /* ===========================
    🔹 ESPECIALIDADES
 =========================== */

@@ -1299,47 +1299,18 @@ const app = {
 
       // Mostrar/ocultar tabs según tipo de usuario
       if (estadoApp.tipoUsuario === 'clinica') {
-        // Empresa: solo datos
         document.getElementById("tabDatos").style.display = "inline-block";
         document.getElementById("tabCv").style.display = "none";
         document.getElementById("tabPortfolio").style.display = "none";
         document.getElementById("perfilTitle").textContent = "Datos de la Empresa";
       } else {
-        // Candidato: datos, CV y portfolio
         document.getElementById("tabDatos").style.display = "inline-block";
         document.getElementById("tabCv").style.display = "inline-block";
         document.getElementById("tabPortfolio").style.display = "inline-block";
         document.getElementById("perfilTitle").textContent = "Mi perfil";
       }
 
-      // No cargar publicaciones del perfil
-      // Las ofertas/búsquedas se ven en la página principal con "Mis Ofertas" y "Mi Búsqueda"
-
-      // Cargar datos del usuario
-      const misDatosContainer = document.getElementById("misDatosContainer");
-      if (estadoApp.tipoUsuario === 'clinica') {
-        misDatosContainer.innerHTML = `
-          <div style="background: #F8FAFF; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #0F4C75;">
-            <h3 style="color: #0F4C75; margin-top: 0;">📋 Datos de la Empresa</h3>
-            <p><strong>Nombre:</strong> ${estadoApp.usuario.nombre}</p>
-            <p><strong>Email:</strong> ${estadoApp.usuario.email}</p>
-            <p><strong>Móvil:</strong> ${estadoApp.usuario.telefono || 'No especificado'}</p>
-            <p><strong>Dirección:</strong> ${estadoApp.usuario.direccion || 'No especificada'}</p>
-            <p><strong>Código Postal:</strong> ${estadoApp.usuario.codigo_postal || 'No especificado'}</p>
-            <p><strong>País:</strong> ${estadoApp.usuario.pais || 'No especificado'}</p>
-          </div>
-        `;
-      } else {
-        misDatosContainer.innerHTML = `
-          <div style="background: #F8FAFF; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #2ec4b6;">
-            <h3 style="color: #2ec4b6; margin-top: 0;">👤 Datos Personales</h3>
-            <p><strong>Nombre:</strong> ${estadoApp.usuario.nombre}</p>
-            <p><strong>Email:</strong> ${estadoApp.usuario.email}</p>
-            <p><strong>Móvil:</strong> ${estadoApp.usuario.telefono || 'No especificado'}</p>
-          </div>
-        `;
-      }
-
+      app.perfil.mostrarFormularioEdicion();
 
       // Cargar archivos solo para candidatos
       if (estadoApp.tipoUsuario === 'dentista') {
@@ -1358,6 +1329,131 @@ const app = {
 
       document.getElementById(`tab-${tab}`).classList.add("active");
       event.target.classList.add("active");
+    },
+
+    mostrarFormularioEdicion() {
+      const misDatosContainer = document.getElementById("misDatosContainer");
+      const u = estadoApp.usuario;
+
+      if (estadoApp.tipoUsuario === 'clinica') {
+        misDatosContainer.innerHTML = `
+          <form id="formPerfilEmpresa" onsubmit="app.perfil.guardar(event)">
+            <div class="form-group">
+              <label>Nombre de la Empresa</label>
+              <input type="text" id="perfilNombre" value="${u.nombre}" required>
+            </div>
+
+            <div class="form-group">
+              <label>Email (no editable)</label>
+              <input type="email" value="${u.email}" disabled>
+            </div>
+
+            <div class="form-group">
+              <label>Teléfono</label>
+              <input type="tel" id="perfilTelefono" value="${u.telefono || ''}">
+            </div>
+
+            <div class="form-group">
+              <label>Dirección</label>
+              <input type="text" id="perfilDireccion" value="${u.direccion || ''}">
+            </div>
+
+            <div class="form-group">
+              <label>Código Postal</label>
+              <input type="text" id="perfilCodigoPostal" value="${u.codigo_postal || ''}">
+            </div>
+
+            <div class="form-group">
+              <label>País</label>
+              <input type="text" id="perfilPais" value="${u.pais || ''}">
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+              <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
+              <button type="button" class="btn-outline" style="flex: 1;" onclick="app.perfil.cancelarEdicion()">❌ Cancelar</button>
+            </div>
+          </form>
+        `;
+      } else {
+        misDatosContainer.innerHTML = `
+          <form id="formPerfilCandidato" onsubmit="app.perfil.guardar(event)">
+            <div class="form-group">
+              <label>Nombre Completo</label>
+              <input type="text" id="perfilNombre" value="${u.nombre}" required>
+            </div>
+
+            <div class="form-group">
+              <label>Email (no editable)</label>
+              <input type="email" value="${u.email}" disabled>
+            </div>
+
+            <div class="form-group">
+              <label>Teléfono</label>
+              <input type="tel" id="perfilTelefono" value="${u.telefono || ''}">
+            </div>
+
+            <div class="form-group">
+              <label>Dirección</label>
+              <input type="text" id="perfilDireccion" value="${u.direccion || ''}">
+            </div>
+
+            <div class="form-group">
+              <label>Código Postal</label>
+              <input type="text" id="perfilCodigoPostal" value="${u.codigo_postal || ''}">
+            </div>
+
+            <div class="form-group">
+              <label>País</label>
+              <input type="text" id="perfilPais" value="${u.pais || ''}">
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+              <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
+              <button type="button" class="btn-outline" style="flex: 1;" onclick="app.perfil.cancelarEdicion()">❌ Cancelar</button>
+            </div>
+          </form>
+        `;
+      }
+    },
+
+    async guardar(event) {
+      event.preventDefault();
+
+      const datosActualizados = {
+        nombre: document.getElementById("perfilNombre").value,
+        telefono: document.getElementById("perfilTelefono").value || null,
+        direccion: document.getElementById("perfilDireccion").value || null,
+        codigo_postal: document.getElementById("perfilCodigoPostal").value || null,
+        pais: document.getElementById("perfilPais").value || null
+      };
+
+      try {
+        const response = await utils.request("/auth/actualizar-perfil", {
+          method: "PUT",
+          body: JSON.stringify(datosActualizados)
+        });
+
+        if (response.error) {
+          utils.mostrarAlerta(response.error, "error");
+          return;
+        }
+
+        // Actualizar estado
+        estadoApp.usuario = { ...estadoApp.usuario, ...datosActualizados };
+
+        utils.mostrarAlerta("✅ Perfil actualizado correctamente", "success");
+
+        // Recargar el perfil
+        setTimeout(() => {
+          app.perfil.cargar();
+        }, 500);
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    cancelarEdicion() {
+      app.perfil.cargar();
     }
   },
 
