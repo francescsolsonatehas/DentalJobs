@@ -2055,8 +2055,8 @@ const app = {
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "inline-block";
         btnContactadas.style.display = "none";
-        document.getElementById("btnMisPostulacionesDentistas").style.display = "inline-block";
-        document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "inline-block";
+        document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
+        document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
         btnTodas.textContent = "Búsquedas de Candidatos";
         btnMias.textContent = "Mis Ofertas";
       } else {
