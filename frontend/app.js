@@ -735,6 +735,7 @@ const app = {
     abrirPostularseModal() {
       document.getElementById("modalPostularseForm").classList.add("active");
       document.getElementById("postulacionMensaje").value = "";
+      document.getElementById("postulacionError").style.display = "none";
     },
 
     abrirPostularseDesdeOferta(oferta) {
@@ -744,6 +745,7 @@ const app = {
       estadoApp.publicacionActual = oferta;
       document.getElementById("modalPostularseForm").classList.add("active");
       document.getElementById("postulacionMensaje").value = "";
+      document.getElementById("postulacionError").style.display = "none";
     },
 
     cerrarPostularseModal() {
