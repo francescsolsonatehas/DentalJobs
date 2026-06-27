@@ -1452,9 +1452,9 @@ const app = {
 
             <div class="form-group">
               <label>Cambiar Contraseña (Opcional)</label>
-              <input type="password" id="perfilPasswordActual" placeholder="Contraseña actual" style="margin-bottom: 0.5rem;">
-              <input type="password" id="perfilPasswordNueva" placeholder="Nueva contraseña" style="margin-bottom: 0.5rem;">
-              <input type="password" id="perfilPasswordConfirma" placeholder="Confirmar contraseña">
+              <input type="text" id="perfilPasswordActual" placeholder="Contraseña actual" style="margin-bottom: 0.5rem;">
+              <input type="text" id="perfilPasswordNueva" placeholder="Nueva contraseña" style="margin-bottom: 0.5rem;">
+              <input type="text" id="perfilPasswordConfirma" placeholder="Confirmar contraseña">
               <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Solo ingresa si deseas cambiar tu contraseña. Ambas casillas deben coincidir.</small>
             </div>
 
@@ -1522,9 +1522,9 @@ const app = {
 
             <div class="form-group">
               <label>Cambiar Contraseña (Opcional)</label>
-              <input type="password" id="perfilPasswordActual" placeholder="Contraseña actual" style="margin-bottom: 0.5rem;">
-              <input type="password" id="perfilPasswordNueva" placeholder="Nueva contraseña" style="margin-bottom: 0.5rem;">
-              <input type="password" id="perfilPasswordConfirma" placeholder="Confirmar contraseña">
+              <input type="text" id="perfilPasswordActual" placeholder="Contraseña actual" style="margin-bottom: 0.5rem;">
+              <input type="text" id="perfilPasswordNueva" placeholder="Nueva contraseña" style="margin-bottom: 0.5rem;">
+              <input type="text" id="perfilPasswordConfirma" placeholder="Confirmar contraseña">
               <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Solo ingresa si deseas cambiar tu contraseña. Ambas casillas deben coincidir.</small>
             </div>
 
@@ -1613,6 +1613,11 @@ const app = {
               utils.mostrarAlerta("❌ " + resPassword.error, "error");
               return;
             }
+
+            // Limpiar campos de password después de guardar exitosamente
+            document.getElementById("perfilPasswordActual").value = "";
+            document.getElementById("perfilPasswordNueva").value = "";
+            document.getElementById("perfilPasswordConfirma").value = "";
           }
 
           utils.mostrarAlerta("✅ Perfil actualizado correctamente", "success");
@@ -1623,7 +1628,7 @@ const app = {
             if (modal) {
               modal.classList.remove("active");
             }
-          }, 800);
+          }, 1000);
         }
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
@@ -1667,6 +1672,11 @@ const app = {
             utils.mostrarAlerta("❌ " + resPassword.error, "error");
             return;
           }
+
+          // Limpiar campos de password después de guardar exitosamente
+          document.getElementById("perfilPasswordActual").value = "";
+          document.getElementById("perfilPasswordNueva").value = "";
+          document.getElementById("perfilPasswordConfirma").value = "";
         }
 
         // Solicitar cambio de email
