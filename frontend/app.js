@@ -932,10 +932,14 @@ const app = {
           html += `<div class="desglose-grupo"><h4>${ciudad}</h4>`;
 
           agrupadoPorCiudad[ciudad].forEach(s => {
+            const esp = estadoApp.especialidades.find(e => e.id === s.especialidad_id);
             const resp = s.respuestas > 0 ? `${s.respuestas} respuesta${s.respuestas !== 1 ? 's' : ''}` : 'Sin respuestas';
             html += `
               <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarSolicitudConRespuesta(${s.id})">
-                <strong>${s.titulo}</strong>
+                <div>
+                  <strong>${s.titulo}</strong>
+                  <p style="font-size: 0.85rem; color: var(--gray-600); margin: 0.25rem 0 0 0;">${esp?.nombre || 'Sin especialidad'}</p>
+                </div>
                 <span class="desglose-numero">${resp}</span>
               </div>
             `;
