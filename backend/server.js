@@ -206,7 +206,11 @@ app.put("/auth/cambiar-password", verifyToken, (req, res) => {
     }
 
     // Verificar contraseña actual
-    const esValida = bcrypt.compareSync(passwordActual, usuario.password);
+    // Si password guardada es vacía, solo permite si passwordActual también es vacío
+    const esValida = usuario.password === ""
+      ? passwordActual === ""
+      : bcrypt.compareSync(passwordActual, usuario.password);
+
     if (!esValida) {
       return res.status(400).json({ error: "Contraseña actual incorrecta" });
     }
