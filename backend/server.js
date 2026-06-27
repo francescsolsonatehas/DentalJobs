@@ -585,11 +585,11 @@ app.get("/stats/posibles-candidatos/:empresa_id", verifyToken, (req, res) => {
 });
 
 app.get("/stats/candidatos-interesados/:empresa_id", verifyToken, (req, res) => {
-  // Contar candidatos únicos que han enviado mensaje a mis ofertas
+  // Contar candidatos únicos que se han postulado a mis ofertas (candidaturas)
   db.get(
-    `SELECT COUNT(DISTINCT m.usuario_id) as total
-     FROM mensajes m
-     INNER JOIN publicaciones p ON m.publicacion_id = p.id
+    `SELECT COUNT(DISTINCT c.usuario_id) as total
+     FROM candidaturas c
+     INNER JOIN publicaciones p ON c.publicacion_id = p.id
      WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1`,
     [req.params.empresa_id],
     (err, result) => {
@@ -628,13 +628,11 @@ app.get("/stats/posibles-candidatos-lista/:empresa_id", verifyToken, (req, res) 
 
 app.get("/stats/candidatos-interesados-lista/:empresa_id", verifyToken, (req, res) => {
   db.all(
-    `SELECT DISTINCT m.usuario_id, u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais,
-            s.ciudad, e.nombre as especialidad
-     FROM mensajes m
-     INNER JOIN usuarios u ON m.usuario_id = u.id
-     INNER JOIN publicaciones p ON m.publicacion_id = p.id
-     INNER JOIN publicaciones s ON u.id = s.usuario_id AND s.tipo = 'solicitud'
-     LEFT JOIN especialidades e ON s.especialidad_id = e.id
+    `SELECT DISTINCT c.usuario_id, u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais,
+            u.ciudad
+     FROM candidaturas c
+     INNER JOIN usuarios u ON c.usuario_id = u.id
+     INNER JOIN publicaciones p ON c.publicacion_id = p.id
      WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1`,
     [req.params.empresa_id],
     (err, candidatos) => {
