@@ -67,9 +67,11 @@ app.post("/auth/registro", (req, res) => {
 app.post("/auth/login", (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email y contraseña requeridos" });
+  if (!email) {
+    return res.status(400).json({ error: "Email requerido" });
   }
+
+  // password puede ser vacía (string vacío "")
 
   db.get("SELECT * FROM usuarios WHERE email = ?", [email], (err, usuario) => {
     if (err) {
