@@ -1025,7 +1025,7 @@ app.delete("/archivos/:id", verifyToken, (req, res) => {
 
 // Crear candidatura (dentista postulándose a oferta)
 app.post("/candidaturas", verifyToken, (req, res) => {
-  const { publicacion_id } = req.body;
+  const { publicacion_id, mensaje } = req.body;
   const usuario_id = req.usuario.id;
 
   if (!publicacion_id) {
@@ -1033,8 +1033,8 @@ app.post("/candidaturas", verifyToken, (req, res) => {
   }
 
   db.run(
-    "INSERT INTO candidaturas (publicacion_id, usuario_id, estado) VALUES (?, ?, 'pendiente')",
-    [publicacion_id, usuario_id],
+    "INSERT INTO candidaturas (publicacion_id, usuario_id, estado, mensaje) VALUES (?, ?, 'pendiente', ?)",
+    [publicacion_id, usuario_id, mensaje || null],
     function(err) {
       if (err) {
         if (err.message.includes("UNIQUE")) {

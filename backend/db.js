@@ -109,6 +109,10 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
+  db.run(`ALTER TABLE candidaturas ADD COLUMN mensaje TEXT`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
   db.run(`ALTER TABLE usuarios ADD COLUMN direccion TEXT`, (err) => {
     // Ignorar error si la columna ya existe
   });
