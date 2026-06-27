@@ -878,7 +878,7 @@ const app = {
 
           agrupadoPorCiudad[ciudad].forEach(o => {
             html += `
-              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarPerfilDentista({id: ${o.id}, nombre: '${o.titulo.replace(/'/g, "\\'")}', email: '${o.email_contacto}', ciudad: '${o.ciudad}'})">
+              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarOfertaCompleta(${JSON.stringify(o).replace(/"/g, '&quot;')})">
                 <strong>${o.titulo}</strong>
                 <span class="desglose-numero">Oferta</span>
               </div>
@@ -913,7 +913,8 @@ const app = {
           const mensajes = await utils.request(`/mensajes/${solicitud.id}`);
           solicitudesConRespuestas.push({
             ...solicitud,
-            respuestas: mensajes.length
+            respuestas: mensajes.length,
+            mensajes: mensajes
           });
         }
 
@@ -934,7 +935,7 @@ const app = {
             const esp = estadoApp.especialidades.find(e => e.id === s.especialidad_id);
             const respuestaText = s.respuestas > 0 ? `${s.respuestas} respuesta${s.respuestas !== 1 ? 's' : ''}` : 'Sin respuestas';
             html += `
-              <div class="desglose-item-sub">
+              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarSolicitudConRespuesta(${JSON.stringify(s).replace(/"/g, '&quot;')})">
                 <strong>${s.titulo}</strong>
                 <span class="desglose-numero">${respuestaText}</span>
               </div>
@@ -951,6 +952,89 @@ const app = {
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
+    },
+
+    mostrarOfertaCompleta(oferta) {
+      const esp = estadoApp.especialidades.find(e => e.id === oferta.especialidad_id);
+
+      let html = `
+        <div class="perfil-dentista">
+          <h3 style="margin-top: 0; color: var(--primary);">${oferta.titulo}</h3>
+
+          <div class="info-section">
+            <h4>Detalles</h4>
+            <p><strong>Ciudad:</strong> ${oferta.ciudad}</p>
+            <p><strong>Especialidad:</strong> ${esp?.nombre || 'No especificada'}</p>
+            ${oferta.contrato ? `<p><strong>Tipo de contrato:</strong> ${oferta.contrato}</p>` : ''}
+            ${oferta.jornada ? `<p><strong>Jornada:</strong> ${oferta.jornada}</p>` : ''}
+            ${oferta.salario ? `<p><strong>Salario:</strong> ${oferta.salario}</p>` : ''}
+          </div>
+
+          <div class="info-section">
+            <h4>Descripción</h4>
+            <p style="white-space: pre-wrap;">${oferta.descripcion}</p>
+          </div>
+
+          <div class="info-section">
+            <h4>Contacto</h4>
+            <p><strong>Nombre:</strong> ${oferta.nombre_contacto}</p>
+            <p><strong>Email:</strong> <a href="mailto:${oferta.email_contacto}">${oferta.email_contacto}</a></p>
+            ${oferta.telefono_contacto ? `<p><strong>Teléfono:</strong> <a href="tel:${oferta.telefono_contacto}">${oferta.telefono_contacto}</a></p>` : ''}
+          </div>
+        </div>
+      `;
+
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "Oferta de Trabajo";
+      document.getElementById("modalInteresados").classList.add("active");
+    },
+
+    mostrarSolicitudConRespuesta(solicitud) {
+      const esp = estadoApp.especialidades.find(e => e.id === solicitud.especialidad_id);
+
+      let html = `
+        <div class="perfil-dentista">
+          <h3 style="margin-top: 0; color: var(--primary);">${solicitud.titulo}</h3>
+
+          <div class="info-section">
+            <h4>Mi Solicitud</h4>
+            <p><strong>Ciudad:</strong> ${solicitud.ciudad}</p>
+            <p><strong>Especialidad:</strong> ${esp?.nombre || 'No especificada'}</p>
+            <p><strong>Disponibilidad:</strong> ${solicitud.jornada || 'No especificada'}</p>
+          </div>
+
+          <div class="info-section">
+            <h4>Descripción</h4>
+            <p style="white-space: pre-wrap;">${solicitud.descripcion}</p>
+          </div>
+      `;
+
+      // Mostrar mensajes recibidos
+      if (solicitud.mensajes && solicitud.mensajes.length > 0) {
+        html += `
+          <div class="info-section">
+            <h4>Mensajes Recibidos (${solicitud.mensajes.length})</h4>
+        `;
+
+        solicitud.mensajes.forEach(m => {
+          html += `
+            <div style="background: #F8FAFF; padding: 1rem; border-radius: 8px; border-left: 4px solid #2ec4b6; margin-bottom: 1rem;">
+              <p><strong>De:</strong> ${m.remitente_nombre}</p>
+              <p><strong>Email:</strong> <a href="mailto:${m.remitente_email}">${m.remitente_email}</a></p>
+              <p style="white-space: pre-wrap; margin-top: 1rem; font-style: italic;">💬 "${m.cuerpo}"</p>
+              <p style="font-size: 0.85rem; color: var(--gray-600); margin-top: 0.5rem;">📅 ${utils.formatearFecha(m.creado_en)}</p>
+            </div>
+          `;
+        });
+
+        html += `</div>`;
+      }
+
+      html += `</div>`;
+
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "Mi Solicitud";
+      document.getElementById("modalInteresados").classList.add("active");
     },
 
     async mostrarPosiblesCandidatos() {
