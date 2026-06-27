@@ -1520,11 +1520,10 @@ const app = {
           utils.mostrarAlerta("✅ Perfil actualizado correctamente", "success");
 
           setTimeout(() => {
-            // Cerrar el modal
+            // Cerrar el modal - solo remover la clase active, no tocar display
             const modal = document.getElementById("modalPerfil");
             if (modal) {
               modal.classList.remove("active");
-              modal.style.display = "none";
             }
           }, 800);
         }
