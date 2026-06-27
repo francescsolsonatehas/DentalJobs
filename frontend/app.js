@@ -1043,28 +1043,28 @@ const app = {
       postulaciones.forEach(post => {
         const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[post.estado];
         html += `
-          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
-            <div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
-              <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75; font-size: 1.1rem;">📋 ${post.titulo}</h4>
-              <p style="margin: 0 0 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Empresa:</strong> ${post.empresa_nombre}</p>
-              <p style="margin: 0 0 0.5rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${post.ciudad}</p>
-              ${post.contrato ? `<p style="margin: 0 0 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Contrato:</strong> ${post.contrato} | <strong>Jornada:</strong> ${post.jornada}</p>` : ''}
-              ${post.salario ? `<p style="margin: 0 0 0.5rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Salario:</strong> ${post.salario}</p>` : ''}
-              <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem; margin-top: 1rem;">
-                <p style="margin: 0; color: #6b7280; white-space: pre-wrap; line-height: 1.6;">${post.descripcion || 'Sin descripción'}</p>
+          <div style="background: white; border: 2px solid ${estadoColor}; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+              <div>
+                <h4 style="margin: 0 0 0.3rem 0; color: #0f4c75; font-size: 1.2rem; font-weight: 700;">${post.titulo}</h4>
+                <p style="margin: 0; color: #6b7280; font-size: 0.95rem;">🏢 ${post.empresa_nombre}</p>
               </div>
+              <span style="background: ${estadoColor}; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize; white-space: nowrap;">${post.estado}</span>
             </div>
-            <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 4px solid ${estadoColor};">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <strong style="font-size: 0.95rem;">Estado de tu postulación</strong>
-                <span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize;">${post.estado}</span>
-              </div>
-              ${post.mensaje ? `<div style="margin-top: 1rem; padding: 1rem; background: #f0f9ff; border-radius: 4px; border-left: 3px solid #0ea5e9;">
-                <p style="margin: 0; font-size: 0.9rem; color: #0c4a6e;"><strong>Tu mensaje:</strong></p>
-                <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #0c4a6e; white-space: pre-wrap;">${post.mensaje}</p>
-              </div>` : '<p style="margin-top: 0.5rem; color: #9ca3af; font-size: 0.9rem;">Sin mensaje</p>'}
-              <button onclick="app.candidaturas.retirarPostulacion(${post.id})" style="margin-top: 1rem; background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; width: 100%;">🗑️ Retirar postulación</button>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; font-size: 0.9rem; color: #6b7280;">
+              <p style="margin: 0;"><strong>📍 Ciudad:</strong> ${post.ciudad}</p>
+              ${post.contrato ? `<p style="margin: 0;"><strong>📋 Contrato:</strong> ${post.contrato}</p>` : ''}
+              ${post.jornada ? `<p style="margin: 0;"><strong>⏰ Jornada:</strong> ${post.jornada}</p>` : ''}
+              ${post.salario ? `<p style="margin: 0;"><strong>💰 Salario:</strong> ${post.salario}</p>` : ''}
             </div>
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem; margin-top: 1rem;">
+              <p style="margin: 0; color: #6b7280; white-space: pre-wrap; line-height: 1.6; font-size: 0.9rem;">${post.descripcion || 'Sin descripción'}</p>
+            </div>
+            ${post.mensaje ? `<div style="margin-top: 1rem; padding: 1rem; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+              <p style="margin: 0; font-size: 0.85rem; color: #0c4a6e; font-weight: 600;">💬 Tu mensaje:</p>
+              <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #0c4a6e; white-space: pre-wrap;">${post.mensaje}</p>
+            </div>` : ''}
+            <button onclick="app.candidaturas.retirarPostulacion(${post.id})" style="margin-top: 1.5rem; background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; width: 100%; transition: background 0.2s;">🗑️ Retirar postulación</button>
           </div>
         `;
       });
