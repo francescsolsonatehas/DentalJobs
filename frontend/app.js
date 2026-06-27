@@ -1387,12 +1387,22 @@ const app = {
               <input type="text" id="perfilPais" value="${u.pais || ''}">
             </div>
 
+            <div class="form-group">
+              <label>Especialidades que ofrece</label>
+              <div id="especialidadesContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                <!-- Se llenarán dinámicamente -->
+              </div>
+            </div>
+
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
               <button type="button" class="btn-outline" style="flex: 1;" onclick="app.perfil.cancelarEdicion()">❌ Deshacer cambios</button>
               <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
             </div>
           </form>
         `;
+
+        // Cargar especialidades para empresa
+        await app.perfil.cargarEspecialidades();
       } else {
         misDatosContainer.innerHTML = `
           <form id="formPerfilCandidato" onsubmit="app.perfil.guardar(event)">
@@ -1494,8 +1504,8 @@ const app = {
 
           estadoApp.usuario = { ...estadoApp.usuario, ...datosActualizados };
 
-          // Guardar especialidades si es candidato
-          if (estadoApp.tipoUsuario === 'dentista') {
+          // Guardar especialidades si es candidato o empresa
+          if (['dentista', 'clinica'].includes(estadoApp.tipoUsuario)) {
             const checkboxes = document.querySelectorAll('#especialidadesContainer input[type="checkbox"]');
             const especialidadesSeleccionadas = Array.from(checkboxes)
               .filter(cb => cb.checked)
@@ -1589,7 +1599,8 @@ const app = {
     },
 
     async cargarEspecialidades() {
-      if (estadoApp.tipoUsuario !== 'dentista') return;
+      // Funciona tanto para candidatos como para empresas
+      if (!['dentista', 'clinica'].includes(estadoApp.tipoUsuario)) return;
 
       try {
         // Obtener especialidades disponibles
