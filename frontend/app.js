@@ -2405,10 +2405,8 @@ const app = {
       try {
         await utils.request(`/candidaturas/${candidaturaId}`, { method: "DELETE" });
         utils.mostrarAlerta("✅ Postulación retirada", "success");
-        // Recargar postulaciones en el modal
-        const data = await utils.request("/candidaturas/mis-postulaciones");
-        app.stats.mostrarMisPostulaciones();
-        // Actualizar stats
+        // Recargar publicaciones y stats
+        await app.publicaciones.cargar();
         await app.ui.actualizarStats();
       } catch (error) {
         utils.mostrarAlerta("❌ " + error.message, "error");
