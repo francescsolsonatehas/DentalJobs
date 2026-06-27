@@ -190,11 +190,8 @@ app.put("/auth/cambiar-password", verifyToken, (req, res) => {
   const { passwordActual, passwordNueva } = req.body;
   const usuarioId = req.usuario.id;
 
-  if (!passwordActual) {
-    return res.status(400).json({ error: "Contraseña actual requerida" });
-  }
-
-  // passwordNueva puede ser vacía (string vacío "")
+  // passwordActual y passwordNueva pueden ser vacíos (strings vacíos "")
+  // Se validarán contra la contraseña actual guardada
 
   // Obtener usuario actual
   db.get("SELECT password FROM usuarios WHERE id = ?", [usuarioId], (err, usuario) => {
