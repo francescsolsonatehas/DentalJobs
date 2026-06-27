@@ -2196,6 +2196,17 @@ const app = {
     async renderizarPublicaciones() {
       const container = document.getElementById("publicacionesContainer");
 
+      // Cargar postulaciones del usuario actual para verificar estado
+      let misPostulaciones = [];
+      if (estadoApp.usuario && estadoApp.tipoUsuario === 'clinica') {
+        try {
+          const data = await utils.request("/candidaturas/mis-postulaciones");
+          misPostulaciones = data.candidaturas || [];
+        } catch (error) {
+          console.error("Error al cargar postulaciones:", error);
+        }
+      }
+
       if (estadoApp.publicaciones.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
@@ -2271,7 +2282,18 @@ const app = {
             <div class="card-footer" style="display: flex; gap: 0.5rem;">
               <button class="btn-primary" onclick="app.modal.abrirDetalle(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
               ${estadoApp.tipoUsuario === 'dentista' && pub.tipo === 'oferta' ? `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>` : ''}
-              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'solicitud' ? `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>` : ''}
+              ${(() => {
+                if (estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'solicitud') {
+                  const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
+                  if (yaPostulada) {
+                    return `<button class="btn-success" style="flex: 1; opacity: 0.7;">✓ Postulado</button>
+                            <button class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Retirar</button>`;
+                  } else {
+                    return `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>`;
+                  }
+                }
+                return '';
+              })()}
               ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${pub.titulo.replace(/'/g, "\\'")}')" style="flex: 1;">👥 Candidatos (${candidatosPorOferta[pub.id]})</button>` : ''}
               ${interesadosHTML}
             </div>
