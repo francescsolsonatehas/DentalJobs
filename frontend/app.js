@@ -2194,7 +2194,7 @@ const app = {
             </div>
             <div class="card-footer" style="display: flex; gap: 0.5rem;">
               <button class="btn-primary" onclick="app.modal.abrirDetalle(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
-              ${estadoApp.tipoUsuario === 'dentista' && pub.tipo === 'oferta' ? `<button class="btn-secondary" onclick="app.modal.abrirPostularseDesdeOferta(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Postularme</button>` : ''}
+              ${estadoApp.tipoUsuario === 'dentista' && pub.tipo === 'oferta' ? `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>` : ''}
               ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${pub.titulo.replace(/'/g, "\\'")}')" style="flex: 1;">👥 Candidatos (${candidatosPorOferta[pub.id]})</button>` : ''}
               ${interesadosHTML}
             </div>
