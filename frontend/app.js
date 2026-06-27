@@ -2260,7 +2260,11 @@ const app = {
         await app.publicaciones.cargar();
         await app.ui.actualizarStats();
       } catch (error) {
-        utils.mostrarAlerta("❌ " + error.message, "error");
+        if (error.message.includes("Ya te has postulado")) {
+          utils.mostrarAlerta("⚠️ Ya estás postulado en esta oferta", "error");
+        } else {
+          utils.mostrarAlerta("❌ " + error.message, "error");
+        }
       }
     },
 
