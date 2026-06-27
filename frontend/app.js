@@ -2223,8 +2223,15 @@ const app = {
 
       const html = await Promise.all(estadoApp.publicaciones.map(async pub => {
         const especialidad = pub.especialidad_id ? estadoApp.especialidades.find(e => e.id === pub.especialidad_id) : null;
-        const tipoBadge = pub.tipo === "oferta" ? "Oferta" : "Solicitud";
-        const tipoClase = pub.tipo === "oferta" ? "type-oferta" : "type-solicitud";
+        let tipoBadge, tipoClase;
+        if (pub.tipo === "oferta") {
+          tipoBadge = estadoApp.tipoUsuario === 'clinica' ? "Oferta" : "Oferta";
+          tipoClase = "type-oferta";
+        } else {
+          // tipo: 'solicitud' (dentistas)
+          tipoBadge = estadoApp.tipoUsuario === 'clinica' ? "Dentista" : "Solicitud";
+          tipoClase = "type-solicitud";
+        }
 
         let interesadosHTML = "";
         // Solo mostrar interesados para solicitudes (dentistas buscando trabajo), no para ofertas (usamos candidaturas)
