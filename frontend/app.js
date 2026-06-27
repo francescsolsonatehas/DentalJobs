@@ -554,6 +554,26 @@ const app = {
       app.stats.mostrarMisPostulacionesAceptadas();
     },
 
+    mostrarMisPostulacionesDentistas() {
+      document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
+      event.target.classList.add("active");
+
+      const filtersTitle = document.getElementById("filtrosTitle");
+      filtersTitle.textContent = "Mis Postulaciones a Dentistas";
+
+      app.stats.mostrarMisPostulacionesDentistas();
+    },
+
+    mostrarMisPostulacionesDentistasAceptadas() {
+      document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
+      event.target.classList.add("active");
+
+      const filtersTitle = document.getElementById("filtrosTitle");
+      filtersTitle.textContent = "Mis Postulaciones a Dentistas Aceptadas";
+
+      app.stats.mostrarMisPostulacionesDentistasAceptadas();
+    },
+
     setTipo(tipo) {
       estadoApp.filtros.tipo = tipo;
       document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
@@ -2035,6 +2055,8 @@ const app = {
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "inline-block";
         btnContactadas.style.display = "inline-block";
+        document.getElementById("btnMisPostulacionesDentistas").style.display = "inline-block";
+        document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "inline-block";
         btnTodas.textContent = "Búsquedas de Candidatos";
         btnMias.textContent = "Mis Ofertas";
       } else {
@@ -2049,6 +2071,8 @@ const app = {
         document.getElementById("btnMisPostulaciones").style.display = "inline-block";
         document.getElementById("btnMisAceptadas").style.display = "inline-block";
         btnContactadas.style.display = "none";
+        document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
+        document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
         btnTodas.textContent = "Ofertas Disponibles de Clínicas";
       }
 
