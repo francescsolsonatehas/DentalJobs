@@ -2200,7 +2200,7 @@ const app = {
 
       // Cargar postulaciones del usuario actual para verificar estado
       let misPostulaciones = [];
-      if (estadoApp.usuario && estadoApp.tipoUsuario === 'clinica') {
+      if (estadoApp.usuario) {
         try {
           const data = await utils.request("/candidaturas/mis-postulaciones");
           misPostulaciones = data.candidaturas || [];
@@ -2287,7 +2287,9 @@ const app = {
                 if (estadoApp.tipoUsuario === 'dentista' && pub.tipo === 'oferta') {
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
                   if (yaPostulada) {
-                    return `<button class="btn-success" style="flex: 1; opacity: 0.7;">✓ Postulada</button>
+                    const estadoText = yaPostulada.estado === 'aceptada' ? 'Aceptada' : 'Pendiente';
+                    const estadoColor = yaPostulada.estado === 'aceptada' ? '#10b981' : '#f59e0b';
+                    return `<button style="flex: 1; opacity: 0.7; background: ${estadoColor}; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; font-size: 0.9rem;">✓ ${estadoText}</button>
                             <button class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Retirar</button>`;
                   } else {
                     return `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>`;
