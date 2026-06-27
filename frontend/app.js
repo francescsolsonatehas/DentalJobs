@@ -1980,6 +1980,21 @@ const app = {
         return;
       }
 
+      // Cargar candidatos para las ofertas propias
+      const candidatosPorOferta = {};
+      if (estadoApp.tipoUsuario === 'clinica' && estadoApp.usuario) {
+        try {
+          const data = await utils.request(`/publicaciones/usuario/${estadoApp.usuario.id}/candidatos`);
+          if (data.ofertas) {
+            data.ofertas.forEach(oferta => {
+              candidatosPorOferta[oferta.publicacion_id] = oferta.candidatos_count || 0;
+            });
+          }
+        } catch (error) {
+          console.error("Error al cargar candidatos:", error);
+        }
+      }
+
       const html = await Promise.all(estadoApp.publicaciones.map(async pub => {
         const especialidad = pub.especialidad_id ? estadoApp.especialidades.find(e => e.id === pub.especialidad_id) : null;
         const tipoBadge = pub.tipo === "oferta" ? "Oferta" : "Solicitud";
@@ -2022,7 +2037,7 @@ const app = {
             </div>
             <div class="card-footer" style="display: flex; gap: 0.5rem;">
               <button class="btn-primary" onclick="app.modal.abrirDetalle(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
-              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${pub.titulo.replace(/'/g, "\\'")}')" style="flex: 1;">👥 Candidatos</button>` : ''}
+              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${pub.titulo.replace(/'/g, "\\'")}')" style="flex: 1;">👥 Candidatos (${candidatosPorOferta[pub.id]})</button>` : ''}
               ${interesadosHTML}
             </div>
           </div>

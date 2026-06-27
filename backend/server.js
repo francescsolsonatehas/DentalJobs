@@ -455,6 +455,27 @@ app.get("/publicaciones/:id", (req, res) => {
   );
 });
 
+// Obtener ofertas del usuario con conteo de candidatos
+app.get("/publicaciones/usuario/:usuario_id/candidatos", verifyToken, (req, res) => {
+  const usuario_id = req.params.usuario_id;
+
+  db.all(
+    `SELECT p.id as publicacion_id, COUNT(c.id) as candidatos_count
+     FROM publicaciones p
+     LEFT JOIN candidaturas c ON p.id = c.publicacion_id
+     WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1
+     GROUP BY p.id`,
+    [usuario_id],
+    (err, ofertas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener ofertas" });
+      }
+      res.json({ ofertas: ofertas || [] });
+    }
+  );
+});
+
 app.post("/publicaciones", verifyToken, (req, res) => {
   const { tipo, titulo, descripcion, ciudad, especialidad_id, contrato, jornada, salario, nombre_contacto, email_contacto, telefono_contacto } = req.body;
 
