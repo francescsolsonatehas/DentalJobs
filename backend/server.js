@@ -828,6 +828,92 @@ app.post("/mensajes", verifyToken, (req, res) => {
   });
 });
 
+// Obtener conversaciones del usuario (bandeja de entrada)
+app.get("/mensajes/conversaciones", verifyToken, (req, res) => {
+  const usuario_id = req.usuario.id;
+
+  db.all(
+    `SELECT DISTINCT
+      m.remitente_email,
+      m.remitente_nombre,
+      MAX(m.creado_en) as ultima_fecha,
+      SUM(CASE WHEN m.leido = 0 AND m.usuario_id = ? THEN 1 ELSE 0 END) as no_leidos,
+      (SELECT COUNT(*) FROM mensajes m2 WHERE m2.remitente_email = m.remitente_email) as total_mensajes
+     FROM mensajes m
+     WHERE m.usuario_id = ? OR m.remitente_email IN (
+       SELECT remitente_email FROM mensajes WHERE usuario_id = ?
+     )
+     GROUP BY m.remitente_email
+     ORDER BY ultima_fecha DESC`,
+    [usuario_id, usuario_id, usuario_id],
+    (err, conversaciones) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener conversaciones" });
+      }
+
+      res.json({ conversaciones: conversaciones || [] });
+    }
+  );
+});
+
+// Obtener historial de conversación con un usuario específico
+app.get("/mensajes/conversacion/:email", verifyToken, (req, res) => {
+  const usuario_id = req.usuario.id;
+  const email = req.params.email;
+
+  db.all(
+    `SELECT * FROM mensajes
+     WHERE (usuario_id = ? AND remitente_email = ?) OR (remitente_email = ? AND usuario_id = ?)
+     ORDER BY creado_en DESC`,
+    [usuario_id, email, email, usuario_id],
+    (err, mensajes) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener conversación" });
+      }
+
+      res.json({ mensajes: (mensajes || []).reverse() });
+    }
+  );
+});
+
+// Marcar mensaje como leído
+app.put("/mensajes/:id/leer", verifyToken, (req, res) => {
+  const mensaje_id = req.params.id;
+
+  db.run(
+    "UPDATE mensajes SET leido = 1 WHERE id = ?",
+    [mensaje_id],
+    (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al marcar como leído" });
+      }
+
+      res.json({ success: true });
+    }
+  );
+});
+
+// Contar mensajes no leídos
+app.get("/mensajes/no-leidos/count", verifyToken, (req, res) => {
+  const usuario_id = req.usuario.id;
+
+  db.get(
+    "SELECT COUNT(*) as total FROM mensajes WHERE usuario_id = ? AND leido = 0",
+    [usuario_id],
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al contar mensajes" });
+      }
+
+      res.json({ no_leidos: result.total });
+    }
+  );
+});
+
 /* ===========================
    🔹 ARCHIVOS
 =========================== */
