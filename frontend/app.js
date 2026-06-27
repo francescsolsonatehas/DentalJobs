@@ -1368,11 +1368,6 @@ const app = {
             </div>
 
             <div class="form-group">
-              <label>Ciudad</label>
-              <input type="text" id="perfilCiudad" value="${u.ciudad || ''}">
-            </div>
-
-            <div class="form-group">
               <label>Dirección</label>
               <input type="text" id="perfilDireccion" value="${u.direccion || ''}">
             </div>
@@ -1383,13 +1378,18 @@ const app = {
             </div>
 
             <div class="form-group">
+              <label>Ciudad</label>
+              <input type="text" id="perfilCiudad" value="${u.ciudad || ''}">
+            </div>
+
+            <div class="form-group">
               <label>País</label>
               <input type="text" id="perfilPais" value="${u.pais || ''}">
             </div>
 
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
               <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
-              <button type="button" class="btn-outline" style="flex: 1;" onclick="app.perfil.cancelarEdicion()">❌ Cancelar</button>
+              <button type="button" class="btn-outline" style="flex: 1;" onclick="app.perfil.cancelarEdicion()">❌ Deshacer cambios</button>
             </div>
           </form>
         `;
@@ -1418,11 +1418,6 @@ const app = {
             </div>
 
             <div class="form-group">
-              <label>Ciudad</label>
-              <input type="text" id="perfilCiudad" value="${u.ciudad || ''}">
-            </div>
-
-            <div class="form-group">
               <label>Dirección</label>
               <input type="text" id="perfilDireccion" value="${u.direccion || ''}">
             </div>
@@ -1433,13 +1428,18 @@ const app = {
             </div>
 
             <div class="form-group">
+              <label>Ciudad</label>
+              <input type="text" id="perfilCiudad" value="${u.ciudad || ''}">
+            </div>
+
+            <div class="form-group">
               <label>País</label>
               <input type="text" id="perfilPais" value="${u.pais || ''}">
             </div>
 
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
               <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
-              <button type="button" class="btn-outline" style="flex: 1;" onclick="app.perfil.cancelarEdicion()">❌ Cancelar</button>
+              <button type="button" class="btn-outline" style="flex: 1;" onclick="app.perfil.cancelarEdicion()">❌ Deshacer cambios</button>
             </div>
           </form>
         `;
