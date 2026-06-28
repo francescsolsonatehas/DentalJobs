@@ -680,6 +680,12 @@ const app = {
       let html = `
         <div style="background: #F8FAFF; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #0F4C75;">
           <div class="card-details">
+            ${publicacion.usuario_nombre ? `
+            <div class="detail">
+              <span class="detail-label" style="font-weight: 700; color: #666;">👤 ${publicacion.usuario_tipo === 'clinica' ? 'Clínica' : 'Dentista'}:</span>
+              <span>${publicacion.usuario_nombre}</span>
+            </div>
+            ` : ''}
             <div class="detail">
               <span class="detail-label" style="font-weight: 700; color: #666;">📍 Ciudad:</span>
               <span>${publicacion.ciudad}</span>

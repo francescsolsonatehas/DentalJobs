@@ -394,23 +394,23 @@ app.get("/especialidades", (req, res) => {
 app.get("/publicaciones", (req, res) => {
   const { tipo, especialidad, ciudad } = req.query;
 
-  let query = "SELECT * FROM publicaciones WHERE activo = 1";
+  let query = "SELECT p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id WHERE p.activo = 1";
   const params = [];
 
   if (tipo) {
-    query += " AND tipo = ?";
+    query += " AND p.tipo = ?";
     params.push(tipo);
   }
   if (especialidad) {
-    query += " AND especialidad_id = ?";
+    query += " AND p.especialidad_id = ?";
     params.push(especialidad);
   }
   if (ciudad) {
-    query += " AND ciudad LIKE ?";
+    query += " AND p.ciudad LIKE ?";
     params.push(`%${ciudad}%`);
   }
 
-  query += " ORDER BY creado_en DESC";
+  query += " ORDER BY p.creado_en DESC";
 
   db.all(query, params, (err, publicaciones) => {
     if (err) {
