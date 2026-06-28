@@ -678,60 +678,75 @@ const app = {
       const especialidad = publicacion.especialidad_id ? estadoApp.especialidades.find(e => e.id === publicacion.especialidad_id) : null;
 
       let html = `
-        <div style="background: #F8FAFF; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #0F4C75;">
-          <div class="card-details">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 1.5rem;">
+          <tbody>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; width: 30%; color: #0F4C75;">ID:</td>
+              <td style="padding: 0.8rem;">${publicacion.id}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">Tipo:</td>
+              <td style="padding: 0.8rem;">${publicacion.tipo === 'oferta' ? '📋 Oferta' : '🔍 Solicitud'}</td>
+            </tr>
             ${publicacion.usuario_nombre ? `
-            <div class="detail">
-              <span class="detail-label" style="font-weight: 700; color: #666;">👤 ${publicacion.usuario_tipo === 'clinica' ? 'Clínica' : 'Dentista'}:</span>
-              <span>${publicacion.usuario_nombre}</span>
-            </div>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">Publicado por:</td>
+              <td style="padding: 0.8rem;">${publicacion.usuario_nombre} (${publicacion.usuario_tipo === 'clinica' ? '🏥 Clínica' : '👨‍⚕️ Dentista'})</td>
+            </tr>
             ` : ''}
-            <div class="detail">
-              <span class="detail-label" style="font-weight: 700; color: #666;">📍 Ciudad:</span>
-              <span>${publicacion.ciudad}</span>
-            </div>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📍 Ciudad:</td>
+              <td style="padding: 0.8rem;">${publicacion.ciudad}</td>
+            </tr>
             ${especialidad ? `
-            <div class="detail">
-              <span class="detail-label" style="font-weight: 700; color: #666;">🦷 Especialidad:</span>
-              <span>${especialidad.nombre}</span>
-            </div>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🦷 Especialidad:</td>
+              <td style="padding: 0.8rem;">${especialidad.nombre}</td>
+            </tr>
             ` : ''}
             ${publicacion.contrato ? `
-            <div class="detail">
-              <span class="detail-label" style="font-weight: 700; color: #666;">📋 Contrato:</span>
-              <span>${publicacion.contrato}</span>
-            </div>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📋 Contrato:</td>
+              <td style="padding: 0.8rem;">${publicacion.contrato}</td>
+            </tr>
             ` : ''}
             ${publicacion.jornada ? `
-            <div class="detail">
-              <span class="detail-label" style="font-weight: 700; color: #666;">⏰ Jornada:</span>
-              <span>${publicacion.jornada}</span>
-            </div>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">⏰ Jornada:</td>
+              <td style="padding: 0.8rem;">${publicacion.jornada}</td>
+            </tr>
             ` : ''}
             ${publicacion.salario ? `
-            <div class="detail">
-              <span class="detail-label" style="font-weight: 700; color: #666;">💰 Salario:</span>
-              <span>${publicacion.salario}</span>
-            </div>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">💰 Salario:</td>
+              <td style="padding: 0.8rem;">${publicacion.salario}</td>
+            </tr>
             ` : ''}
-            <div class="detail">
-              <span class="detail-label" style="font-weight: 700; color: #666;">📅 Publicado:</span>
-              <span>${utils.formatearFecha(publicacion.creado_en)}</span>
-            </div>
-          </div>
-        </div>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📅 Publicado:</td>
+              <td style="padding: 0.8rem;">${utils.formatearFecha(publicacion.creado_en)}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">👤 Contacto - Nombre:</td>
+              <td style="padding: 0.8rem;">${publicacion.nombre_contacto}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📧 Contacto - Email:</td>
+              <td style="padding: 0.8rem;"><a href="mailto:${publicacion.email_contacto}" style="color: #0F4C75; text-decoration: none;">${publicacion.email_contacto}</a></td>
+            </tr>
+            ${publicacion.telefono_contacto ? `
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📞 Contacto - Teléfono:</td>
+              <td style="padding: 0.8rem;"><a href="tel:${publicacion.telefono_contacto}" style="color: #0F4C75; text-decoration: none;">${publicacion.telefono_contacto}</a></td>
+            </tr>
+            ` : ''}
+          </tbody>
+        </table>
 
         <h4 style="margin: 1rem 0 0.5rem; color: #0F4C75; font-weight: 700;">Descripción</h4>
         <p style="white-space: pre-wrap; line-height: 1.6; background: #fff; padding: 1rem; border-radius: 8px; border: 1px solid #e5e7eb;">${publicacion.descripcion}</p>
 
-        <div id="detalleContacto">
-          <h4 style="margin: 1rem 0 0.5rem; color: #0F4C75; font-weight: 700;">Contacto</h4>
-          <div style="background: #F8FAFF; padding: 1rem; border-radius: 8px; border-left: 4px solid #0F4C75;">
-            <p style="margin: 0.3rem 0;"><span style="font-weight: 700;">👤 Nombre:</span> ${publicacion.nombre_contacto}</p>
-            <p style="margin: 0.3rem 0;">📧 <a href="mailto:${publicacion.email_contacto}" style="color: #0F4C75; text-decoration: none;">${publicacion.email_contacto}</a></p>
-            ${publicacion.telefono_contacto ? `<p style="margin: 0.3rem 0;">📞 <a href="tel:${publicacion.telefono_contacto}" style="color: #0F4C75; text-decoration: none;">${publicacion.telefono_contacto}</a></p>` : ""}
-          </div>
-        </div>
+        <div id="detalleContacto" style="display: none;"></div>
       `;
 
       // Agregar botón de editar si es propietario
