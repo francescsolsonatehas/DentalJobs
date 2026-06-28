@@ -493,9 +493,9 @@ const app = {
       // Actualizar título de filtros
       const filtersTitle = document.getElementById("filtrosTitle");
       if (estadoApp.tipoUsuario === 'clinica') {
-        filtersTitle.textContent = "Solicitudes Disponibles de Dentistas";
+        filtersTitle.textContent = "";
       } else {
-        filtersTitle.textContent = "Clínicas";
+        filtersTitle.textContent = "";
       }
 
       app.publicaciones.cargar();
@@ -510,9 +510,9 @@ const app = {
       // Actualizar título de filtros
       const filtersTitle = document.getElementById("filtrosTitle");
       if (estadoApp.tipoUsuario === 'clinica') {
-        filtersTitle.textContent = "Mis Ofertas";
+        filtersTitle.textContent = "";
       } else {
-        filtersTitle.textContent = "Mi Búsqueda";
+        filtersTitle.textContent = "";
       }
 
       app.publicaciones.cargar();
@@ -526,9 +526,9 @@ const app = {
 
       const filtersTitle = document.getElementById("filtrosTitle");
       if (estadoApp.tipoUsuario === 'clinica') {
-        filtersTitle.textContent = "Mis Ofertas";
+        filtersTitle.textContent = "";
       } else {
-        filtersTitle.textContent = "Mis Publicaciones";
+        filtersTitle.textContent = "";
       }
 
       app.publicaciones.cargar();
@@ -2064,15 +2064,15 @@ const app = {
 
       if (estadoApp.tipoUsuario === 'clinica') {
         heroTitle.textContent = `🦷 ${estadoApp.usuario?.nombre || 'Mi Empresa'}`;
-        filtersTitle.textContent = "Dentistas";
-        filtersTitle.style.display = "block";
+        filtersTitle.textContent = "";
+        filtersTitle.style.display = "none";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "none";
         document.getElementById("btnPublicaciones").style.display = "inline-block";
         btnContactadas.style.display = "none";
         document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
-        btnTodas.textContent = "Dentistas";
+        btnTodas.textContent = "";
       } else {
         // Dentista
         const nombrePartes = (estadoApp.usuario?.nombre || 'Candidato').split(' ');
@@ -2253,7 +2253,7 @@ const app = {
           tipoClase = "type-oferta";
         } else {
           // tipo: 'solicitud' (dentistas)
-          tipoBadge = estadoApp.tipoUsuario === 'clinica' ? "Dentista" : "Solicitud";
+          tipoBadge = estadoApp.tipoUsuario === 'clinica' ? "" : "Solicitud";
           tipoClase = "type-solicitud";
         }
 
