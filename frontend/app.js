@@ -2254,11 +2254,11 @@ const app = {
         const generatedTitle = especialidad ? `${especialidad.nombre} - ${pub.ciudad}` : `Dentista - ${pub.ciudad}`;
         let tipoBadge, tipoClase;
         if (pub.tipo === "oferta") {
-          tipoBadge = estadoApp.tipoUsuario === 'clinica' ? "" : "Oferta";
+          tipoBadge = "";
           tipoClase = "type-oferta";
         } else {
           // tipo: 'solicitud' (dentistas)
-          tipoBadge = estadoApp.tipoUsuario === 'clinica' ? "" : "Solicitud";
+          tipoBadge = "";
           tipoClase = "type-solicitud";
         }
 
