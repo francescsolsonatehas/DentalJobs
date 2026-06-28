@@ -401,10 +401,8 @@ app.get("/publicaciones", (req, res) => {
     query += " AND p.tipo = ?";
     params.push(tipo);
   }
-  if (especialidad) {
-    query += " AND p.especialidad_id = ?";
-    params.push(especialidad);
-  }
+  // Nota: Para filtrar por especialidad, el frontend debe hacer un JOIN con publicacion_especialidades
+  // O puede filtrar después de obtener los datos
   if (ciudad) {
     query += " AND p.ciudad LIKE ?";
     params.push(`%${ciudad}%`);
@@ -477,26 +475,43 @@ app.get("/publicaciones/usuario/:usuario_id/candidatos", verifyToken, (req, res)
 });
 
 app.post("/publicaciones", verifyToken, (req, res) => {
-  const { tipo, descripcion, ciudad, especialidad_id, contrato, jornada, salario, nombre_contacto, email_contacto, telefono_contacto } = req.body;
+  const { tipo, descripcion, ciudad, especialidades, contrato, jornada, salario, nombre_contacto, email_contacto, telefono_contacto } = req.body;
 
   if (!tipo || !ciudad) {
     return res.status(400).json({ error: "Faltan datos obligatorios" });
   }
 
+  // Validar tipo de usuario vs tipo de publicación
+  const tipoUsuario = req.usuario.tipo;
+  if ((tipoUsuario === 'clinica' && tipo !== 'oferta') || (tipoUsuario === 'dentista' && tipo !== 'solicitud')) {
+    return res.status(403).json({ error: "No puedes crear este tipo de publicación" });
+  }
+
   db.run(
     `INSERT INTO publicaciones
      (tipo, descripcion, ciudad, especialidad_id, contrato, jornada, salario, usuario_id, nombre_contacto, email_contacto, telefono_contacto)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [tipo, descripcion, ciudad, especialidad_id || null, contrato || null, jornada || null, salario || null, req.usuario.id, nombre_contacto, email_contacto, telefono_contacto],
+     VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+    [tipo, descripcion, ciudad, contrato || null, jornada || null, salario || null, req.usuario.id, nombre_contacto, email_contacto, telefono_contacto],
     function(err) {
       if (err) {
         console.error(err);
         return res.status(500).json({ error: "Error al crear publicación" });
       }
 
+      const publicacionId = this.lastID;
+
+      // Guardar especialidades si se proporcionan
+      if (Array.isArray(especialidades) && especialidades.length > 0) {
+        const stmt = db.prepare("INSERT INTO publicacion_especialidades (publicacion_id, especialidad_id) VALUES (?, ?)");
+        especialidades.forEach(eId => {
+          stmt.run(publicacionId, eId);
+        });
+        stmt.finalize();
+      }
+
       res.json({
         mensaje: "Publicación creada",
-        id: this.lastID
+        id: publicacionId
       });
     }
   );

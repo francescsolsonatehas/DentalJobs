@@ -406,23 +406,10 @@ const app = {
       }
 
       try {
-        // Separar especialidades del formData
-        const especialidades = formData.especialidades || [];
-        const datosPublicacion = { ...formData };
-        delete datosPublicacion.especialidades;
-
         const respuesta = await utils.request("/publicaciones", {
           method: "POST",
-          body: JSON.stringify(datosPublicacion)
+          body: JSON.stringify(formData)
         });
-
-        // Si hay especialidades, guardarlas
-        if (especialidades.length > 0 && respuesta.id) {
-          await utils.request(`/publicaciones/${respuesta.id}/especialidades`, {
-            method: "POST",
-            body: JSON.stringify({ especialidades })
-          });
-        }
 
         utils.mostrarAlerta("¡Publicación creada exitosamente!", "success");
         app.modal.cerrarPublicar();
@@ -764,7 +751,7 @@ const app = {
       if (esPropio) {
         html = `<div id="detalleVistaPrevia">${html}</div>
                 <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-                  <button class="btn-primary" onclick="app.modal.activarEdicion()">Editar</button>
+                  <button class="btn-primary" onclick="app.modal.activarEdicion().catch(e => console.error(e))">Editar</button>
                   <button class="btn-text" onclick="app.modal.cerrarDetalle()">Cerrar</button>
                 </div>`;
       }
@@ -783,8 +770,19 @@ const app = {
       document.getElementById("modalDetalle").classList.add("active");
     },
 
-    activarEdicion() {
+    async activarEdicion() {
       const pub = estadoApp.publicacionActual;
+
+      // Obtener especialidades actuales
+      let especialidadesActuales = [];
+      try {
+        const data = await utils.request(`/publicaciones/${pub.id}/especialidades`, { method: 'GET' });
+        if (data && data.especialidades) {
+          especialidadesActuales = data.especialidades.map(e => e.id);
+        }
+      } catch (error) {
+        console.error("Error al cargar especialidades:", error);
+      }
 
       let html = `
         <form id="formEdicion" onsubmit="event.preventDefault(); app.modal.guardarEdicion();">
@@ -805,7 +803,7 @@ const app = {
             <div id="editEspecialidadesContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
               ${estadoApp.especialidades.map(e => `
                 <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                  <input type="checkbox" class="editEspecialidadCheck" value="${e.id}" ${pub.especialidad_id === e.id ? 'checked' : ''}>
+                  <input type="checkbox" class="editEspecialidadCheck" value="${e.id}" ${especialidadesActuales.includes(e.id) ? 'checked' : ''}>
                   <span>${e.nombre}</span>
                 </label>
               `).join('')}
