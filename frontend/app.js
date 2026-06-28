@@ -518,6 +518,18 @@ const app = {
       app.publicaciones.cargar();
     },
 
+    mostrarMisPublicacionesDentista() {
+      estadoApp.filtros.soloMias = true;
+      estadoApp.filtros.contactadas = false;
+      document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
+      document.getElementById("btnPublicaciones").classList.add("active");
+
+      const filtersTitle = document.getElementById("filtrosTitle");
+      filtersTitle.textContent = "Mis Publicaciones";
+
+      app.publicaciones.cargar();
+    },
+
     mostrarContactadas() {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = true;
