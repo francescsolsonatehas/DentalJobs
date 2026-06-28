@@ -2148,18 +2148,6 @@ const app = {
               <p>Candidatos Coincidentes</p>
               <div class="stat-tooltip">Dentistas que coinciden con ciudad y especialidad de mis ofertas</div>
             </div>
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarCandidatosInteresados()">
-              <span>📧</span>
-              <h3>${candidatosInteresados.total}</h3>
-              <p>Postulaciones Recibidas</p>
-              <div class="stat-tooltip">Dentistas que se han postulado a mis ofertas</div>
-            </div>
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarContactados()">
-              <span>✅</span>
-              <h3>${contactados}</h3>
-              <p>Candidatos Aceptados</p>
-              <div class="stat-tooltip">Dentistas que hemos aceptado en nuestras ofertas</div>
-            </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulacionesDentistas()">
               <span>📬</span>
               <h3>${miPostulacionesDentistas.total}</h3>
@@ -2171,6 +2159,18 @@ const app = {
               <h3>${misPostulacionesDentistasAceptadas.total}</h3>
               <p>Postulaciones a Dentistas Aceptadas</p>
               <div class="stat-tooltip">Solicitudes de dentistas donde aceptaron mi postulación</div>
+            </div>
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarCandidatosInteresados()">
+              <span>📧</span>
+              <h3>${candidatosInteresados.total}</h3>
+              <p>Postulaciones Recibidas</p>
+              <div class="stat-tooltip">Dentistas que se han postulado a mis ofertas</div>
+            </div>
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarContactados()">
+              <span>✅</span>
+              <h3>${contactados}</h3>
+              <p>Candidatos Aceptados</p>
+              <div class="stat-tooltip">Dentistas que hemos aceptado en nuestras ofertas</div>
             </div>
           `;
         } else {
