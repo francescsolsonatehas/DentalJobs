@@ -1632,7 +1632,7 @@ const app = {
       document.getElementById("modalInteresados").classList.add("active");
     },
 
-    mostrarListaCandidatos(candidatos, titulo) {
+    async mostrarListaCandidatos(candidatos, titulo) {
       if (candidatos.length === 0) {
         utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
         return;
@@ -1654,11 +1654,24 @@ const app = {
 
       let html = `<h3>${candidatos.length} ${titulo}</h3><div class="candidatos-list">`;
 
-      Object.values(porOferta).forEach((oferta, idx) => {
+      const ofertas = Object.values(porOferta);
+      for (let idx = 0; idx < ofertas.length; idx++) {
+        const oferta = ofertas[idx];
+        let especialidadesText = '';
+
+        try {
+          const data = await utils.request(`/publicaciones/${oferta.publicacion_id}/especialidades`, { method: 'GET' });
+          if (data.especialidades && data.especialidades.length > 0) {
+            especialidadesText = data.especialidades.map(e => e.nombre).join(", ");
+          }
+        } catch (error) {
+          console.error("Error al obtener especialidades:", error);
+        }
+
         html += `
           <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
             <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75;">📋 Publicación ${idx + 1}</h4>
-            <p style="margin: 0 0 1rem 0; color: #1f2937; font-size: 0.9rem;"><strong>📍 Ciudad:</strong> ${oferta.oferta_ciudad}</p>
+            <p style="margin: 0 0 1rem 0; color: #1f2937; font-size: 0.9rem;"><strong>🦷 Especialidades:</strong> ${especialidadesText || 'Sin especialidades'} | <strong>📍 Ciudad:</strong> ${oferta.oferta_ciudad}</p>
             <div style="border-top: 1px solid #d1d5db; padding-top: 1rem;">
               <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: #1f2937;">Candidatos (${oferta.candidatos.length})</p>
         `;
@@ -1684,7 +1697,7 @@ const app = {
             </div>
           </div>
         `;
-      });
+      }
 
       html += "</div>";
 
