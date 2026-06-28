@@ -485,10 +485,10 @@ const app = {
   // ============================================
 
   filtros: {
-    mostrarTodas() {
+    mostrarTodas(btn) {
       estadoApp.filtros.soloMias = false;
-      document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
-      event.target.classList.add("active");
+      document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
 
       // Actualizar título de filtros
       const filtersTitle = document.getElementById("filtrosTitle");
@@ -501,11 +501,11 @@ const app = {
       app.publicaciones.cargar();
     },
 
-    mostrarMias() {
+    mostrarMias(btn) {
       estadoApp.filtros.soloMias = true;
       estadoApp.filtros.contactadas = false;
-      document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
-      event.target.classList.add("active");
+      document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
 
       // Actualizar título de filtros
       const filtersTitle = document.getElementById("filtrosTitle");
@@ -518,11 +518,11 @@ const app = {
       app.publicaciones.cargar();
     },
 
-    mostrarMisPublicaciones() {
+    mostrarMisPublicaciones(btn) {
       estadoApp.filtros.soloMias = true;
       estadoApp.filtros.contactadas = false;
-      document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
-      document.getElementById("btnPublicaciones").classList.add("active");
+      document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
 
       const filtersTitle = document.getElementById("filtrosTitle");
       if (estadoApp.tipoUsuario === 'clinica') {
@@ -534,11 +534,11 @@ const app = {
       app.publicaciones.cargar();
     },
 
-    mostrarContactadas() {
+    mostrarContactadas(btn) {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = true;
-      document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
-      event.target.classList.add("active");
+      document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
 
       const filtersTitle = document.getElementById("filtrosTitle");
       filtersTitle.textContent = "Solicitudes contactadas";
@@ -546,11 +546,11 @@ const app = {
       app.publicaciones.cargarContactadas();
     },
 
-    mostrarMisPostulaciones() {
+    mostrarMisPostulaciones(btn) {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
-      document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
-      event.target.classList.add("active");
+      document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
 
       const filtersTitle = document.getElementById("filtrosTitle");
       filtersTitle.textContent = "Mis Postulaciones a Clínicas";
@@ -558,11 +558,11 @@ const app = {
       app.stats.mostrarMisPostulaciones();
     },
 
-    mostrarMisAceptadas() {
+    mostrarMisAceptadas(btn) {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
-      document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
-      event.target.classList.add("active");
+      document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
 
       const filtersTitle = document.getElementById("filtrosTitle");
       filtersTitle.textContent = "Mis Postulaciones a Clínicas Aceptadas";
@@ -570,9 +570,9 @@ const app = {
       app.stats.mostrarMisPostulacionesAceptadas();
     },
 
-    mostrarMisPostulacionesDentistas() {
-      document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
-      event.target.classList.add("active");
+    mostrarMisPostulacionesDentistas(btn) {
+      document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
 
       const filtersTitle = document.getElementById("filtrosTitle");
       filtersTitle.textContent = "Mis Postulaciones a Dentistas";
@@ -580,9 +580,9 @@ const app = {
       app.stats.mostrarMisPostulacionesDentistas();
     },
 
-    mostrarMisPostulacionesDentistasAceptadas() {
-      document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
-      event.target.classList.add("active");
+    mostrarMisPostulacionesDentistasAceptadas(btn) {
+      document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
 
       const filtersTitle = document.getElementById("filtrosTitle");
       filtersTitle.textContent = "Mis Postulaciones a Dentistas Aceptadas";
@@ -590,10 +590,10 @@ const app = {
       app.stats.mostrarMisPostulacionesDentistasAceptadas();
     },
 
-    setTipo(tipo) {
+    setTipo(tipo, btn) {
       estadoApp.filtros.tipo = tipo;
-      document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
-      event.target.classList.add("active");
+      document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
 
       app.publicaciones.cargar();
     }
