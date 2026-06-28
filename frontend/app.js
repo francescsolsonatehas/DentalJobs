@@ -1644,6 +1644,8 @@ const app = {
         if (!porOferta[c.publicacion_id]) {
           porOferta[c.publicacion_id] = {
             oferta_descripcion: c.oferta_descripcion,
+            oferta_ciudad: c.oferta_ciudad,
+            publicacion_id: c.publicacion_id,
             candidatos: []
           };
         }
@@ -1656,7 +1658,7 @@ const app = {
         html += `
           <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
             <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75;">📋 Publicación ${idx + 1}</h4>
-            ${oferta.oferta_descripcion ? `<p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;">${oferta.oferta_descripcion}</p>` : ''}
+            <p style="margin: 0 0 1rem 0; color: #1f2937; font-size: 0.9rem;"><strong>📍 Ciudad:</strong> ${oferta.oferta_ciudad}</p>
             <div style="border-top: 1px solid #d1d5db; padding-top: 1rem;">
               <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: #1f2937;">Candidatos (${oferta.candidatos.length})</p>
         `;
