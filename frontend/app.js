@@ -1189,11 +1189,13 @@ const app = {
         Object.keys(agrupadoPorCiudad).sort().forEach(ciudad => {
           html += `<div class="desglose-grupo"><h4>${ciudad}</h4>`;
 
-          agrupadoPorCiudad[ciudad].forEach(o => {
+          agrupadoPorCiudad[ciudad].forEach((o, idx) => {
+            const esp = estadoApp.especialidades.find(e => e.id === o.especialidad_id);
+            const titulo = esp ? esp.nombre : 'Oferta';
             html += `
               <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarOfertaCompleta(${JSON.stringify(o).replace(/"/g, '&quot;')})">
-                <strong>${o.titulo}</strong>
-                <span class="desglose-numero">Oferta</span>
+                <strong>${titulo}</strong>
+                <span class="desglose-numero">Oferta ${idx + 1}</span>
               </div>
             `;
           });
@@ -1238,12 +1240,13 @@ const app = {
 
       postulaciones.forEach(post => {
         const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[post.estado];
+        const tituloPublicacion = post.ciudad || 'Publicación';
         html += `
           <div style="background: white; border: 2px solid ${estadoColor}; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
               <div>
-                <h4 style="margin: 0 0 0.3rem 0; color: #0f4c75; font-size: 1.2rem; font-weight: 700;">${post.titulo}</h4>
-                <p style="margin: 0; color: #6b7280; font-size: 0.95rem;">🏢 ${post.empresa_nombre}</p>
+                <h4 style="margin: 0 0 0.3rem 0; color: #0f4c75; font-size: 1.2rem; font-weight: 700;">${tituloPublicacion}</h4>
+                ${post.empresa_nombre ? `<p style="margin: 0; color: #6b7280; font-size: 0.95rem;">🏢 ${post.empresa_nombre}</p>` : ''}
               </div>
               <span style="background: ${estadoColor}; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize; white-space: nowrap;">${post.estado}</span>
             </div>
@@ -1368,31 +1371,36 @@ const app = {
 
     mostrarOfertaCompleta(oferta) {
       const esp = estadoApp.especialidades.find(e => e.id === oferta.especialidad_id);
+      const titulo = esp ? `${esp.nombre} - ${oferta.ciudad}` : oferta.ciudad;
 
       let html = `
         <div class="perfil-dentista">
-          <h3 style="margin-top: 0; color: var(--primary);">${oferta.titulo}</h3>
+          <h3 style="margin-top: 0; color: var(--primary);">${titulo}</h3>
 
           <div class="info-section">
             <h4>Detalles</h4>
             <p><strong>Ciudad:</strong> ${oferta.ciudad}</p>
-            <p><strong>Especialidad:</strong> ${esp?.nombre || 'No especificada'}</p>
+            ${esp ? `<p><strong>Especialidades:</strong> ${esp.nombre}</p>` : ''}
             ${oferta.contrato ? `<p><strong>Tipo de contrato:</strong> ${oferta.contrato}</p>` : ''}
             ${oferta.jornada ? `<p><strong>Jornada:</strong> ${oferta.jornada}</p>` : ''}
             ${oferta.salario ? `<p><strong>Salario:</strong> ${oferta.salario}</p>` : ''}
           </div>
 
+          ${oferta.descripcion ? `
           <div class="info-section">
             <h4>Descripción</h4>
             <p style="white-space: pre-wrap;">${oferta.descripcion}</p>
           </div>
+          ` : ''}
 
+          ${oferta.nombre_contacto ? `
           <div class="info-section">
             <h4>Contacto</h4>
             <p><strong>Nombre:</strong> ${oferta.nombre_contacto}</p>
-            <p><strong>Email:</strong> <a href="mailto:${oferta.email_contacto}">${oferta.email_contacto}</a></p>
+            ${oferta.email_contacto ? `<p><strong>Email:</strong> <a href="mailto:${oferta.email_contacto}">${oferta.email_contacto}</a></p>` : ''}
             ${oferta.telefono_contacto ? `<p><strong>Teléfono:</strong> <a href="tel:${oferta.telefono_contacto}">${oferta.telefono_contacto}</a></p>` : ''}
           </div>
+          ` : ''}
         </div>
       `;
 
@@ -1518,7 +1526,6 @@ const app = {
       candidatos.forEach(c => {
         if (!porOferta[c.publicacion_id]) {
           porOferta[c.publicacion_id] = {
-            oferta_titulo: c.oferta_titulo,
             oferta_descripcion: c.oferta_descripcion,
             candidatos: []
           };
@@ -1528,11 +1535,11 @@ const app = {
 
       let html = `<h3>${candidatos.length} ${titulo}</h3><div class="candidatos-list">`;
 
-      Object.values(porOferta).forEach(oferta => {
+      Object.values(porOferta).forEach((oferta, idx) => {
         html += `
           <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
-            <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75;">📋 ${oferta.oferta_titulo}</h4>
-            <p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;">${oferta.oferta_descripcion || 'Sin descripción'}</p>
+            <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75;">📋 Publicación ${idx + 1}</h4>
+            ${oferta.oferta_descripcion ? `<p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;">${oferta.oferta_descripcion}</p>` : ''}
             <div style="border-top: 1px solid #d1d5db; padding-top: 1rem;">
               <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: #1f2937;">Candidatos (${oferta.candidatos.length})</p>
         `;
@@ -1575,23 +1582,16 @@ const app = {
           <div class="info-section">
             <h4>Contacto</h4>
             <p><strong>Email:</strong> <a href="mailto:${dentista.email}">${dentista.email}</a></p>
-            ${dentista.telefono ? `<p><strong>Teléfono:</strong> <a href="tel:${dentista.telefono}">${dentista.telefono}</a></p>` : ''}
+            ${(dentista.telefono || dentista.movil) ? `<p><strong>Teléfono:</strong> <a href="tel:${dentista.telefono || dentista.movil}">${dentista.telefono || dentista.movil}</a></p>` : ''}
           </div>
 
           <div class="info-section">
             <h4>Ubicación</h4>
-            <p><strong>Ciudad:</strong> ${dentista.ciudad || 'No especificada'}</p>
+            ${dentista.ciudad ? `<p><strong>Ciudad:</strong> ${dentista.ciudad}</p>` : ''}
             ${dentista.direccion ? `<p><strong>Dirección:</strong> ${dentista.direccion}</p>` : ''}
             ${dentista.codigo_postal ? `<p><strong>Código Postal:</strong> ${dentista.codigo_postal}</p>` : ''}
             ${dentista.pais ? `<p><strong>País:</strong> ${dentista.pais}</p>` : ''}
           </div>
-
-          ${dentista.especialidad ? `
-            <div class="info-section">
-              <h4>Especialidad</h4>
-              <p><strong>${dentista.especialidad}</strong></p>
-            </div>
-          ` : ''}
         </div>
       `;
 
