@@ -675,50 +675,55 @@ const app = {
 
     abrirDetalle(publicacion) {
       estadoApp.publicacionActual = publicacion;
-      const badges = [];
-
-      if (publicacion.especialidad_id) {
-        const especialidad = estadoApp.especialidades.find(e => e.id === publicacion.especialidad_id);
-        if (especialidad) badges.push(especialidad.nombre);
-      }
-      if (publicacion.contrato) badges.push(publicacion.contrato);
-      if (publicacion.jornada) badges.push(publicacion.jornada);
+      const especialidad = publicacion.especialidad_id ? estadoApp.especialidades.find(e => e.id === publicacion.especialidad_id) : null;
 
       let html = `
-        <div class="card-details">
-          <div class="detail">
-            <span class="detail-icon">📍</span>
-            <span>${publicacion.ciudad}</span>
-          </div>
-      `;
-
-      if (publicacion.salario) {
-        html += `
-          <div class="detail">
-            <span class="detail-icon">💰</span>
-            <span>${publicacion.salario}</span>
-          </div>
-        `;
-      }
-
-      html += `
-          <div class="detail">
-            <span class="detail-icon">📅</span>
-            <span>${utils.formatearFecha(publicacion.creado_en)}</span>
+        <div style="background: #F8FAFF; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #0F4C75;">
+          <div class="card-details">
+            <div class="detail">
+              <span class="detail-label" style="font-weight: 700; color: #666;">📍 Ciudad:</span>
+              <span>${publicacion.ciudad}</span>
+            </div>
+            ${especialidad ? `
+            <div class="detail">
+              <span class="detail-label" style="font-weight: 700; color: #666;">🦷 Especialidad:</span>
+              <span>${especialidad.nombre}</span>
+            </div>
+            ` : ''}
+            ${publicacion.contrato ? `
+            <div class="detail">
+              <span class="detail-label" style="font-weight: 700; color: #666;">📋 Contrato:</span>
+              <span>${publicacion.contrato}</span>
+            </div>
+            ` : ''}
+            ${publicacion.jornada ? `
+            <div class="detail">
+              <span class="detail-label" style="font-weight: 700; color: #666;">⏰ Jornada:</span>
+              <span>${publicacion.jornada}</span>
+            </div>
+            ` : ''}
+            ${publicacion.salario ? `
+            <div class="detail">
+              <span class="detail-label" style="font-weight: 700; color: #666;">💰 Salario:</span>
+              <span>${publicacion.salario}</span>
+            </div>
+            ` : ''}
+            <div class="detail">
+              <span class="detail-label" style="font-weight: 700; color: #666;">📅 Publicado:</span>
+              <span>${utils.formatearFecha(publicacion.creado_en)}</span>
+            </div>
           </div>
         </div>
 
-        ${badges.length > 0 ? `<div class="badges">${badges.map(b => `<span class="badge">${b}</span>`).join("")}</div>` : ""}
-
         <h4 style="margin: 1rem 0 0.5rem; color: #0F4C75; font-weight: 700;">Descripción</h4>
-        <p style="white-space: pre-wrap; line-height: 1.6;">${publicacion.descripcion}</p>
+        <p style="white-space: pre-wrap; line-height: 1.6; background: #fff; padding: 1rem; border-radius: 8px; border: 1px solid #e5e7eb;">${publicacion.descripcion}</p>
 
         <div id="detalleContacto">
           <h4 style="margin: 1rem 0 0.5rem; color: #0F4C75; font-weight: 700;">Contacto</h4>
           <div style="background: #F8FAFF; padding: 1rem; border-radius: 8px; border-left: 4px solid #0F4C75;">
-            <p style="font-weight: 700; color: #0F4C75;">${publicacion.nombre_contacto}</p>
-            <p>📧 <a href="mailto:${publicacion.email_contacto}" style="color: #0F4C75; text-decoration: none;">${publicacion.email_contacto}</a></p>
-            ${publicacion.telefono_contacto ? `<p>📞 <a href="tel:${publicacion.telefono_contacto}" style="color: #0F4C75; text-decoration: none;">${publicacion.telefono_contacto}</a></p>` : ""}
+            <p style="margin: 0.3rem 0;"><span style="font-weight: 700;">👤 Nombre:</span> ${publicacion.nombre_contacto}</p>
+            <p style="margin: 0.3rem 0;">📧 <a href="mailto:${publicacion.email_contacto}" style="color: #0F4C75; text-decoration: none;">${publicacion.email_contacto}</a></p>
+            ${publicacion.telefono_contacto ? `<p style="margin: 0.3rem 0;">📞 <a href="tel:${publicacion.telefono_contacto}" style="color: #0F4C75; text-decoration: none;">${publicacion.telefono_contacto}</a></p>` : ""}
           </div>
         </div>
       `;
