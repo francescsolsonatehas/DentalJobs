@@ -757,18 +757,13 @@ app.get("/stats/posibles-candidatos/:empresa_id", verifyToken, (req, res) => {
   db.get(
     `SELECT COUNT(DISTINCT s.usuario_id) as total
      FROM publicaciones s
-     LEFT JOIN publicacion_especialidades pe_s ON s.id = pe_s.publicacion_id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
      AND EXISTS (
        SELECT 1 FROM publicaciones o
-       LEFT JOIN publicacion_especialidades pe_o ON o.id = pe_o.publicacion_id
-       WHERE o.usuario_id = ? AND o.tipo = 'oferta' AND o.activo = 1
-       AND o.ciudad = s.ciudad
-       AND (
-         COALESCE(pe_o.especialidad_id, 0) = COALESCE(pe_s.especialidad_id, 0)
-         OR pe_o.especialidad_id IS NULL
-         OR pe_s.especialidad_id IS NULL
-       )
+       WHERE o.usuario_id = ?
+       AND o.tipo = 'oferta'
+       AND o.activo = 1
+       AND (o.ciudad = s.ciudad OR s.ciudad LIKE '%' || o.ciudad || '%' OR o.ciudad LIKE '%' || s.ciudad || '%')
      )`,
     [req.params.empresa_id],
     (err, result) => {
