@@ -401,6 +401,12 @@ app.get("/publicaciones", (req, res) => {
     query += " AND p.tipo = ?";
     params.push(tipo);
   }
+
+  if (usuario_id) {
+    query += " AND p.usuario_id = ?";
+    params.push(usuario_id);
+  }
+
   // Nota: Para filtrar por especialidad, el frontend debe hacer un JOIN con publicacion_especialidades
   // O puede filtrar después de obtener los datos
   if (ciudad) {

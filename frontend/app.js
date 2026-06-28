@@ -317,19 +317,17 @@ const app = {
 
       let url = "/publicaciones?";
       if (tipo) url += `tipo=${tipo}&`;
-      if (ciudad && !estadoApp.filtros.soloMias) url += `ciudad=${encodeURIComponent(ciudad)}&`;
-      if (especialidad && !estadoApp.filtros.soloMias) url += `especialidad=${especialidad}&`;
-      if (contrato && !estadoApp.filtros.soloMias) url += `contrato=${encodeURIComponent(contrato)}&`;
-      if (jornada && !estadoApp.filtros.soloMias) url += `jornada=${encodeURIComponent(jornada)}&`;
+      if (estadoApp.filtros.soloMias && estadoApp.usuario) {
+        url += `usuario_id=${estadoApp.usuario.id}&`;
+      } else {
+        if (ciudad) url += `ciudad=${encodeURIComponent(ciudad)}&`;
+        if (especialidad) url += `especialidad=${especialidad}&`;
+        if (contrato) url += `contrato=${encodeURIComponent(contrato)}&`;
+        if (jornada) url += `jornada=${encodeURIComponent(jornada)}&`;
+      }
 
       try {
         let publicaciones = await utils.request(url.slice(0, -1));
-
-        // Si está marcado "Mis publicaciones", filtrar por usuario actual
-        if (estadoApp.filtros.soloMias && estadoApp.usuario) {
-          publicaciones = publicaciones.filter(p => p.usuario_id === estadoApp.usuario.id);
-        }
-
         estadoApp.publicaciones = publicaciones;
         app.ui.renderizarPublicaciones();
       } catch (error) {
