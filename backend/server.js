@@ -754,18 +754,24 @@ app.get("/stats/mis-postulaciones-aceptadas-lista/:usuario_id", verifyToken, (re
 
 app.get("/stats/posibles-candidatos/:empresa_id", verifyToken, (req, res) => {
   // Contar dentistas únicos que coinciden con Ciudad y Especialidad de mis ofertas
-  db.get(
-    `SELECT COUNT(*) as total
-     FROM candidaturas c
-     INNER JOIN publicaciones p ON c.publicacion_id = p.id
-     WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1`,
+  db.all(
+    `SELECT DISTINCT s.id as publicacion_id, s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad
+     FROM publicaciones s
+     INNER JOIN usuarios u ON s.usuario_id = u.id
+     WHERE s.tipo = 'solicitud' AND s.activo = 1
+     AND (
+       SELECT COUNT(*) FROM publicaciones o
+       WHERE o.usuario_id = ? AND o.tipo = 'oferta' AND o.activo = 1
+       AND (o.ciudad = s.ciudad OR s.ciudad LIKE '%' || o.ciudad || '%' OR o.ciudad LIKE '%' || s.ciudad || '%')
+       AND (o.especialidad_id = s.especialidad_id OR o.especialidad_id IS NULL OR s.especialidad_id IS NULL)
+     ) > 0`,
     [req.params.empresa_id],
-    (err, result) => {
+    (err, candidatos) => {
       if (err) {
         console.error(err);
         return res.status(500).json({ error: "Error al obtener posibles candidatos" });
       }
-      res.json({ total: result.total || 0 });
+      res.json({ total: (candidatos || []).length });
     }
   );
 });
