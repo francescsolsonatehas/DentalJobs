@@ -401,6 +401,19 @@ const app = {
         return;
       }
 
+      // Validar email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email_contacto)) {
+        utils.mostrarAlerta("Por favor ingresa un email válido", "error");
+        return;
+      }
+
+      // Validar descripción no vacía
+      if (formData.descripcion.trim().length < 10) {
+        utils.mostrarAlerta("La descripción debe tener al menos 10 caracteres", "error");
+        return;
+      }
+
       try {
         const respuesta = await utils.request("/publicaciones", {
           method: "POST",
@@ -868,6 +881,14 @@ const app = {
     marcarTodasEspecialidadesEdicion() {
       const checkAll = document.getElementById("editMarcarTodas").checked;
       document.querySelectorAll(".editEspecialidadCheck").forEach(cb => cb.checked = checkAll);
+    },
+
+    // Genérica para cualquier contenedor de checkboxes
+    marcarTodasEnContenedor(containerId) {
+      const checkbox = document.querySelector(`#${containerId}MarcarTodas`);
+      if (!checkbox) return;
+      const checkboxes = document.querySelectorAll(`#${containerId} input[type="checkbox"]:not(#${containerId}MarcarTodas)`);
+      checkboxes.forEach(cb => cb.checked = checkbox.checked);
     },
 
     async guardarEdicion() {
