@@ -518,14 +518,18 @@ const app = {
       app.publicaciones.cargar();
     },
 
-    mostrarMisPublicacionesDentista() {
+    mostrarMisPublicaciones() {
       estadoApp.filtros.soloMias = true;
       estadoApp.filtros.contactadas = false;
       document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
       document.getElementById("btnPublicaciones").classList.add("active");
 
       const filtersTitle = document.getElementById("filtrosTitle");
-      filtersTitle.textContent = "Mis Publicaciones";
+      if (estadoApp.tipoUsuario === 'clinica') {
+        filtersTitle.textContent = "Mis Ofertas";
+      } else {
+        filtersTitle.textContent = "Mis Publicaciones";
+      }
 
       app.publicaciones.cargar();
     },
@@ -2065,7 +2069,7 @@ const app = {
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "none";
-        document.getElementById("btnPublicaciones").style.display = "none";
+        document.getElementById("btnPublicaciones").style.display = "inline-block";
         btnContactadas.style.display = "none";
         document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
