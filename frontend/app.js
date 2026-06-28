@@ -2249,7 +2249,7 @@ const app = {
         const especialidad = pub.especialidad_id ? estadoApp.especialidades.find(e => e.id === pub.especialidad_id) : null;
         let tipoBadge, tipoClase;
         if (pub.tipo === "oferta") {
-          tipoBadge = estadoApp.tipoUsuario === 'clinica' ? "Oferta" : "Oferta";
+          tipoBadge = estadoApp.tipoUsuario === 'clinica' ? "" : "Oferta";
           tipoClase = "type-oferta";
         } else {
           // tipo: 'solicitud' (dentistas)
