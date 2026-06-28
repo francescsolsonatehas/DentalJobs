@@ -2064,13 +2064,12 @@ const app = {
         filtersTitle.textContent = "Dentistas";
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
-        btnMias.style.display = "inline-block";
-        document.getElementById("btnPublicaciones").style.display = "inline-block";
+        btnMias.style.display = "none";
+        document.getElementById("btnPublicaciones").style.display = "none";
         btnContactadas.style.display = "none";
         document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
         btnTodas.textContent = "Dentistas";
-        btnMias.textContent = "Mis Ofertas";
       } else {
         // Dentista
         const nombrePartes = (estadoApp.usuario?.nombre || 'Candidato').split(' ');
