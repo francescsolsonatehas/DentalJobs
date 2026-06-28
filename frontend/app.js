@@ -2064,8 +2064,8 @@ const app = {
 
       if (estadoApp.tipoUsuario === 'clinica') {
         heroTitle.textContent = `🦷 ${estadoApp.usuario?.nombre || 'Mi Empresa'}`;
-        filtersTitle.textContent = "";
-        filtersTitle.style.display = "none";
+        filtersTitle.textContent = "Dentistas";
+        filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "none";
         document.getElementById("btnPublicaciones").style.display = "inline-block";
