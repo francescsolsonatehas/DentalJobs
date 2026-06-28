@@ -477,17 +477,17 @@ app.get("/publicaciones/usuario/:usuario_id/candidatos", verifyToken, (req, res)
 });
 
 app.post("/publicaciones", verifyToken, (req, res) => {
-  const { tipo, titulo, descripcion, ciudad, especialidad_id, contrato, jornada, salario, nombre_contacto, email_contacto, telefono_contacto } = req.body;
+  const { tipo, descripcion, ciudad, especialidad_id, contrato, jornada, salario, nombre_contacto, email_contacto, telefono_contacto } = req.body;
 
-  if (!tipo || !titulo || !ciudad) {
+  if (!tipo || !ciudad) {
     return res.status(400).json({ error: "Faltan datos obligatorios" });
   }
 
   db.run(
     `INSERT INTO publicaciones
-     (tipo, titulo, descripcion, ciudad, especialidad_id, contrato, jornada, salario, usuario_id, nombre_contacto, email_contacto, telefono_contacto)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [tipo, titulo, descripcion, ciudad, especialidad_id || null, contrato || null, jornada || null, salario || null, req.usuario.id, nombre_contacto, email_contacto, telefono_contacto],
+     (tipo, descripcion, ciudad, especialidad_id, contrato, jornada, salario, usuario_id, nombre_contacto, email_contacto, telefono_contacto)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [tipo, descripcion, ciudad, especialidad_id || null, contrato || null, jornada || null, salario || null, req.usuario.id, nombre_contacto, email_contacto, telefono_contacto],
     function(err) {
       if (err) {
         console.error(err);
@@ -602,7 +602,7 @@ app.get("/stats/mis-postulaciones-lista/:usuario_id", verifyToken, (req, res) =>
   const usuario_id = req.params.usuario_id;
   db.all(
     `SELECT c.id, c.estado, c.mensaje, c.creado_en, c.actualizado_en,
-            p.id as publicacion_id, p.titulo, p.descripcion, p.ciudad, p.contrato, p.jornada, p.salario,
+            p.id as publicacion_id, , p.descripcion, p.ciudad, p.contrato, p.jornada, p.salario,
             u.nombre as empresa_nombre, u.email as empresa_email
      FROM candidaturas c
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
@@ -639,7 +639,7 @@ app.get("/stats/mis-postulaciones-aceptadas-lista/:usuario_id", verifyToken, (re
   const usuario_id = req.params.usuario_id;
   db.all(
     `SELECT c.id, c.estado, c.mensaje, c.creado_en, c.actualizado_en,
-            p.id as publicacion_id, p.titulo, p.descripcion, p.ciudad, p.contrato, p.jornada, p.salario,
+            p.id as publicacion_id, , p.descripcion, p.ciudad, p.contrato, p.jornada, p.salario,
             u.nombre as empresa_nombre, u.email as empresa_email
      FROM candidaturas c
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
@@ -726,7 +726,7 @@ app.get("/stats/candidatos-interesados-lista/:empresa_id", verifyToken, (req, re
   db.all(
     `SELECT c.id, c.usuario_id, c.estado, c.mensaje, c.creado_en,
             u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais, u.ciudad,
-            p.id as publicacion_id, p.titulo as oferta_titulo, p.descripcion as oferta_descripcion
+            p.id as publicacion_id,  p.descripcion as oferta_descripcion
      FROM candidaturas c
      INNER JOIN usuarios u ON c.usuario_id = u.id
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
@@ -747,7 +747,7 @@ app.get("/stats/contactados-lista/:empresa_id", verifyToken, (req, res) => {
   db.all(
     `SELECT c.id, c.usuario_id, c.estado, c.mensaje, c.creado_en,
             u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais, u.ciudad,
-            p.id as publicacion_id, p.titulo as oferta_titulo, p.descripcion as oferta_descripcion
+            p.id as publicacion_id,  p.descripcion as oferta_descripcion
      FROM candidaturas c
      INNER JOIN usuarios u ON c.usuario_id = u.id
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
@@ -1155,7 +1155,7 @@ app.get("/candidaturas/mis-postulaciones", verifyToken, (req, res) => {
   const usuario_id = req.usuario.id;
 
   db.all(
-    `SELECT c.*, p.titulo, p.descripcion, p.ciudad, p.contrato, p.jornada, p.salario,
+    `SELECT c.*, , p.descripcion, p.ciudad, p.contrato, p.jornada, p.salario,
             u.nombre as empresa_nombre, u.email as empresa_email
      FROM candidaturas c
      JOIN publicaciones p ON c.publicacion_id = p.id
