@@ -1652,22 +1652,11 @@ const app = {
 
       let html = `<h3>${candidatos.length} ${titulo}</h3><div class="candidatos-list">`;
 
-      Object.values(porOferta).forEach(async (oferta, idx) => {
-        // Obtener especialidades de la publicación
-        let especialidadesText = 'Sin especialidades';
-        try {
-          const data = await utils.request(`/publicaciones/${oferta.publicacion_id || Object.keys(porOferta)[idx]}/especialidades`, { method: 'GET' });
-          if (data.especialidades && data.especialidades.length > 0) {
-            especialidadesText = data.especialidades.map(e => e.nombre).join(", ");
-          }
-        } catch (error) {
-          console.error("Error al obtener especialidades:", error);
-        }
-
+      Object.values(porOferta).forEach((oferta, idx) => {
         html += `
           <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
             <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75;">📋 Publicación ${idx + 1}</h4>
-            <p style="margin: 0 0 1rem 0; color: #1f2937; font-size: 0.95rem;"><strong>🦷 ${especialidadesText} - 📍 ${oferta.oferta_ciudad}</strong></p>
+            ${oferta.oferta_descripcion ? `<p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;">${oferta.oferta_descripcion}</p>` : ''}
             <div style="border-top: 1px solid #d1d5db; padding-top: 1rem;">
               <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: #1f2937;">Candidatos (${oferta.candidatos.length})</p>
         `;
