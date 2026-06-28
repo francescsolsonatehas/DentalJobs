@@ -2251,6 +2251,7 @@ const app = {
 
       const html = await Promise.all(estadoApp.publicaciones.map(async pub => {
         const especialidad = pub.especialidad_id ? estadoApp.especialidades.find(e => e.id === pub.especialidad_id) : null;
+        const generatedTitle = especialidad ? `${especialidad.nombre} - ${pub.ciudad}` : `Dentista - ${pub.ciudad}`;
         let tipoBadge, tipoClase;
         if (pub.tipo === "oferta") {
           tipoBadge = estadoApp.tipoUsuario === 'clinica' ? "" : "Oferta";
@@ -2282,7 +2283,7 @@ const app = {
             <div class="card-header">
               ${tipoBadge ? `<span class="card-type ${tipoClase}">${tipoBadge}</span>` : ""}
             </div>
-            <h3>${pub.titulo}</h3>
+            <h3>${generatedTitle}</h3>
             <div class="card-details">
               <div class="detail">
                 <span class="detail-icon">📍</span>
@@ -2324,7 +2325,7 @@ const app = {
                 }
                 return '';
               })()}
-              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${pub.titulo.replace(/'/g, "\\'")}')" style="flex: 1;">👥 Candidatos (${candidatosPorOferta[pub.id]})</button>` : ''}
+              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${generatedTitle.replace(/'/g, "\\'")}')" style="flex: 1;">👥 Candidatos (${candidatosPorOferta[pub.id]})</button>` : ''}
               ${interesadosHTML}
             </div>
           </div>
