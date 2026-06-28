@@ -2068,10 +2068,10 @@ const app = {
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "none";
-        document.getElementById("btnPublicaciones").style.display = "none";
+        document.getElementById("btnPublicaciones").style.display = "inline-block";
         btnContactadas.style.display = "none";
-        document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
-        document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
+        document.getElementById("btnMisPostulacionesDentistas").style.display = "inline-block";
+        document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "inline-block";
         btnTodas.textContent = "Clínicas";
       }
 
