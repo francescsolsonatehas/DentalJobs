@@ -2276,7 +2276,7 @@ const app = {
         return `
           <div class="card ${tipoClase}">
             <div class="card-header">
-              <span class="card-type ${tipoClase}">${tipoBadge}</span>
+              ${tipoBadge ? `<span class="card-type ${tipoClase}">${tipoBadge}</span>` : ""}
             </div>
             <h3>${pub.titulo}</h3>
             <div class="card-details">
