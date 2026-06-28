@@ -493,7 +493,7 @@ const app = {
       // Actualizar título de filtros
       const filtersTitle = document.getElementById("filtrosTitle");
       if (estadoApp.tipoUsuario === 'clinica') {
-        filtersTitle.textContent = "";
+        filtersTitle.textContent = "Dentistas";
       } else {
         filtersTitle.textContent = "";
       }
