@@ -656,6 +656,13 @@ const app = {
       event.target.classList.add("active");
     },
 
+    abrirDetalleConManejo(publicacion) {
+      this.abrirDetalle(publicacion).catch(error => {
+        console.error("Error al cargar detalles:", error);
+        utils.mostrarAlerta("Error al cargar detalles de la publicación", "error");
+      });
+    },
+
     async abrirDetalle(publicacion) {
       estadoApp.publicacionActual = publicacion;
 
@@ -747,7 +754,7 @@ const app = {
       if (esPropio) {
         html = `<div id="detalleVistaPrevia">${html}</div>
                 <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-                  <button class="btn-primary" onclick="app.modal.activarEdicion().catch(e => console.error(e))">Editar</button>
+                  <button class="btn-primary" onclick="app.modal.activarEdicionConManejo()">Editar</button>
                   <button class="btn-text" onclick="app.modal.cerrarDetalle()">Cerrar</button>
                 </div>`;
       }
@@ -764,6 +771,13 @@ const app = {
       }
 
       document.getElementById("modalDetalle").classList.add("active");
+    },
+
+    activarEdicionConManejo() {
+      this.activarEdicion().catch(error => {
+        console.error("Error al activar edición:", error);
+        utils.mostrarAlerta("Error al cargar formulario de edición", "error");
+      });
     },
 
     async activarEdicion() {
@@ -2504,8 +2518,8 @@ const app = {
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarOfertasActivas()">
               <span>📋</span>
               <h3>${ofertas}</h3>
-              <p>Clínicas</p>
-              <div class="stat-tooltip">Ofertas de trabajo disponibles de todas las especialidades y ciudades</div>
+              <p>Ofertas Disponibles</p>
+              <div class="stat-tooltip">Ofertas de trabajo de clínicas disponibles</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulaciones()">
               <span>📬</span>
@@ -2614,7 +2628,7 @@ const app = {
               <span class="badge" style="margin-left: auto;">${utils.formatearFecha(pub.creado_en)}</span>
             </div>
             <div class="card-footer" style="display: flex; gap: 0.5rem;">
-              <button class="btn-primary" onclick="app.modal.abrirDetalle(${JSON.stringify(pub).replace(/"/g, '&quot;')}).catch(e => console.error(e))" style="flex: 1;">Ver detalles</button>
+              <button class="btn-primary" onclick="app.modal.abrirDetalleConManejo(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
               ${(() => {
                 if (estadoApp.tipoUsuario === 'dentista' && pub.tipo === 'oferta') {
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
