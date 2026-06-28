@@ -363,12 +363,14 @@ const app = {
         // Obtener especialidades seleccionadas
         const especialidadesCheckboxes = document.querySelectorAll('#ofertaEspecialidadesContainer input[type="checkbox"]:checked');
         const especialidades = Array.from(especialidadesCheckboxes).map(cb => parseInt(cb.value));
+        const ciudad = document.getElementById("ofertaCiudad").value;
+        const especialidadNombre = especialidades.length > 0 ? estadoApp.especialidades.find(e => e.id === especialidades[0])?.nombre : "Dentista";
 
         formData = {
           tipo: "oferta",
-          titulo: document.getElementById("ofertaTitulo").value,
+          titulo: `${especialidadNombre} - ${ciudad}`,
           descripcion: document.getElementById("ofertaDescripcion").value,
-          ciudad: document.getElementById("ofertaCiudad").value,
+          ciudad: ciudad,
           especialidades: especialidades,
           contrato: document.getElementById("ofertaContrato").value || null,
           jornada: document.getElementById("ofertaJornada").value || null,
