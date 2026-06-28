@@ -723,18 +723,124 @@ const app = {
         </div>
       `;
 
+      // Agregar botón de editar si es propietario
+      const esPropio = publicacion.usuario_id === estadoApp.usuario?.id;
+      if (esPropio) {
+        html = `<div id="detalleVistaPrevia">${html}</div>
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                  <button class="btn-primary" onclick="app.modal.activarEdicion()">Editar</button>
+                  <button class="btn-text" onclick="app.modal.cerrarDetalle()">Cerrar</button>
+                </div>`;
+      }
+
       document.getElementById("detalleBody").innerHTML = html;
       document.getElementById("detalleTitle").textContent = publicacion.tipo === "oferta" ? "Oferta de trabajo" : "Solicitud de empleo";
 
       // Ocultar sección de contacto si es propia publicación
       const detalleContacto = document.getElementById("detalleContacto");
-      if (publicacion.usuario_id === estadoApp.usuario?.id) {
+      if (esPropio) {
         detalleContacto.style.display = "none";
       } else {
         detalleContacto.style.display = "block";
       }
 
       document.getElementById("modalDetalle").classList.add("active");
+    },
+
+    activarEdicion() {
+      const pub = estadoApp.publicacionActual;
+      const especialidad = estadoApp.especialidades.find(e => e.id === pub.especialidad_id);
+
+      let html = `
+        <form id="formEdicion" onsubmit="event.preventDefault(); app.modal.guardarEdicion();">
+          <div class="form-group">
+            <label for="editDescripcion">Descripción *</label>
+            <textarea id="editDescripcion" required>${pub.descripcion}</textarea>
+          </div>
+          <div class="form-group">
+            <label for="editCiudad">Ciudad *</label>
+            <input id="editCiudad" type="text" value="${pub.ciudad}" required>
+          </div>
+          <div class="form-group">
+            <label for="editEspecialidad">Especialidad</label>
+            <select id="editEspecialidad">
+              <option value="">Seleccionar...</option>
+              ${estadoApp.especialidades.map(e => `<option value="${e.id}" ${e.id === pub.especialidad_id ? 'selected' : ''}>${e.nombre}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="editContrato">Tipo de contrato</label>
+            <select id="editContrato">
+              <option value="">Seleccionar...</option>
+              <option value="Indefinido" ${pub.contrato === 'Indefinido' ? 'selected' : ''}>Indefinido</option>
+              <option value="Temporal" ${pub.contrato === 'Temporal' ? 'selected' : ''}>Temporal</option>
+              <option value="Autónomo" ${pub.contrato === 'Autónomo' ? 'selected' : ''}>Autónomo</option>
+              <option value="Prácticas" ${pub.contrato === 'Prácticas' ? 'selected' : ''}>Prácticas</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="editJornada">Jornada</label>
+            <select id="editJornada">
+              <option value="">Seleccionar...</option>
+              <option value="Completa" ${pub.jornada === 'Completa' ? 'selected' : ''}>Completa</option>
+              <option value="Parcial" ${pub.jornada === 'Parcial' ? 'selected' : ''}>Parcial</option>
+              <option value="Flexible" ${pub.jornada === 'Flexible' ? 'selected' : ''}>Flexible</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="editSalario">Salario</label>
+            <input id="editSalario" type="text" value="${pub.salario || ''}">
+          </div>
+          <div class="form-group">
+            <label for="editNombreContacto">Nombre de contacto *</label>
+            <input id="editNombreContacto" type="text" value="${pub.nombre_contacto}" required>
+          </div>
+          <div class="form-group">
+            <label for="editEmailContacto">Email de contacto *</label>
+            <input id="editEmailContacto" type="email" value="${pub.email_contacto}" required>
+          </div>
+          <div class="form-group">
+            <label for="editTelefonoContacto">Teléfono de contacto</label>
+            <input id="editTelefonoContacto" type="text" value="${pub.telefono_contacto || ''}">
+          </div>
+          <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+            <button type="submit" class="btn-primary">Guardar</button>
+            <button type="button" class="btn-text" onclick="app.modal.abrirDetalle(estadoApp.publicacionActual)">Cancelar</button>
+          </div>
+        </form>
+      `;
+
+      document.getElementById("detalleBody").innerHTML = html;
+      document.getElementById("detalleTitle").textContent = "Editar publicación";
+    },
+
+    async guardarEdicion() {
+      try {
+        const pub = estadoApp.publicacionActual;
+        const data = {
+          descripcion: document.getElementById("editDescripcion").value,
+          ciudad: document.getElementById("editCiudad").value,
+          especialidad_id: document.getElementById("editEspecialidad").value || null,
+          contrato: document.getElementById("editContrato").value || null,
+          jornada: document.getElementById("editJornada").value || null,
+          salario: document.getElementById("editSalario").value || null,
+          nombre_contacto: document.getElementById("editNombreContacto").value,
+          email_contacto: document.getElementById("editEmailContacto").value,
+          telefono_contacto: document.getElementById("editTelefonoContacto").value || null
+        };
+
+        await utils.request(`/publicaciones/${pub.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(data),
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        utils.mostrarAlerta("Publicación actualizada", "success");
+        app.modal.cerrarDetalle();
+        app.publicaciones.cargar();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
     },
 
     cerrarDetalle() {

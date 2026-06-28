@@ -543,6 +543,43 @@ app.post("/publicaciones/:id/especialidades", verifyToken, (req, res) => {
   });
 });
 
+app.put("/publicaciones/:id", verifyToken, (req, res) => {
+  const { descripcion, ciudad, especialidad_id, contrato, jornada, salario, nombre_contacto, email_contacto, telefono_contacto } = req.body;
+  const publicacionId = req.params.id;
+
+  db.get("SELECT usuario_id FROM publicaciones WHERE id = ?", [publicacionId], (err, pub) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al actualizar publicación" });
+    }
+
+    if (!pub) {
+      return res.status(404).json({ error: "Publicación no encontrada" });
+    }
+
+    if (pub.usuario_id !== req.usuario.id) {
+      return res.status(403).json({ error: "No tienes permiso para modificar esta publicación" });
+    }
+
+    db.run(
+      `UPDATE publicaciones
+       SET descripcion = ?, ciudad = ?, especialidad_id = ?, contrato = ?, jornada = ?, salario = ?,
+           nombre_contacto = ?, email_contacto = ?, telefono_contacto = ?
+       WHERE id = ?`,
+      [descripcion, ciudad, especialidad_id || null, contrato || null, jornada || null, salario || null,
+       nombre_contacto, email_contacto, telefono_contacto || null, publicacionId],
+      function(err) {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al actualizar publicación" });
+        }
+
+        res.json({ mensaje: "Publicación actualizada" });
+      }
+    );
+  });
+});
+
 app.delete("/publicaciones/:id", verifyToken, (req, res) => {
   db.get("SELECT usuario_id FROM publicaciones WHERE id = ?", [req.params.id], (err, pub) => {
     if (err) {
