@@ -1515,31 +1515,46 @@ const app = {
       }
     },
 
-    mostrarListaCandidatosSimple(candidatos, titulo) {
+    async mostrarListaCandidatosSimple(candidatos, titulo) {
       if (candidatos.length === 0) {
         utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
         return;
       }
 
-      // Agrupar por publicación (especialidad + ciudad)
+      // Agrupar por publicación y obtener especialidades
       const porPublicacion = {};
-      candidatos.forEach(c => {
-        const esp = estadoApp.especialidades.find(e => e.id === c.especialidad_id);
-        const clave = `${c.especialidad_id || 0}-${c.ciudad}`;
 
-        if (!porPublicacion[clave]) {
-          porPublicacion[clave] = {
-            especialidad: esp?.nombre || 'Sin especialidad',
+      // Primero, agrupar por publicación_id para obtener especialidades
+      const porPublicacionId = {};
+      candidatos.forEach(c => {
+        if (!porPublicacionId[c.publicacion_id]) {
+          porPublicacionId[c.publicacion_id] = {
             ciudad: c.ciudad,
             dentistas: {}
           };
         }
-
-        // Evitar duplicados de dentistas por publicación
-        if (!porPublicacion[clave].dentistas[c.usuario_id]) {
-          porPublicacion[clave].dentistas[c.usuario_id] = c;
+        if (!porPublicacionId[c.publicacion_id].dentistas[c.usuario_id]) {
+          porPublicacionId[c.publicacion_id].dentistas[c.usuario_id] = c;
         }
       });
+
+      // Obtener especialidades para cada publicación
+      for (const pubId of Object.keys(porPublicacionId)) {
+        try {
+          const data = await utils.request(`/publicaciones/${pubId}/especialidades`, { method: 'GET' });
+          const especialidades = data.especialidades ? data.especialidades.map(e => e.nombre).join(", ") : 'Sin especialidades';
+          const ciudad = porPublicacionId[pubId].ciudad;
+          const clave = `${especialidades}-${ciudad}`;
+
+          porPublicacion[clave] = {
+            especialidades: especialidades,
+            ciudad: ciudad,
+            dentistas: porPublicacionId[pubId].dentistas
+          };
+        } catch (error) {
+          console.error("Error al obtener especialidades:", error);
+        }
+      }
 
       let totalDentistas = 0;
       let html = `<div class="candidatos-list">`;
@@ -1551,7 +1566,7 @@ const app = {
         html += `
           <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">
-              🦷 ${pub.especialidad} - 📍 ${pub.ciudad}
+              🦷 ${pub.especialidades} - 📍 ${pub.ciudad}
             </h4>
             <p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Dentistas coincidentes: ${dentistas.length}</strong></p>
 
