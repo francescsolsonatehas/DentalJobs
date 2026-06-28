@@ -1155,7 +1155,7 @@ app.get("/candidaturas/mis-postulaciones", verifyToken, (req, res) => {
   const usuario_id = req.usuario.id;
 
   db.all(
-    `SELECT c.*, , p.descripcion, p.ciudad, p.contrato, p.jornada, p.salario,
+    `SELECT c.*, p.descripcion, p.ciudad, p.contrato, p.jornada, p.salario,
             u.nombre as empresa_nombre, u.email as empresa_email
      FROM candidaturas c
      JOIN publicaciones p ON c.publicacion_id = p.id
