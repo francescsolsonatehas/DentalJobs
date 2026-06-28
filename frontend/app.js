@@ -1654,15 +1654,13 @@ const app = {
 
       let html = `<h3>${candidatos.length} ${titulo}</h3><div class="candidatos-list">`;
 
-      const ofertas = Object.values(porOferta);
-      for (let idx = 0; idx < ofertas.length; idx++) {
-        const oferta = ofertas[idx];
+      const entries = Object.entries(porOferta);
+      for (let idx = 0; idx < entries.length; idx++) {
+        const [pubId, oferta] = entries[idx];
         let especialidadesText = '';
 
         try {
-          console.log("Obteniendo especialidades para publicacion_id:", oferta.publicacion_id);
-          const data = await utils.request(`/publicaciones/${oferta.publicacion_id}/especialidades`, { method: 'GET' });
-          console.log("Especialidades recibidas:", data);
+          const data = await utils.request(`/publicaciones/${pubId}/especialidades`, { method: 'GET' });
           if (data.especialidades && data.especialidades.length > 0) {
             especialidadesText = data.especialidades.map(e => e.nombre).join(", ");
           }
