@@ -755,16 +755,10 @@ app.get("/stats/mis-postulaciones-aceptadas-lista/:usuario_id", verifyToken, (re
 app.get("/stats/posibles-candidatos/:empresa_id", verifyToken, (req, res) => {
   // Contar dentistas únicos que coinciden con Ciudad y Especialidad de mis ofertas
   db.get(
-    `SELECT COUNT(DISTINCT s.usuario_id) as total
-     FROM publicaciones s
-     WHERE s.tipo = 'solicitud' AND s.activo = 1
-     AND EXISTS (
-       SELECT 1 FROM publicaciones o
-       WHERE o.usuario_id = ?
-       AND o.tipo = 'oferta'
-       AND o.activo = 1
-       AND (o.ciudad = s.ciudad OR s.ciudad LIKE '%' || o.ciudad || '%' OR o.ciudad LIKE '%' || s.ciudad || '%')
-     )`,
+    `SELECT COUNT(*) as total
+     FROM candidaturas c
+     INNER JOIN publicaciones p ON c.publicacion_id = p.id
+     WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1`,
     [req.params.empresa_id],
     (err, result) => {
       if (err) {
