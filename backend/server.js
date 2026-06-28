@@ -602,7 +602,7 @@ app.get("/stats/mis-postulaciones-lista/:usuario_id", verifyToken, (req, res) =>
   const usuario_id = req.params.usuario_id;
   db.all(
     `SELECT c.id, c.estado, c.mensaje, c.creado_en, c.actualizado_en,
-            p.id as publicacion_id, , p.descripcion, p.ciudad, p.contrato, p.jornada, p.salario,
+            p.id as publicacion_id, p.descripcion, p.ciudad, p.contrato, p.jornada, p.salario,
             u.nombre as empresa_nombre, u.email as empresa_email
      FROM candidaturas c
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
@@ -639,7 +639,7 @@ app.get("/stats/mis-postulaciones-aceptadas-lista/:usuario_id", verifyToken, (re
   const usuario_id = req.params.usuario_id;
   db.all(
     `SELECT c.id, c.estado, c.mensaje, c.creado_en, c.actualizado_en,
-            p.id as publicacion_id, , p.descripcion, p.ciudad, p.contrato, p.jornada, p.salario,
+            p.id as publicacion_id, p.descripcion, p.ciudad, p.contrato, p.jornada, p.salario,
             u.nombre as empresa_nombre, u.email as empresa_email
      FROM candidaturas c
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
