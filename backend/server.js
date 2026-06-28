@@ -544,7 +544,7 @@ app.post("/publicaciones/:id/especialidades", verifyToken, (req, res) => {
 });
 
 app.put("/publicaciones/:id", verifyToken, (req, res) => {
-  const { descripcion, ciudad, especialidad_id, contrato, jornada, salario, nombre_contacto, email_contacto, telefono_contacto } = req.body;
+  const { descripcion, ciudad, especialidades, contrato, jornada, salario, nombre_contacto, email_contacto, telefono_contacto } = req.body;
   const publicacionId = req.params.id;
 
   db.get("SELECT usuario_id FROM publicaciones WHERE id = ?", [publicacionId], (err, pub) => {
@@ -563,10 +563,10 @@ app.put("/publicaciones/:id", verifyToken, (req, res) => {
 
     db.run(
       `UPDATE publicaciones
-       SET descripcion = ?, ciudad = ?, especialidad_id = ?, contrato = ?, jornada = ?, salario = ?,
+       SET descripcion = ?, ciudad = ?, contrato = ?, jornada = ?, salario = ?,
            nombre_contacto = ?, email_contacto = ?, telefono_contacto = ?
        WHERE id = ?`,
-      [descripcion, ciudad, especialidad_id || null, contrato || null, jornada || null, salario || null,
+      [descripcion, ciudad, contrato || null, jornada || null, salario || null,
        nombre_contacto, email_contacto, telefono_contacto || null, publicacionId],
       function(err) {
         if (err) {
@@ -574,7 +574,25 @@ app.put("/publicaciones/:id", verifyToken, (req, res) => {
           return res.status(500).json({ error: "Error al actualizar publicación" });
         }
 
-        res.json({ mensaje: "Publicación actualizada" });
+        // Actualizar especialidades si se envían
+        if (Array.isArray(especialidades) && especialidades.length > 0) {
+          db.run("DELETE FROM publicacion_especialidades WHERE publicacion_id = ?", [publicacionId], (delErr) => {
+            if (delErr) {
+              console.error(delErr);
+              return res.status(500).json({ error: "Error al actualizar especialidades" });
+            }
+
+            const stmt = db.prepare("INSERT INTO publicacion_especialidades (publicacion_id, especialidad_id) VALUES (?, ?)");
+            especialidades.forEach(eId => {
+              stmt.run(publicacionId, eId);
+            });
+            stmt.finalize();
+
+            res.json({ mensaje: "Publicación actualizada" });
+          });
+        } else {
+          res.json({ mensaje: "Publicación actualizada" });
+        }
       }
     );
   });

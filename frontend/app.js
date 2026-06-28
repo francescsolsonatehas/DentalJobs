@@ -775,7 +775,6 @@ const app = {
 
     activarEdicion() {
       const pub = estadoApp.publicacionActual;
-      const especialidad = estadoApp.especialidades.find(e => e.id === pub.especialidad_id);
 
       let html = `
         <form id="formEdicion" onsubmit="event.preventDefault(); app.modal.guardarEdicion();">
@@ -788,11 +787,19 @@ const app = {
             <input id="editCiudad" type="text" value="${pub.ciudad}" required>
           </div>
           <div class="form-group">
-            <label for="editEspecialidad">Especialidad</label>
-            <select id="editEspecialidad">
-              <option value="">Seleccionar...</option>
-              ${estadoApp.especialidades.map(e => `<option value="${e.id}" ${e.id === pub.especialidad_id ? 'selected' : ''}>${e.nombre}</option>`).join('')}
-            </select>
+            <label>Especialidades</label>
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.5rem;">
+              <input type="checkbox" id="editMarcarTodas" onchange="app.modal.marcarTodasEspecialidadesEdicion()">
+              <strong>Marcar todas</strong>
+            </label>
+            <div id="editEspecialidadesContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+              ${estadoApp.especialidades.map(e => `
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                  <input type="checkbox" class="editEspecialidadCheck" value="${e.id}" ${pub.especialidad_id === e.id ? 'checked' : ''}>
+                  <span>${e.nombre}</span>
+                </label>
+              `).join('')}
+            </div>
           </div>
           <div class="form-group">
             <label for="editContrato">Tipo de contrato</label>
@@ -840,13 +847,20 @@ const app = {
       document.getElementById("detalleTitle").textContent = "Editar publicación";
     },
 
+    marcarTodasEspecialidadesEdicion() {
+      const checkAll = document.getElementById("editMarcarTodas").checked;
+      document.querySelectorAll(".editEspecialidadCheck").forEach(cb => cb.checked = checkAll);
+    },
+
     async guardarEdicion() {
       try {
         const pub = estadoApp.publicacionActual;
+        const especialidades = Array.from(document.querySelectorAll(".editEspecialidadCheck:checked")).map(cb => parseInt(cb.value));
+
         const data = {
           descripcion: document.getElementById("editDescripcion").value,
           ciudad: document.getElementById("editCiudad").value,
-          especialidad_id: document.getElementById("editEspecialidad").value || null,
+          especialidades: especialidades,
           contrato: document.getElementById("editContrato").value || null,
           jornada: document.getElementById("editJornada").value || null,
           salario: document.getElementById("editSalario").value || null,
