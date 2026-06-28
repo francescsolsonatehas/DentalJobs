@@ -13,7 +13,6 @@
             <div class="logo">🦷 DentalJobs</div>
             <div class="nav-buttons" id="navButtonsLogueado">
                 <button class="btn-primary btn-small" id="btnPublicar" onclick="app.modal.abrirPublicar()" style="display: none;">Publicar</button>
-                <button class="btn-outline btn-small" id="btnPostulaciones" onclick="app.modal.abrirPostulaciones()" style="display: none;">📬 Mis Postulaciones a Clínicas</button>
                 <button class="btn-outline btn-small" id="btnPostulacionesDentistas" onclick="app.stats.mostrarMisPostulacionesDentistas()" style="display: none;">📬 Mis Postulaciones a Dentistas</button>
                 <button class="btn-outline btn-small" id="btnPerfil" onclick="app.modal.abrirPerfil()" style="display: none;">Mi perfil</button>
                 <button class="btn-text btn-small" id="btnLogout" onclick="app.auth.logout()" style="display: none;">Logout</button>
@@ -56,8 +55,6 @@
             <div class="tipo-toggle">
                 <button class="active" id="btnTodas" onclick="app.filtros.mostrarTodas()">Ver publicaciones</button>
                 <button id="btnMias" onclick="app.filtros.mostrarMias()" style="display: none;">Mis publicaciones</button>
-                <button id="btnMisPostulaciones" onclick="app.filtros.mostrarMisPostulaciones()" style="display: none;">Mis Postulaciones a Clínicas</button>
-                <button id="btnMisAceptadas" onclick="app.filtros.mostrarMisAceptadas()" style="display: none;">Mis Postulaciones a Clínicas Aceptadas</button>
                 <button id="btnContactadas" onclick="app.filtros.mostrarContactadas()" style="display: none;">Contactadas</button>
                 <button id="btnMisPostulacionesDentistas" onclick="app.filtros.mostrarMisPostulacionesDentistas()" style="display: none;">Mis Postulaciones a Dentistas</button>
                 <button id="btnMisPostulacionesDentistasAceptadas" onclick="app.filtros.mostrarMisPostulacionesDentistasAceptadas()" style="display: none;">Mis Postulaciones a Dentistas Aceptadas</button>

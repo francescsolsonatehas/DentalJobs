@@ -2035,7 +2035,6 @@ const app = {
       document.getElementById("navButtonsLanding").style.display = "none";
       document.getElementById("navButtonsLogueado").style.display = "flex";
       document.getElementById("btnPublicar").style.display = "inline-block";
-      document.getElementById("btnPostulaciones").style.display = estadoApp.tipoUsuario === 'dentista' ? "inline-block" : "none";
       document.getElementById("btnPostulacionesDentistas").style.display = estadoApp.tipoUsuario === 'clinica' ? "inline-block" : "none";
       document.getElementById("btnPerfil").style.display = "inline-block";
       document.getElementById("btnLogout").style.display = "inline-block";
@@ -2055,8 +2054,6 @@ const app = {
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "inline-block";
         btnContactadas.style.display = "none";
-        document.getElementById("btnMisPostulaciones").style.display = "none";
-        document.getElementById("btnMisAceptadas").style.display = "none";
         document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
         btnTodas.textContent = "Dentistas";
@@ -2070,8 +2067,6 @@ const app = {
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "none";
-        document.getElementById("btnMisPostulaciones").style.display = "inline-block";
-        document.getElementById("btnMisAceptadas").style.display = "inline-block";
         btnContactadas.style.display = "none";
         document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
