@@ -392,7 +392,7 @@ app.get("/especialidades", (req, res) => {
 =========================== */
 
 app.get("/publicaciones", (req, res) => {
-  const { tipo, especialidad, ciudad } = req.query;
+  const { tipo, especialidad, ciudad, usuario_id } = req.query;
 
   let query = "SELECT p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id WHERE p.activo = 1";
   const params = [];
