@@ -1612,25 +1612,69 @@ const app = {
       document.getElementById("modalInteresados").classList.add("active");
     },
 
-    mostrarPerfilDentistaCompleto(dentista) {
+    async mostrarPerfilDentistaCompleto(dentista) {
+      // Obtener especialidades del dentista si existen
+      let especialidadesText = "";
+      try {
+        const publicacionesDentista = estadoApp.publicaciones.filter(p => p.usuario_id === dentista.usuario_id && p.tipo === 'solicitud');
+        if (publicacionesDentista.length > 0) {
+          const publicacionId = publicacionesDentista[0].id;
+          const data = await utils.request(`/publicaciones/${publicacionId}/especialidades`, { method: 'GET' });
+          if (data && data.especialidades && data.especialidades.length > 0) {
+            especialidadesText = data.especialidades.map(e => e.nombre).join(", ");
+          }
+        }
+      } catch (error) {
+        console.error("Error al cargar especialidades:", error);
+      }
+
       let html = `
-        <div class="perfil-dentista">
-          <h3 style="margin-top: 0; color: var(--primary);">${dentista.nombre}</h3>
-
-          <div class="info-section">
-            <h4>Contacto</h4>
-            <p><strong>Email:</strong> <a href="mailto:${dentista.email}" style="color: #0F4C75;">${dentista.email}</a></p>
-            ${(dentista.telefono || dentista.movil) ? `<p><strong>Teléfono:</strong> <a href="tel:${dentista.telefono || dentista.movil}" style="color: #0F4C75;">${dentista.telefono || dentista.movil}</a></p>` : ''}
-          </div>
-
-          <div class="info-section">
-            <h4>Ubicación</h4>
-            ${dentista.ciudad ? `<p><strong>Ciudad:</strong> ${dentista.ciudad}</p>` : ''}
-            ${dentista.direccion ? `<p><strong>Dirección:</strong> ${dentista.direccion}</p>` : ''}
-            ${dentista.codigo_postal ? `<p><strong>Código Postal:</strong> ${dentista.codigo_postal}</p>` : ''}
-            ${dentista.pais ? `<p><strong>País:</strong> ${dentista.pais}</p>` : ''}
-          </div>
-        </div>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 1.5rem;">
+          <tbody>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; width: 30%; color: #0F4C75;">Nombre:</td>
+              <td style="padding: 0.8rem;">${dentista.nombre || '-'}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📧 Email:</td>
+              <td style="padding: 0.8rem;"><a href="mailto:${dentista.email}" style="color: #0F4C75; text-decoration: none;">${dentista.email || '-'}</a></td>
+            </tr>
+            ${(dentista.telefono || dentista.movil) ? `
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📞 Teléfono:</td>
+              <td style="padding: 0.8rem;"><a href="tel:${dentista.telefono || dentista.movil}" style="color: #0F4C75; text-decoration: none;">${dentista.telefono || dentista.movil}</a></td>
+            </tr>
+            ` : ''}
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📍 Ciudad:</td>
+              <td style="padding: 0.8rem;">${dentista.ciudad || '-'}</td>
+            </tr>
+            ${dentista.direccion ? `
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🏠 Dirección:</td>
+              <td style="padding: 0.8rem;">${dentista.direccion}</td>
+            </tr>
+            ` : ''}
+            ${dentista.codigo_postal ? `
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📮 Código Postal:</td>
+              <td style="padding: 0.8rem;">${dentista.codigo_postal}</td>
+            </tr>
+            ` : ''}
+            ${dentista.pais ? `
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🌍 País:</td>
+              <td style="padding: 0.8rem;">${dentista.pais}</td>
+            </tr>
+            ` : ''}
+            ${especialidadesText ? `
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🦷 Especialidades:</td>
+              <td style="padding: 0.8rem;">${especialidadesText}</td>
+            </tr>
+            ` : ''}
+          </tbody>
+        </table>
       `;
 
       document.getElementById("interesadosBody").innerHTML = html;
