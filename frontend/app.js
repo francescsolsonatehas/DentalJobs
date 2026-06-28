@@ -1521,34 +1521,66 @@ const app = {
         return;
       }
 
-      // Eliminar duplicados por usuario_id
-      const dentistasUnicos = {};
+      // Agrupar por publicación (especialidad + ciudad)
+      const porPublicacion = {};
       candidatos.forEach(c => {
-        if (!dentistasUnicos[c.usuario_id]) {
-          dentistasUnicos[c.usuario_id] = c;
+        const esp = estadoApp.especialidades.find(e => e.id === c.especialidad_id);
+        const clave = `${c.especialidad_id || 0}-${c.ciudad}`;
+
+        if (!porPublicacion[clave]) {
+          porPublicacion[clave] = {
+            especialidad: esp?.nombre || 'Sin especialidad',
+            ciudad: c.ciudad,
+            dentistas: {}
+          };
+        }
+
+        // Evitar duplicados de dentistas por publicación
+        if (!porPublicacion[clave].dentistas[c.usuario_id]) {
+          porPublicacion[clave].dentistas[c.usuario_id] = c;
         }
       });
 
-      const dentistas = Object.values(dentistasUnicos);
+      let totalDentistas = 0;
+      let html = `<div class="candidatos-list">`;
 
-      let html = `<h3>${dentistas.length} ${titulo}</h3><div class="candidatos-list">`;
+      Object.values(porPublicacion).forEach(pub => {
+        const dentistas = Object.values(pub.dentistas);
+        totalDentistas += dentistas.length;
 
-      dentistas.forEach(d => {
         html += `
-          <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <h4 style="margin: 0 0 0.3rem 0; color: #0f4c75;">${d.nombre}</h4>
-              <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${d.email}</p>
-              ${d.ciudad ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${d.ciudad}</p>` : ''}
+          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
+            <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">
+              🦷 ${pub.especialidad} - 📍 ${pub.ciudad}
+            </h4>
+            <p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Dentistas coincidentes: ${dentistas.length}</strong></p>
+
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem;">
+        `;
+
+        dentistas.forEach(d => {
+          html += `
+            <div style="background: white; border-left: 3px solid #0F4C75; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <strong style="color: #0f4c75; display: block; margin-bottom: 0.3rem;">${d.nombre}</strong>
+                <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${d.email}</p>
+                ${d.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${d.ciudad}</p>` : ''}
+              </div>
+              <button class="btn-primary" onclick="app.stats.mostrarPerfilDentistaCompleto(${JSON.stringify(d).replace(/"/g, '&quot;')})" style="white-space: nowrap; margin-left: 1rem;">Ver detalles</button>
             </div>
-            <button class="btn-primary" onclick="app.stats.mostrarPerfilDentistaCompleto(${JSON.stringify(d).replace(/"/g, '&quot;')})" style="white-space: nowrap; margin-left: 1rem;">Ver detalles</button>
+          `;
+        });
+
+        html += `
+            </div>
           </div>
         `;
       });
 
       html += "</div>";
 
-      document.getElementById("interesadosBody").innerHTML = html;
+      const headerText = `${totalDentistas} ${titulo}`;
+      document.getElementById("interesadosBody").innerHTML = `<h3>${headerText}</h3>${html}`;
       document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = titulo;
       document.getElementById("modalInteresados").classList.add("active");
     },
