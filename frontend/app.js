@@ -2051,7 +2051,6 @@ const app = {
       document.getElementById("navButtonsLanding").style.display = "none";
       document.getElementById("navButtonsLogueado").style.display = "flex";
       document.getElementById("btnPublicar").style.display = "inline-block";
-      document.getElementById("btnPostulacionesDentistas").style.display = estadoApp.tipoUsuario === 'clinica' ? "inline-block" : "none";
       document.getElementById("btnPerfil").style.display = "inline-block";
       document.getElementById("btnLogout").style.display = "inline-block";
 
