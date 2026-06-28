@@ -913,12 +913,12 @@ app.get("/stats/dentistas-por-ciudad-especialidad", (req, res) => {
 
 app.get("/stats/dentistas-por-especialidad-lista/:especialidad", (req, res) => {
   db.all(
-    `SELECT DISTINCT s.usuario_id, u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais, s.ciudad, e.nombre as especialidad
+    `SELECT DISTINCT s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad, e.nombre as especialidad
      FROM publicaciones s
      INNER JOIN usuarios u ON s.usuario_id = u.id
      LEFT JOIN especialidades e ON s.especialidad_id = e.id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
-     AND (e.nombre = ? OR (? = 'Sin especialidad' AND s.especialidad_id IS NULL))`,
+     AND (LOWER(e.nombre) = LOWER(?) OR (? = 'Sin especialidad' AND s.especialidad_id IS NULL))`,
     [req.params.especialidad, req.params.especialidad],
     (err, dentistas) => {
       if (err) {
@@ -932,12 +932,12 @@ app.get("/stats/dentistas-por-especialidad-lista/:especialidad", (req, res) => {
 
 app.get("/stats/dentistas-por-ciudad-lista/:ciudad", (req, res) => {
   db.all(
-    `SELECT DISTINCT s.usuario_id, u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais, s.ciudad, e.nombre as especialidad
+    `SELECT DISTINCT s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad, e.nombre as especialidad
      FROM publicaciones s
      INNER JOIN usuarios u ON s.usuario_id = u.id
      LEFT JOIN especialidades e ON s.especialidad_id = e.id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
-     AND s.ciudad = ?`,
+     AND LOWER(s.ciudad) = LOWER(?)`,
     [req.params.ciudad],
     (err, dentistas) => {
       if (err) {
@@ -951,13 +951,13 @@ app.get("/stats/dentistas-por-ciudad-lista/:ciudad", (req, res) => {
 
 app.get("/stats/dentistas-por-ciudad-especialidad-lista/:ciudad/:especialidad", (req, res) => {
   db.all(
-    `SELECT DISTINCT s.usuario_id, u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais, s.ciudad, e.nombre as especialidad
+    `SELECT DISTINCT s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad, e.nombre as especialidad
      FROM publicaciones s
      INNER JOIN usuarios u ON s.usuario_id = u.id
      LEFT JOIN especialidades e ON s.especialidad_id = e.id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
-     AND s.ciudad = ?
-     AND (e.nombre = ? OR (? = 'Sin especialidad' AND s.especialidad_id IS NULL))`,
+     AND LOWER(s.ciudad) = LOWER(?)
+     AND (LOWER(e.nombre) = LOWER(?) OR (? = 'Sin especialidad' AND s.especialidad_id IS NULL))`,
     [req.params.ciudad, req.params.especialidad, req.params.especialidad],
     (err, dentistas) => {
       if (err) {

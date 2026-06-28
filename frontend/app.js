@@ -2097,6 +2097,14 @@ const app = {
       event.preventDefault();
 
       const nuevoEmail = document.getElementById("perfilEmail").value;
+
+      // Validar email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(nuevoEmail)) {
+        utils.mostrarAlerta("Por favor ingresa un email válido", "error");
+        return;
+      }
+
       const emailCambio = nuevoEmail !== estadoApp.usuario.email;
 
       const datosActualizados = {
