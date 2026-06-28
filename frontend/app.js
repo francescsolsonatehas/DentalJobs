@@ -2609,7 +2609,7 @@ const app = {
               <span class="badge" style="margin-left: auto;">${utils.formatearFecha(pub.creado_en)}</span>
             </div>
             <div class="card-footer" style="display: flex; gap: 0.5rem;">
-              <button class="btn-primary" onclick="app.modal.abrirDetalle(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
+              <button class="btn-primary" onclick="app.modal.abrirDetalle(${JSON.stringify(pub).replace(/"/g, '&quot;')}).catch(e => console.error(e))" style="flex: 1;">Ver detalles</button>
               ${(() => {
                 if (estadoApp.tipoUsuario === 'dentista' && pub.tipo === 'oferta') {
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
