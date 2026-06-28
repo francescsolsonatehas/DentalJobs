@@ -2064,15 +2064,15 @@ const app = {
 
       if (estadoApp.tipoUsuario === 'clinica') {
         heroTitle.textContent = `🦷 ${estadoApp.usuario?.nombre || 'Mi Empresa'}`;
-        filtersTitle.textContent = "Dentistas";
-        filtersTitle.style.display = "block";
+        filtersTitle.textContent = "";
+        filtersTitle.style.display = "none";
         btnTodas.style.display = "inline-block";
         btnMias.style.display = "none";
         document.getElementById("btnPublicaciones").style.display = "inline-block";
         btnContactadas.style.display = "none";
         document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
-        btnTodas.textContent = "";
+        btnTodas.textContent = "Dentistas";
       } else {
         // Dentista
         const nombrePartes = (estadoApp.usuario?.nombre || 'Candidato').split(' ');
