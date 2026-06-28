@@ -1660,7 +1660,9 @@ const app = {
         let especialidadesText = '';
 
         try {
+          console.log("Obteniendo especialidades para publicacion_id:", oferta.publicacion_id);
           const data = await utils.request(`/publicaciones/${oferta.publicacion_id}/especialidades`, { method: 'GET' });
+          console.log("Especialidades recibidas:", data);
           if (data.especialidades && data.especialidades.length > 0) {
             especialidadesText = data.especialidades.map(e => e.nombre).join(", ");
           }
