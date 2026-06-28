@@ -773,10 +773,9 @@ app.get("/stats/candidatos-interesados/:empresa_id", verifyToken, (req, res) => 
 
 app.get("/stats/posibles-candidatos-lista/:empresa_id", verifyToken, (req, res) => {
   db.all(
-    `SELECT DISTINCT s.usuario_id, u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais, s.ciudad, e.nombre as especialidad
+    `SELECT DISTINCT s.id as publicacion_id, s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad
      FROM publicaciones s
      INNER JOIN usuarios u ON s.usuario_id = u.id
-     LEFT JOIN especialidades e ON s.especialidad_id = e.id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
      AND (
        SELECT COUNT(*) FROM publicaciones o
