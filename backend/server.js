@@ -502,6 +502,24 @@ app.post("/publicaciones", verifyToken, (req, res) => {
   );
 });
 
+app.get("/publicaciones/:id/especialidades", (req, res) => {
+  const publicacionId = req.params.id;
+
+  db.all(
+    `SELECT e.id, e.nombre FROM especialidades e
+     INNER JOIN publicacion_especialidades pe ON e.id = pe.especialidad_id
+     WHERE pe.publicacion_id = ?`,
+    [publicacionId],
+    (err, especialidades) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener especialidades" });
+      }
+      res.json({ especialidades: especialidades || [] });
+    }
+  );
+});
+
 app.post("/publicaciones/:id/especialidades", verifyToken, (req, res) => {
   const { especialidades } = req.body;
   const publicacionId = req.params.id;

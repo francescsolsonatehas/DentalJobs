@@ -673,9 +673,19 @@ const app = {
       event.target.classList.add("active");
     },
 
-    abrirDetalle(publicacion) {
+    async abrirDetalle(publicacion) {
       estadoApp.publicacionActual = publicacion;
-      const especialidad = publicacion.especialidad_id ? estadoApp.especialidades.find(e => e.id === publicacion.especialidad_id) : null;
+
+      // Cargar especialidades de la publicación
+      let especialidadesText = "";
+      try {
+        const data = await utils.request(`/publicaciones/${publicacion.id}/especialidades`, { method: 'GET' });
+        if (data && data.especialidades && data.especialidades.length > 0) {
+          especialidadesText = data.especialidades.map(e => e.nombre).join(", ");
+        }
+      } catch (error) {
+        console.error("Error al cargar especialidades:", error);
+      }
 
       let html = `
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 1.5rem;">
@@ -698,10 +708,10 @@ const app = {
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📍 Ciudad:</td>
               <td style="padding: 0.8rem;">${publicacion.ciudad}</td>
             </tr>
-            ${especialidad ? `
+            ${especialidadesText ? `
             <tr style="border-bottom: 1px solid #e5e7eb;">
-              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🦷 Especialidad:</td>
-              <td style="padding: 0.8rem;">${especialidad.nombre}</td>
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🦷 Especialidades:</td>
+              <td style="padding: 0.8rem;">${especialidadesText}</td>
             </tr>
             ` : ''}
             ${publicacion.contrato ? `
