@@ -820,7 +820,7 @@ app.get("/stats/candidatos-interesados-lista/:empresa_id", verifyToken, (req, re
   db.all(
     `SELECT c.id, c.usuario_id, c.estado, c.mensaje, c.creado_en,
             u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais, u.ciudad,
-            p.id as publicacion_id, p.descripcion as oferta_descripcion
+            p.id as publicacion_id, p.descripcion as oferta_descripcion, p.ciudad as oferta_ciudad, p.contrato, p.jornada, p.salario
      FROM candidaturas c
      INNER JOIN usuarios u ON c.usuario_id = u.id
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
@@ -841,7 +841,7 @@ app.get("/stats/contactados-lista/:empresa_id", verifyToken, (req, res) => {
   db.all(
     `SELECT c.id, c.usuario_id, c.estado, c.mensaje, c.creado_en,
             u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais, u.ciudad,
-            p.id as publicacion_id, p.descripcion as oferta_descripcion
+            p.id as publicacion_id, p.descripcion as oferta_descripcion, p.ciudad as oferta_ciudad, p.contrato, p.jornada, p.salario
      FROM candidaturas c
      INNER JOIN usuarios u ON c.usuario_id = u.id
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
