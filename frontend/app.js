@@ -1632,61 +1632,46 @@ const app = {
       document.getElementById("modalInteresados").classList.add("active");
     },
 
-    mostrarListaCandidatos(candidatos, titulo) {
+    async mostrarListaCandidatos(candidatos, titulo) {
       if (candidatos.length === 0) {
         utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
         return;
       }
 
-      // Agrupar por oferta
-      const porOferta = {};
+      // Agrupar por publicación_id para obtener especialidades
+      const porPublicacionId = {};
       candidatos.forEach(c => {
-        if (!porOferta[c.publicacion_id]) {
-          porOferta[c.publicacion_id] = {
-            oferta_descripcion: c.oferta_descripcion,
-            candidatos: []
+        if (!porPublicacionId[c.publicacion_id]) {
+          porPublicacionId[c.publicacion_id] = {
+            ciudad: c.oferta_ciudad,
+            count: 0
           };
         }
-        porOferta[c.publicacion_id].candidatos.push(c);
+        porPublicacionId[c.publicacion_id].count++;
       });
 
-      let html = `<h3>${candidatos.length} ${titulo}</h3><div class="candidatos-list">`;
+      let html = `<div class="candidatos-list">`;
 
-      Object.values(porOferta).forEach((oferta, idx) => {
-        html += `
-          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
-            <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75;">📋 Publicación ${idx + 1}</h4>
-            ${oferta.oferta_descripcion ? `<p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;">${oferta.oferta_descripcion}</p>` : ''}
-            <div style="border-top: 1px solid #d1d5db; padding-top: 1rem;">
-              <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: #1f2937;">Candidatos (${oferta.candidatos.length})</p>
-        `;
+      // Obtener especialidades para cada publicación
+      for (const pubId of Object.keys(porPublicacionId)) {
+        try {
+          const data = await utils.request(`/publicaciones/${pubId}/especialidades`, { method: 'GET' });
+          const especialidades = data.especialidades ? data.especialidades.map(e => e.nombre).join(", ") : 'Sin especialidades';
+          const ciudad = porPublicacionId[pubId].ciudad;
 
-        oferta.candidatos.forEach(c => {
-          const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[c.estado];
           html += `
-            <div class="candidato-item candidato-clickable" onclick="app.stats.mostrarPerfilDentista(${JSON.stringify(c).replace(/"/g, '&quot;')})" style="background: white; padding: 1rem; border-radius: 6px; margin-bottom: 0.75rem; border-left: 3px solid ${estadoColor};">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="flex: 1;">
-                  <strong>${c.nombre}</strong>
-                  <p style="margin: 0.3rem 0 0 0; font-size: 0.85rem; color: #6b7280;">${c.email}</p>
-                  ${c.ciudad ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: #6b7280;">📍 ${c.ciudad}</p>` : ''}
-                </div>
-                <span style="background: ${estadoColor}; color: white; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.8rem; text-transform: capitalize;">${c.estado}</span>
-              </div>
-              ${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; padding: 0.75rem; background: #f0f9ff; border-radius: 4px; border-left: 2px solid #0ea5e9; color: #0c4a6e;"><strong>Mensaje:</strong> ${c.mensaje}</p>` : ''}
+            <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+              <h4 style="margin: 0; color: #0f4c75; font-size: 1.1rem;">🦷 ${especialidades} - 📍 ${ciudad}</h4>
             </div>
           `;
-        });
-
-        html += `
-            </div>
-          </div>
-        `;
-      });
+        } catch (error) {
+          console.error("Error al obtener especialidades:", error);
+        }
+      }
 
       html += "</div>";
 
-      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("interesadosBody").innerHTML = `<h3>${candidatos.length} ${titulo}</h3>${html}`;
       document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = titulo;
       document.getElementById("modalInteresados").classList.add("active");
     },
