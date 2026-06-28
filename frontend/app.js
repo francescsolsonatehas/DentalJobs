@@ -366,7 +366,6 @@ const app = {
 
         formData = {
           tipo: "oferta",
-          titulo: `${especialidadNombre} - ${ciudad}`,
           descripcion: document.getElementById("ofertaDescripcion").value,
           ciudad: ciudad,
           especialidades: especialidades,
@@ -386,7 +385,6 @@ const app = {
 
         formData = {
           tipo: "solicitud",
-          titulo: `${especialidadNombre} - ${ciudad}`,
           descripcion: document.getElementById("solicitudDescripcion").value,
           ciudad: ciudad,
           especialidades: especialidades,
@@ -398,7 +396,7 @@ const app = {
         };
       }
 
-      if (!formData.titulo || !formData.ciudad || !formData.descripcion || !formData.nombre_contacto || !formData.email_contacto) {
+      if (!formData.ciudad || !formData.descripcion || !formData.nombre_contacto || !formData.email_contacto) {
         utils.mostrarAlerta("Por favor completa todos los campos obligatorios", "error");
         return;
       }
@@ -1341,11 +1339,12 @@ const app = {
 
           agrupadoPorCiudad[ciudad].forEach(s => {
             const esp = estadoApp.especialidades.find(e => e.id === s.especialidad_id);
+            const tituloSolicitud = esp ? `${esp.nombre} - ${s.ciudad}` : s.ciudad;
             const resp = s.respuestas > 0 ? `${s.respuestas} respuesta${s.respuestas !== 1 ? 's' : ''}` : 'Sin respuestas';
             html += `
               <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarSolicitudConRespuesta(${s.id})">
                 <div>
-                  <strong>${s.titulo}</strong>
+                  <strong>${tituloSolicitud}</strong>
                   <p style="font-size: 0.85rem; color: var(--gray-600); margin: 0.25rem 0 0 0;">${esp?.nombre || 'Sin especialidad'}</p>
                 </div>
                 <span class="desglose-numero">${resp}</span>
@@ -1421,9 +1420,11 @@ const app = {
         // Obtener mensajes
         const mensajes = await utils.request(`/mensajes/${solicitudId}`);
 
+        const tituloSolicitud = esp ? `${esp.nombre} - ${solicitud.ciudad}` : solicitud.ciudad;
+
         let html = `
           <div class="perfil-dentista">
-            <h3 style="margin-top: 0; color: var(--primary);">${solicitud.titulo}</h3>
+            <h3 style="margin-top: 0; color: var(--primary);">${tituloSolicitud}</h3>
 
             <div class="info-section">
               <h4>Detalles</h4>
