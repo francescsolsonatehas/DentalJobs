@@ -394,7 +394,7 @@ app.get("/especialidades", (req, res) => {
 app.get("/publicaciones", (req, res) => {
   const { tipo, especialidad, ciudad } = req.query;
 
-  let query = "SELECT p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id WHERE p.activo = 1";
+  let query = "SELECT p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id WHERE p.activo = 1";
   const params = [];
 
   if (tipo) {
@@ -427,8 +427,9 @@ app.get("/publicaciones", (req, res) => {
 
 app.get("/publicaciones/contactadas/:usuario_id", verifyToken, (req, res) => {
   db.all(
-    `SELECT DISTINCT p.* FROM publicaciones p
+    `SELECT DISTINCT p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad FROM publicaciones p
      INNER JOIN mensajes m ON p.id = m.publicacion_id
+     LEFT JOIN usuarios u ON p.usuario_id = u.id
      WHERE m.usuario_id = ? AND p.tipo = 'solicitud'
      ORDER BY p.creado_en DESC`,
     [req.params.usuario_id],
