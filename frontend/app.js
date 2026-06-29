@@ -2556,8 +2556,8 @@ const app = {
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarOfertasActivas()">
               <span>📋</span>
               <h3>${ofertas}</h3>
-              <p>Ofertas Disponibles</p>
-              <div class="stat-tooltip">Ofertas de trabajo de clínicas disponibles</div>
+              <p>Clínicas</p>
+              <div class="stat-tooltip">Total de clínicas en la plataforma. Ver desglose por especialidad, ciudad o ambas</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulaciones()">
               <span>📬</span>
