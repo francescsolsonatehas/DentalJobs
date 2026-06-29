@@ -1951,21 +1951,8 @@ const app = {
         // Cerrar TODOS los modales
         app.modal.cerrarTodosModales();
 
-        // Recargar los datos
+        // Solo recargar stats, no reabrir modales
         await app.ui.actualizarStats();
-
-        // Recargar la vista actual según el contexto
-        if (estadoApp.tipoUsuario === 'clinica') {
-          setTimeout(() => app.stats.mostrarCandidatosInteresados(), 500);
-        } else {
-          setTimeout(() => {
-            app.stats.mostrarPostulacionesRecibidas();
-            // También recargar Postulaciones Recibidas Aceptadas para mantener coherencia
-            if (document.querySelector('[onclick*="mostrarPostulacionesRecibdasAceptadas"]')) {
-              app.stats.mostrarPostulacionesRecibdasAceptadas();
-            }
-          }, 500);
-        }
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
