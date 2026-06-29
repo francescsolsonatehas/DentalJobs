@@ -3424,16 +3424,21 @@ document.addEventListener("keydown", (e) => {
       modal.classList.remove("active");
     });
   }
-});
+}, true);
 
-// Cerrador por clic fuera del modal
-document.querySelectorAll(".modal").forEach(modal => {
-  modal.addEventListener("click", (e) => {
-    if (e.target === modal) {
-      modal.classList.remove("active");
-    }
-  });
-});
+// Cerrador por clic fuera del modal - usar event delegation
+document.addEventListener("click", (e) => {
+  if (e.target.classList && e.target.classList.contains("modal")) {
+    e.target.classList.remove("active");
+  }
+}, true);
+
+// Asegurar que los modales se cierren al cargar publicaciones
+const originalCargar = app.publicaciones.cargar;
+app.publicaciones.cargar = async function() {
+  app.modal.cerrarTodosModales();
+  return originalCargar.call(this);
+};
 
 // Inicializar la aplicación
 app.ui.init();
