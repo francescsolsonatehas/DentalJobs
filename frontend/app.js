@@ -477,6 +477,21 @@ const app = {
       checkboxes.forEach(cb => {
         cb.checked = marcarTodas.checked;
       });
+    },
+
+    async retirarPublicacion(publicacionId) {
+      if (!confirm("¿Estás seguro de que deseas retirar esta publicación?")) {
+        return;
+      }
+
+      try {
+        await utils.request(`/publicaciones/${publicacionId}`, { method: 'DELETE' });
+        utils.mostrarAlerta("Publicación retirada correctamente", "success");
+        await app.publicaciones.cargar();
+        await app.ui.actualizarStats();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
     }
   },
 
@@ -3129,6 +3144,12 @@ const app = {
             </div>
             <div class="card-footer" style="display: flex; gap: 0.5rem;">
               <button class="btn-primary" onclick="app.modal.abrirDetalleConManejo(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
+              ${(() => {
+                if (estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id)) {
+                  return `<button class="btn-danger" onclick="app.publicaciones.retirarPublicacion(${pub.id})" style="flex: 1;">🗑️ Retirar</button>`;
+                }
+                return '';
+              })()}
               ${(() => {
                 if (estadoApp.tipoUsuario === 'dentista' && pub.tipo === 'oferta') {
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
