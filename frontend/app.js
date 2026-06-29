@@ -1831,6 +1831,26 @@ const app = {
       }
     },
 
+    async cambiarEstadoCandidatura(candidaturaId, nuevoEstado) {
+      try {
+        await utils.request(`/candidaturas/${candidaturaId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ estado: nuevoEstado })
+        });
+        utils.mostrarAlerta("Estado actualizado correctamente", "success");
+        // Recargar los datos
+        await app.ui.actualizarStats();
+        if (estadoApp.tipoUsuario === 'clinica') {
+          await app.stats.mostrarCandidatosInteresados();
+        } else {
+          await app.stats.mostrarPostulacionesRecibidas();
+        }
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
     async mostrarListaPostulacionesRecibidas(postulaciones, titulo) {
       if (postulaciones.length === 0) {
         utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
@@ -1889,14 +1909,23 @@ const app = {
         pub.postulaciones.forEach(p => {
           const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[p.estado];
           html += `
-            <div style="background: white; border-left: 3px solid ${estadoColor}; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-              <div>
-                <strong style="color: #0f4c75; display: block; margin-bottom: 0.3rem;">${p.nombre}</strong>
-                <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${p.email}</p>
-                ${p.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${p.ciudad}</p>` : ''}
-                <span style="background: ${estadoColor}; color: white; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.75rem; text-transform: capitalize; margin-top: 0.3rem; display: inline-block;">${p.estado}</span>
+            <div style="background: white; border-left: 3px solid ${estadoColor}; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; cursor: pointer;" onclick="app.stats.mostrarDetallePostulacion(${JSON.stringify(p).replace(/"/g, '&quot;')})">
+                <div>
+                  <strong style="color: #0f4c75; display: block; margin-bottom: 0.3rem;">${p.nombre}</strong>
+                  <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${p.email}</p>
+                  ${p.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${p.ciudad}</p>` : ''}
+                </div>
+                <span style="background: ${estadoColor}; color: white; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.75rem; text-transform: capitalize; white-space: nowrap; margin-left: 1rem;">${p.estado}</span>
               </div>
-              <button class="btn-primary" onclick="app.stats.mostrarDetallePostulacion(${JSON.stringify(p).replace(/"/g, '&quot;')})" style="white-space: nowrap; margin-left: 1rem;">Ver detalles</button>
+              <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+                ${p.estado === 'pendiente' ? `
+                  <button onclick="event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, 'aceptada')" style="background: #10b981; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">✅ Aceptar</button>
+                  <button onclick="event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, 'rechazada')" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">❌ Rechazar</button>
+                ` : `
+                  <button onclick="event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, 'pendiente')" style="background: #f59e0b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⏳ Pendiente</button>
+                `}
+              </div>
             </div>
           `;
         });
@@ -2085,16 +2114,24 @@ const app = {
         oferta.candidatos.forEach(c => {
           const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[c.estado];
           html += `
-            <div class="candidato-item candidato-clickable" onclick="app.stats.mostrarPerfilDentista(${JSON.stringify(c).replace(/"/g, '&quot;')})" style="background: white; padding: 1rem; border-radius: 6px; margin-bottom: 0.75rem; border-left: 3px solid ${estadoColor};">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="flex: 1;">
+            <div style="background: white; padding: 1rem; border-radius: 6px; margin-bottom: 0.75rem; border-left: 3px solid ${estadoColor};">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="flex: 1; cursor: pointer;" onclick="app.stats.mostrarPerfilDentista(${JSON.stringify(c).replace(/"/g, '&quot;')})">
                   <strong>${c.nombre}</strong>
                   <p style="margin: 0.3rem 0 0 0; font-size: 0.85rem; color: #6b7280;">${c.email}</p>
                   ${c.ciudad ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: #6b7280;">📍 ${c.ciudad}</p>` : ''}
                 </div>
-                <span style="background: ${estadoColor}; color: white; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.8rem; text-transform: capitalize;">${c.estado}</span>
+                <span style="background: ${estadoColor}; color: white; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.8rem; text-transform: capitalize; white-space: nowrap; margin-left: 1rem;">${c.estado}</span>
               </div>
               ${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; padding: 0.75rem; background: #f0f9ff; border-radius: 4px; border-left: 2px solid #0ea5e9; color: #0c4a6e;"><strong>Mensaje:</strong> ${c.mensaje}</p>` : ''}
+              <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+                ${c.estado === 'pendiente' ? `
+                  <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'aceptada')" style="background: #10b981; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">✅ Aceptar</button>
+                  <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'rechazada')" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">❌ Rechazar</button>
+                ` : `
+                  <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'pendiente')" style="background: #f59e0b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⏳ Pendiente</button>
+                `}
+              </div>
             </div>
           `;
         });
