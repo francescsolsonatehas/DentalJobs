@@ -1948,8 +1948,8 @@ const app = {
         });
         utils.mostrarAlerta("Estado actualizado correctamente", "success");
 
-        // Cerrar el modal actual
-        document.getElementById("modalInteresados").classList.remove("active");
+        // Cerrar TODOS los modales
+        app.modal.cerrarTodosModales();
 
         // Recargar los datos
         await app.ui.actualizarStats();
