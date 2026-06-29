@@ -2493,7 +2493,7 @@ const app = {
                 <span>📧</span>
                 <h3>${candidatosInteresados.total}</h3>
                 <p>Postulaciones Recibidas</p>
-                <div class="stat-tooltip">Dentistas que se han postulado a mis ofertas</div>
+                <div class="stat-tooltip">Dentistas postulados a nuestras publicaciones</div>
               </div>
               <div class="stat-item stat-clickable" onclick="app.stats.mostrarContactados()">
                 <span>✅</span>
@@ -2534,7 +2534,7 @@ const app = {
               <span>📧</span>
               <h3>${candidatosInteresados.total}</h3>
               <p>Postulaciones Recibidas</p>
-              <div class="stat-tooltip">Dentistas que se han postulado a mis ofertas</div>
+              <div class="stat-tooltip">Dentistas postulados a nuestras publicaciones</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarContactados()">
               <span>✅</span>
