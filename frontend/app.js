@@ -1323,6 +1323,90 @@ const app = {
       }
     },
 
+    async mostrarListaClinicasSimple(clinicas, titulo) {
+      if (clinicas.length === 0) {
+        utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
+        return;
+      }
+
+      // Agrupar por publicación y obtener especialidades
+      const porPublicacion = {};
+
+      // Primero, agrupar por publicación_id para obtener especialidades
+      const porPublicacionId = {};
+      clinicas.forEach(c => {
+        if (!porPublicacionId[c.publicacion_id]) {
+          porPublicacionId[c.publicacion_id] = {
+            ciudad: c.ciudad,
+            clinicas: {}
+          };
+        }
+        if (!porPublicacionId[c.publicacion_id].clinicas[c.usuario_id]) {
+          porPublicacionId[c.publicacion_id].clinicas[c.usuario_id] = c;
+        }
+      });
+
+      // Obtener especialidades para cada publicación
+      for (const pubId of Object.keys(porPublicacionId)) {
+        try {
+          const data = await utils.request(`/publicaciones/${pubId}/especialidades`, { method: 'GET' });
+          const especialidades = data.especialidades ? data.especialidades.map(e => e.nombre).join(", ") : 'Sin especialidades';
+          const ciudad = porPublicacionId[pubId].ciudad;
+          const clave = `${especialidades}-${ciudad}`;
+
+          porPublicacion[clave] = {
+            especialidades: especialidades,
+            ciudad: ciudad,
+            clinicas: porPublicacionId[pubId].clinicas
+          };
+        } catch (error) {
+          console.error("Error al obtener especialidades:", error);
+        }
+      }
+
+      let totalClinicas = 0;
+      let html = `<div class="candidatos-list">`;
+
+      Object.values(porPublicacion).forEach(pub => {
+        const clinicasList = Object.values(pub.clinicas);
+        totalClinicas += clinicasList.length;
+
+        html += `
+          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
+            <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">
+              🦷 ${pub.especialidades} - 📍 ${pub.ciudad}
+            </h4>
+            <p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Clínicas coincidentes: ${clinicasList.length}</strong></p>
+
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem;">
+        `;
+
+        clinicasList.forEach(c => {
+          html += `
+            <div style="background: white; border-left: 3px solid #0F4C75; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <strong style="color: #0f4c75; display: block; margin-bottom: 0.3rem;">${c.nombre}</strong>
+                <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${c.email}</p>
+                ${c.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${c.ciudad}</p>` : ''}
+              </div>
+              <button class="btn-primary" onclick="app.stats.mostrarPerfilClinica(${JSON.stringify(c).replace(/"/g, '&quot;')})" style="white-space: nowrap; margin-left: 1rem;">Ver detalles</button>
+            </div>
+          `;
+        });
+
+        html += `
+            </div>
+          </div>
+        `;
+      });
+
+      html += "</div>";
+
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = `${titulo} (${totalClinicas})`;
+      document.getElementById("modalInteresados").classList.add("active");
+    },
+
     mostrarListaClinicas(clinicas, titulo) {
       if (clinicas.length === 0) {
         utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
@@ -1351,10 +1435,37 @@ const app = {
       document.getElementById("modalInteresados").classList.add("active");
     },
 
+    mostrarPerfilClinica(clinica) {
+      let html = `
+        <div style="padding: 1.5rem;">
+          <h3 style="margin-top: 0; color: var(--primary);">${clinica.nombre}</h3>
+
+          <div class="info-section">
+            <h4>Contacto</h4>
+            <p><strong>📧 Email:</strong> ${clinica.email}</p>
+            ${clinica.telefono ? `<p><strong>📞 Teléfono:</strong> ${clinica.telefono}</p>` : ''}
+            ${clinica.movil ? `<p><strong>📱 Móvil:</strong> ${clinica.movil}</p>` : ''}
+          </div>
+
+          <div class="info-section">
+            <h4>Ubicación</h4>
+            <p><strong>📍 Ciudad:</strong> ${clinica.ciudad}</p>
+            ${clinica.direccion ? `<p><strong>🏠 Dirección:</strong> ${clinica.direccion}</p>` : ''}
+            ${clinica.codigo_postal ? `<p><strong>📮 Código Postal:</strong> ${clinica.codigo_postal}</p>` : ''}
+            ${clinica.pais ? `<p><strong>🌍 País:</strong> ${clinica.pais}</p>` : ''}
+          </div>
+        </div>
+      `;
+
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = clinica.nombre;
+      document.getElementById("modalInteresados").classList.add("active");
+    },
+
     async mostrarClinicasPotenciales() {
       try {
         const clinicas = await utils.request(`/stats/clinicas-potenciales-lista/${estadoApp.usuario.id}`);
-        app.stats.mostrarListaClinicas(clinicas, "Clínicas Potenciales");
+        app.stats.mostrarListaClinicasSimple(clinicas, "Clínicas Potenciales");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
