@@ -1654,7 +1654,7 @@ const app = {
         porOferta[c.publicacion_id].candidatos.push(c);
       });
 
-      let html = `<h3>${candidatos.length} ${titulo}</h3><div class="candidatos-list">`;
+      let html = `<div class="candidatos-list">`;
 
       const entries = Object.entries(porOferta);
       for (let idx = 0; idx < entries.length; idx++) {
@@ -1704,7 +1704,7 @@ const app = {
       html += "</div>";
 
       document.getElementById("interesadosBody").innerHTML = html;
-      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = titulo;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = `${titulo} (${candidatos.length})`;
       document.getElementById("modalInteresados").classList.add("active");
     },
 
