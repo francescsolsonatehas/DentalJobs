@@ -1629,9 +1629,8 @@ const app = {
 
       html += "</div>";
 
-      const headerText = `${totalDentistas} ${titulo}`;
-      document.getElementById("interesadosBody").innerHTML = `<h3>${headerText}</h3>${html}`;
-      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = titulo;
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = `${titulo} (${totalDentistas})`;
       document.getElementById("modalInteresados").classList.add("active");
     },
 
