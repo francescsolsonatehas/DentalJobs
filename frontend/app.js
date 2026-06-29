@@ -1523,7 +1523,7 @@ const app = {
     async mostrarPosiblesCandidatos() {
       try {
         const candidatos = await utils.request(`/stats/posibles-candidatos-lista/${estadoApp.usuario.id}`);
-        app.stats.mostrarListaCandidatosSimple(candidatos, "Candidatos Coincidentes");
+        app.stats.mostrarListaCandidatosSimple(candidatos, "Dentistas Coincidentes");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -2515,7 +2515,7 @@ const app = {
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarPosiblesCandidatos()">
               <span>🔍</span>
               <h3>${posiblesCandidatos.total}</h3>
-              <p>Candidatos Coincidentes</p>
+              <p>Dentistas Coincidentes</p>
               <div class="stat-tooltip">Dentistas que coinciden con ciudad y especialidad de mis ofertas</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulacionesDentistas()">
