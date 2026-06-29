@@ -1296,6 +1296,61 @@ const app = {
       }
     },
 
+    async mostrarClinicasEspecialidad(especialidad) {
+      try {
+        const clinicas = await utils.request(`/stats/clinicas-por-especialidad-lista/${encodeURIComponent(especialidad)}`);
+        app.stats.mostrarListaClinicas(clinicas, `Clínicas - ${especialidad}`);
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarClinicasCiudad(ciudad) {
+      try {
+        const clinicas = await utils.request(`/stats/clinicas-por-ciudad-lista/${encodeURIComponent(ciudad)}`);
+        app.stats.mostrarListaClinicas(clinicas, `Clínicas - ${ciudad}`);
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarClinicasCiudadEspecialidad(ciudad, especialidad) {
+      try {
+        const clinicas = await utils.request(`/stats/clinicas-por-ciudad-especialidad-lista/${encodeURIComponent(ciudad)}/${encodeURIComponent(especialidad)}`);
+        app.stats.mostrarListaClinicas(clinicas, `Clínicas - ${ciudad} - ${especialidad}`);
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    mostrarListaClinicas(clinicas, titulo) {
+      if (clinicas.length === 0) {
+        utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
+        return;
+      }
+
+      let html = `<div class="candidatos-list">`;
+
+      clinicas.forEach(c => {
+        html += `
+          <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">${c.nombre}</h4>
+            <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📧 Email:</strong> ${c.email}</p>
+            ${c.telefono ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📞 Teléfono:</strong> ${c.telefono}</p>` : ''}
+            ${c.movil ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📱 Móvil:</strong> ${c.movil}</p>` : ''}
+            <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📍 Ciudad:</strong> ${c.ciudad}</p>
+            ${c.direccion ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>🏠 Dirección:</strong> ${c.direccion}</p>` : ''}
+          </div>
+        `;
+      });
+
+      html += "</div>";
+
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = `${titulo} (${clinicas.length})`;
+      document.getElementById("modalInteresados").classList.add("active");
+    },
+
     async mostrarOfertasActivas() {
       try {
         const todas = await utils.request("/publicaciones");

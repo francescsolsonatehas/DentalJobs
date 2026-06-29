@@ -1025,6 +1025,65 @@ app.get("/stats/clinicas-por-ciudad-especialidad", (req, res) => {
   );
 });
 
+app.get("/stats/clinicas-por-especialidad-lista/:especialidad", (req, res) => {
+  db.all(
+    `SELECT DISTINCT o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad
+     FROM publicaciones o
+     INNER JOIN usuarios u ON o.usuario_id = u.id
+     LEFT JOIN publicacion_especialidades pe ON o.id = pe.publicacion_id
+     LEFT JOIN especialidades e ON pe.especialidad_id = e.id
+     WHERE o.tipo = 'oferta' AND o.activo = 1
+     AND (LOWER(e.nombre) = LOWER(?) OR (? = 'Sin especialidad' AND pe.especialidad_id IS NULL))`,
+    [req.params.especialidad, req.params.especialidad],
+    (err, clinicas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener clínicas" });
+      }
+      res.json(clinicas || []);
+    }
+  );
+});
+
+app.get("/stats/clinicas-por-ciudad-lista/:ciudad", (req, res) => {
+  db.all(
+    `SELECT DISTINCT o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad
+     FROM publicaciones o
+     INNER JOIN usuarios u ON o.usuario_id = u.id
+     WHERE o.tipo = 'oferta' AND o.activo = 1
+     AND LOWER(o.ciudad) = LOWER(?)`,
+    [req.params.ciudad],
+    (err, clinicas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener clínicas" });
+      }
+      res.json(clinicas || []);
+    }
+  );
+});
+
+app.get("/stats/clinicas-por-ciudad-especialidad-lista/:ciudad/:especialidad", (req, res) => {
+  db.all(
+    `SELECT DISTINCT o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad
+     FROM publicaciones o
+     INNER JOIN usuarios u ON o.usuario_id = u.id
+     LEFT JOIN publicacion_especialidades pe ON o.id = pe.publicacion_id
+     LEFT JOIN especialidades e ON pe.especialidad_id = e.id
+     WHERE o.tipo = 'oferta' AND o.activo = 1
+     AND LOWER(o.ciudad) = LOWER(?)
+     AND (LOWER(e.nombre) = LOWER(?) OR (? = 'Sin especialidad' AND pe.especialidad_id IS NULL))`,
+    [req.params.ciudad, req.params.especialidad, req.params.especialidad],
+    (err, clinicas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener clínicas" });
+      }
+      res.json(clinicas || []);
+    }
+  );
+});
+
 /* ===========================
    🔹 MENSAJES
 =========================== */
