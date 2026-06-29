@@ -298,6 +298,9 @@ const app = {
 
   publicaciones: {
     async cargar() {
+      // Cerrar todos los modales antes de cargar
+      app.modal.cerrarTodosModales();
+
       // Determinar tipo según modo
       let tipo;
       if (estadoApp.filtros.soloMias) {
@@ -3433,12 +3436,6 @@ document.addEventListener("click", (e) => {
   }
 }, true);
 
-// Asegurar que los modales se cierren al cargar publicaciones
-const originalCargar = app.publicaciones.cargar;
-app.publicaciones.cargar = async function() {
-  app.modal.cerrarTodosModales();
-  return originalCargar.call(this);
-};
 
 // Inicializar la aplicación
 app.ui.init();
