@@ -928,7 +928,7 @@ const app = {
           </div>
           <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
             <button type="submit" class="btn-primary">Guardar</button>
-            <button type="button" class="btn-text" onclick="app.modal.abrirDetalle(estadoApp.publicacionActual)">Cancelar</button>
+            <button type="button" class="btn-text" onclick="app.modal.cerrarTodosModales()">Cancelar</button>
           </div>
         </form>
       `;
