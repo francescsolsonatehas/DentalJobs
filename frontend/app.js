@@ -640,6 +640,17 @@ const app = {
         const modal = document.getElementById(id);
         if (modal) {
           modal.classList.remove("active");
+          modal.style.display = "none";
+          modal.style.pointerEvents = "none";
+          modal.style.opacity = "0";
+        }
+      });
+
+      // Limpiar any stray overlays
+      document.querySelectorAll(".modal").forEach(modal => {
+        if (!modal.classList.contains("active")) {
+          modal.style.display = "none";
+          modal.style.pointerEvents = "none";
         }
       });
     },

@@ -902,7 +902,7 @@ input:focus, select:focus {
 /* ============ MODALES ============ */
 
 .modal {
-  display: none;
+  display: none !important;
   position: fixed;
   top: 0;
   left: 0;
@@ -915,8 +915,8 @@ input:focus, select:focus {
   overflow: auto;
   backdrop-filter: blur(4px);
   animation: fadeIn 0.2s ease;
-  pointer-events: none;
-  opacity: 0;
+  pointer-events: none !important;
+  opacity: 0 !important;
 }
 
 @keyframes fadeIn {
@@ -930,9 +930,9 @@ input:focus, select:focus {
 }
 
 .modal.active {
-  display: flex;
-  pointer-events: auto;
-  opacity: 1;
+  display: flex !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
 }
 
 .modal-content {
