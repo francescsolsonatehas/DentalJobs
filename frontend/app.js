@@ -1948,11 +1948,25 @@ const app = {
         });
         utils.mostrarAlerta("Estado actualizado correctamente", "success");
 
-        // Cerrar TODOS los modales
-        app.modal.cerrarTodosModales();
-
-        // Solo recargar stats, no reabrir modales
+        // Recargar stats
         await app.ui.actualizarStats();
+
+        // Recargar el contenido del modal SIN cerrarlo
+        setTimeout(() => {
+          const modal = document.getElementById("modalInteresados");
+          if (modal && modal.classList.contains("active")) {
+            const publicacionId = estadoApp.publicacionActual?.id;
+            const tipo = estadoApp.publicacionActual?.tipo;
+
+            if (publicacionId && tipo === 'solicitud') {
+              // Recargar desde "Empresas" (abrirInteresados)
+              app.modal.abrirInteresados(publicacionId, tipo);
+            } else if (estadoApp.tipoUsuario === 'dentista') {
+              // Recargar desde stats "Postulaciones Recibidas"
+              app.stats.mostrarPostulacionesRecibidas();
+            }
+          }
+        }, 300);
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
