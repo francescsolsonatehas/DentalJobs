@@ -1822,6 +1822,15 @@ const app = {
       }
     },
 
+    async mostrarPostulacionesRecibdasAceptadas() {
+      try {
+        const postulaciones = await utils.request(`/stats/postulaciones-recibidas-aceptadas-dentista-lista/${estadoApp.usuario.id}`);
+        app.stats.mostrarListaPostulacionesRecibidas(postulaciones, "Postulaciones Recibidas Aceptadas");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
     async mostrarListaPostulacionesRecibidas(postulaciones, titulo) {
       if (postulaciones.length === 0) {
         utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
@@ -2948,6 +2957,7 @@ const app = {
           const misAceptadas = await utils.request(`/stats/mis-postulaciones-aceptadas/${estadoApp.usuario.id}`);
           const clinicasPotenciales = await utils.request(`/stats/clinicas-potenciales/${estadoApp.usuario.id}`);
           const postulacionesRecibidas = await utils.request(`/stats/postulaciones-recibidas-dentista/${estadoApp.usuario.id}`);
+          const postulacionesRecibdasAceptadas = await utils.request(`/stats/postulaciones-recibidas-aceptadas-dentista/${estadoApp.usuario.id}`);
 
           statsGrid.innerHTML = `
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarTotalClinicas()">
@@ -2979,6 +2989,12 @@ const app = {
               <h3>${postulacionesRecibidas.total}</h3>
               <p>Postulaciones Recibidas</p>
               <div class="stat-tooltip">Clínicas postuladas a nuestras publicaciones</div>
+            </div>
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarPostulacionesRecibdasAceptadas()">
+              <span>✅</span>
+              <h3>${postulacionesRecibdasAceptadas.total}</h3>
+              <p>Postulaciones Recibidas Aceptadas</p>
+              <div class="stat-tooltip">Clínicas aceptadas en nuestras publicaciones</div>
             </div>
           `;
         }

@@ -953,6 +953,44 @@ app.get("/stats/postulaciones-recibidas-dentista-lista/:usuario_id", verifyToken
   );
 });
 
+app.get("/stats/postulaciones-recibidas-aceptadas-dentista/:usuario_id", verifyToken, (req, res) => {
+  db.get(
+    `SELECT COUNT(*) as total
+     FROM candidaturas c
+     INNER JOIN publicaciones p ON c.publicacion_id = p.id
+     WHERE p.usuario_id = ? AND p.tipo = 'solicitud' AND p.activo = 1 AND c.estado = 'aceptada'`,
+    [req.params.usuario_id],
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener postulaciones recibidas aceptadas" });
+      }
+      res.json({ total: result.total || 0 });
+    }
+  );
+});
+
+app.get("/stats/postulaciones-recibidas-aceptadas-dentista-lista/:usuario_id", verifyToken, (req, res) => {
+  db.all(
+    `SELECT c.id, c.usuario_id, c.estado, c.mensaje, c.creado_en,
+            u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais, u.ciudad,
+            p.id as publicacion_id, p.descripcion as solicitud_descripcion, p.ciudad as solicitud_ciudad, p.especialidad_id
+     FROM candidaturas c
+     INNER JOIN usuarios u ON c.usuario_id = u.id
+     INNER JOIN publicaciones p ON c.publicacion_id = p.id
+     WHERE p.usuario_id = ? AND p.tipo = 'solicitud' AND p.activo = 1 AND c.estado = 'aceptada'
+     ORDER BY p.id, c.creado_en DESC`,
+    [req.params.usuario_id],
+    (err, candidatos) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener postulaciones recibidas aceptadas" });
+      }
+      res.json(candidatos || []);
+    }
+  );
+});
+
 app.get("/stats/dentistas-por-ciudad", (req, res) => {
   db.all(
     `SELECT s.ciudad, COUNT(DISTINCT s.usuario_id) as total
