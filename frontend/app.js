@@ -2510,7 +2510,7 @@ const app = {
               <span>👥</span>
               <h3>${totalDentistas.total}</h3>
               <p>Dentistas</p>
-              <div class="stat-tooltip">Total de dentistas en la plataforma. Clic para ver desglose por especialidad, ciudad o ambas</div>
+              <div class="stat-tooltip">Total de dentistas en la plataforma. Ver desglose por especialidad, ciudad o ambas</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarPosiblesCandidatos()">
               <span>🔍</span>
