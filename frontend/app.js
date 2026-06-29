@@ -1352,9 +1352,124 @@ const app = {
     },
 
     async mostrarClinicasPotenciales() {
+      document.getElementById("modalOpcionesClinicasPotenciales").classList.add("active");
+    },
+
+    async mostrarClinicasPotencialesPorEspecialidad() {
       try {
-        const clinicas = await utils.request(`/stats/clinicas-potenciales-lista/${estadoApp.usuario.id}`);
-        app.stats.mostrarListaClinicas(clinicas, "Clínicas Potenciales");
+        const datos = await utils.request(`/stats/clinicas-potenciales-por-especialidad/${estadoApp.usuario.id}`);
+        let html = "<div class='desglose-list'>";
+
+        if (datos.length === 0) {
+          html += "<p>Sin datos</p>";
+        } else {
+          datos.forEach(d => {
+            html += `
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarClinicasPotencialesEspecialidad('${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
+                <strong>${d.especialidad || "Sin especialidad"}</strong>
+                <span class="desglose-numero">${d.total}</span>
+              </div>
+            `;
+          });
+        }
+
+        html += "</div>";
+        document.getElementById("interesadosBody").innerHTML = html;
+        document.getElementById("modalOpcionesClinicasPotenciales").classList.remove("active");
+        document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "Clínicas Potenciales por Especialidad";
+        document.getElementById("modalInteresados").classList.add("active");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarClinicasPotencialesPorCiudad() {
+      try {
+        const datos = await utils.request(`/stats/clinicas-potenciales-por-ciudad/${estadoApp.usuario.id}`);
+        let html = "<div class='desglose-list'>";
+
+        if (datos.length === 0) {
+          html += "<p>Sin datos</p>";
+        } else {
+          datos.forEach(d => {
+            html += `
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarClinicasPotencialesCiudad('${d.ciudad.replace(/'/g, "\\'")}')">
+                <strong>${d.ciudad}</strong>
+                <span class="desglose-numero">${d.total}</span>
+              </div>
+            `;
+          });
+        }
+
+        html += "</div>";
+        document.getElementById("interesadosBody").innerHTML = html;
+        document.getElementById("modalOpcionesClinicasPotenciales").classList.remove("active");
+        document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "Clínicas Potenciales por Ciudad";
+        document.getElementById("modalInteresados").classList.add("active");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarClinicasPotencialesPorCiudadEspecialidad() {
+      try {
+        const datos = await utils.request(`/stats/clinicas-potenciales-por-ciudad-especialidad/${estadoApp.usuario.id}`);
+        let html = "<div class='desglose-grupos'>";
+
+        if (datos.length === 0) {
+          html += "<p>Sin datos</p>";
+        } else {
+          let ciudadActual = null;
+          datos.forEach(d => {
+            if (d.ciudad !== ciudadActual) {
+              if (ciudadActual !== null) {
+                html += "</div>";
+              }
+              ciudadActual = d.ciudad;
+              html += `<div class='desglose-grupo'><h4>${ciudadActual}</h4>`;
+            }
+            html += `
+              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarClinicasPotencialesCiudadEspecialidad('${d.ciudad.replace(/'/g, "\\'")}', '${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
+                <strong>${d.especialidad || "Sin especialidad"}</strong>
+                <span class="desglose-numero">${d.total}</span>
+              </div>
+            `;
+          });
+          html += "</div>";
+        }
+
+        html += "</div>";
+        document.getElementById("interesadosBody").innerHTML = html;
+        document.getElementById("modalOpcionesClinicasPotenciales").classList.remove("active");
+        document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "Clínicas Potenciales por Ciudad y Especialidad";
+        document.getElementById("modalInteresados").classList.add("active");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarClinicasPotencialesEspecialidad(especialidad) {
+      try {
+        const clinicas = await utils.request(`/stats/clinicas-potenciales-especialidad-lista/${estadoApp.usuario.id}/${encodeURIComponent(especialidad)}`);
+        app.stats.mostrarListaClinicas(clinicas, `Clínicas Potenciales - ${especialidad}`);
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarClinicasPotencialesCiudad(ciudad) {
+      try {
+        const clinicas = await utils.request(`/stats/clinicas-potenciales-ciudad-lista/${estadoApp.usuario.id}/${encodeURIComponent(ciudad)}`);
+        app.stats.mostrarListaClinicas(clinicas, `Clínicas Potenciales - ${ciudad}`);
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarClinicasPotencialesCiudadEspecialidad(ciudad, especialidad) {
+      try {
+        const clinicas = await utils.request(`/stats/clinicas-potenciales-ciudad-especialidad-lista/${estadoApp.usuario.id}/${encodeURIComponent(ciudad)}/${encodeURIComponent(especialidad)}`);
+        app.stats.mostrarListaClinicas(clinicas, `Clínicas Potenciales - ${ciudad} - ${especialidad}`);
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
