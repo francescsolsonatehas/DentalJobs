@@ -2499,7 +2499,7 @@ const app = {
                 <span>✅</span>
                 <h3>${contactados}</h3>
                 <p>Candidatos Aceptados</p>
-                <div class="stat-tooltip">Dentistas que hemos aceptado en nuestras ofertas</div>
+                <div class="stat-tooltip">Dentistas postulados a nuestras publicaciones aceptados</div>
               </div>
             `;
             return;
@@ -2540,7 +2540,7 @@ const app = {
               <span>✅</span>
               <h3>${contactados}</h3>
               <p>Candidatos Aceptados</p>
-              <div class="stat-tooltip">Dentistas que hemos aceptado en nuestras ofertas</div>
+              <div class="stat-tooltip">Dentistas postulados a nuestras publicaciones aceptados</div>
             </div>
           `;
         } else {
