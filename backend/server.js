@@ -817,6 +817,49 @@ app.get("/stats/posibles-candidatos-lista/:empresa_id", verifyToken, (req, res) 
   );
 });
 
+app.get("/stats/clinicas-potenciales/:usuario_id", verifyToken, (req, res) => {
+  db.get(
+    `SELECT COUNT(DISTINCT o.usuario_id) as total
+     FROM publicaciones o
+     WHERE o.tipo = 'oferta' AND o.activo = 1
+     AND EXISTS (
+       SELECT 1 FROM publicaciones s
+       WHERE s.usuario_id = ? AND s.tipo = 'solicitud' AND s.activo = 1
+       AND o.ciudad = s.ciudad
+     )`,
+    [req.params.usuario_id],
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener clínicas potenciales" });
+      }
+      res.json({ total: result.total || 0 });
+    }
+  );
+});
+
+app.get("/stats/clinicas-potenciales-lista/:usuario_id", verifyToken, (req, res) => {
+  db.all(
+    `SELECT DISTINCT o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad
+     FROM publicaciones o
+     INNER JOIN usuarios u ON o.usuario_id = u.id
+     WHERE o.tipo = 'oferta' AND o.activo = 1
+     AND EXISTS (
+       SELECT 1 FROM publicaciones s
+       WHERE s.usuario_id = ? AND s.tipo = 'solicitud' AND s.activo = 1
+       AND o.ciudad = s.ciudad
+     )`,
+    [req.params.usuario_id],
+    (err, clinicas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener clínicas potenciales" });
+      }
+      res.json(clinicas || []);
+    }
+  );
+});
+
 app.get("/stats/candidatos-interesados-lista/:empresa_id", verifyToken, (req, res) => {
   db.all(
     `SELECT c.id, c.usuario_id, c.estado, c.mensaje, c.creado_en,

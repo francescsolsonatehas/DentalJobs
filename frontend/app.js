@@ -1351,6 +1351,15 @@ const app = {
       document.getElementById("modalInteresados").classList.add("active");
     },
 
+    async mostrarClinicasPotenciales() {
+      try {
+        const clinicas = await utils.request(`/stats/clinicas-potenciales-lista/${estadoApp.usuario.id}`);
+        app.stats.mostrarListaClinicas(clinicas, "Clínicas Potenciales");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
     async mostrarOfertasActivas() {
       try {
         const todas = await utils.request("/publicaciones");
@@ -2703,6 +2712,7 @@ const app = {
           const ofertas = todas.filter(p => p.tipo === 'oferta').length;
           const misPostulaciones = await utils.request(`/stats/mis-postulaciones/${estadoApp.usuario.id}`);
           const misAceptadas = await utils.request(`/stats/mis-postulaciones-aceptadas/${estadoApp.usuario.id}`);
+          const clinicasPotenciales = await utils.request(`/stats/clinicas-potenciales/${estadoApp.usuario.id}`);
 
           statsGrid.innerHTML = `
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarTotalClinicas()">
@@ -2710,6 +2720,12 @@ const app = {
               <h3>${ofertas}</h3>
               <p>Clínicas</p>
               <div class="stat-tooltip">Total de clínicas en la plataforma. Ver desglose por especialidad, ciudad o ambas</div>
+            </div>
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarClinicasPotenciales()">
+              <span>🔍</span>
+              <h3>${clinicasPotenciales.total}</h3>
+              <p>Clínicas Potenciales</p>
+              <div class="stat-tooltip">Clínicas que coinciden con ciudad y especialidad de mis publicaciones</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulaciones()">
               <span>📬</span>
