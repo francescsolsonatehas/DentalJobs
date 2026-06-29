@@ -2522,7 +2522,7 @@ const app = {
               <span>📬</span>
               <h3>${miPostulacionesDentistas.total}</h3>
               <p>Postulaciones a Dentistas</p>
-              <div class="stat-tooltip">Postulaciones que he hecho a solicitudes de dentistas</div>
+              <div class="stat-tooltip">Postulaciones hechas a publicaciones de dentistas</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulacionesDentistasAceptadas()">
               <span>✅</span>
