@@ -643,6 +643,8 @@ const app = {
           modal.style.display = "none";
           modal.style.pointerEvents = "none";
           modal.style.opacity = "0";
+          modal.style.visibility = "hidden";
+          modal.style.zIndex = "-1";
         }
       });
 
@@ -651,8 +653,14 @@ const app = {
         if (!modal.classList.contains("active")) {
           modal.style.display = "none";
           modal.style.pointerEvents = "none";
+          modal.style.visibility = "hidden";
+          modal.style.zIndex = "-1";
         }
       });
+
+      // Asegurar que body no tenga estilos bloqueantes
+      document.body.style.overflow = "";
+      document.body.style.pointerEvents = "auto";
     },
 
     abrirPublicar() {
@@ -3444,8 +3452,10 @@ document.addEventListener("keydown", (e) => {
 document.addEventListener("click", (e) => {
   if (e.target.classList && e.target.classList.contains("modal")) {
     e.target.classList.remove("active");
+    e.stopImmediatePropagation();
+    e.preventDefault();
   }
-}, true);
+}, { capture: true, passive: false });
 
 
 // Inicializar la aplicación
