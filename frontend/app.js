@@ -553,7 +553,7 @@ const app = {
       if (btn) btn.classList.add("active");
 
       const filtersTitle = document.getElementById("filtrosTitle");
-      filtersTitle.textContent = "Mis Postulaciones a Clínicas";
+      filtersTitle.textContent = "Postulaciones a Clínicas";
 
       app.stats.mostrarMisPostulaciones();
     },
@@ -565,7 +565,7 @@ const app = {
       if (btn) btn.classList.add("active");
 
       const filtersTitle = document.getElementById("filtrosTitle");
-      filtersTitle.textContent = "Mis Postulaciones a Clínicas Aceptadas";
+      filtersTitle.textContent = "Postulaciones a Clínicas Aceptadas";
 
       app.stats.mostrarMisPostulacionesAceptadas();
     },
@@ -1399,7 +1399,7 @@ const app = {
     async mostrarMisPostulaciones() {
       try {
         const postulaciones = await utils.request(`/stats/mis-postulaciones-lista/${estadoApp.usuario.id}`);
-        app.stats.mostrarListaPostulaciones(postulaciones, "Mis Postulaciones a Clínicas");
+        app.stats.mostrarListaPostulaciones(postulaciones, "Postulaciones a Clínicas");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -1408,7 +1408,7 @@ const app = {
     async mostrarMisPostulacionesAceptadas() {
       try {
         const postulaciones = await utils.request(`/stats/mis-postulaciones-aceptadas-lista/${estadoApp.usuario.id}`);
-        app.stats.mostrarListaPostulaciones(postulaciones, "Mis Postulaciones a Clínicas Aceptadas");
+        app.stats.mostrarListaPostulaciones(postulaciones, "Postulaciones a Clínicas Aceptadas");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -2698,7 +2698,7 @@ const app = {
             </div>
           `;
         } else {
-          // Dentista: siempre mostrar Ofertas Disponibles de Clínicas, Mis Postulaciones a Clínicas y Mis Postulaciones a Clínicas Aceptadas
+          // Dentista: siempre mostrar Ofertas Disponibles de Clínicas, Postulaciones a Clínicas y Postulaciones a Clínicas Aceptadas
           const todas = await utils.request("/publicaciones");
           const ofertas = todas.filter(p => p.tipo === 'oferta').length;
           const misPostulaciones = await utils.request(`/stats/mis-postulaciones/${estadoApp.usuario.id}`);
@@ -2714,13 +2714,13 @@ const app = {
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulaciones()">
               <span>📬</span>
               <h3>${misPostulaciones.total}</h3>
-              <p>Mis Postulaciones a Clínicas</p>
-              <div class="stat-tooltip">Total de postulaciones que he hecho a ofertas de trabajo</div>
+              <p>Postulaciones a Clínicas</p>
+              <div class="stat-tooltip">Postulaciones a publicaciones de clínicas</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulacionesAceptadas()">
               <span>✅</span>
               <h3>${misAceptadas.total}</h3>
-              <p>Mis Postulaciones a Clínicas Aceptadas</p>
+              <p>Postulaciones a Clínicas Aceptadas</p>
               <div class="stat-tooltip">Ofertas donde han aceptado mi postulación</div>
             </div>
           `;
