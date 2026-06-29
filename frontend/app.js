@@ -2498,7 +2498,7 @@ const app = {
               <div class="stat-item stat-clickable" onclick="app.stats.mostrarContactados()">
                 <span>✅</span>
                 <h3>${contactados}</h3>
-                <p>Candidatos Aceptados</p>
+                <p>Postulaciones Recibidas Aceptadas</p>
                 <div class="stat-tooltip">Dentistas postulados a nuestras publicaciones aceptados</div>
               </div>
             `;
@@ -2539,7 +2539,7 @@ const app = {
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarContactados()">
               <span>✅</span>
               <h3>${contactados}</h3>
-              <p>Candidatos Aceptados</p>
+              <p>Postulaciones Recibidas Aceptadas</p>
               <div class="stat-tooltip">Dentistas postulados a nuestras publicaciones aceptados</div>
             </div>
           `;
