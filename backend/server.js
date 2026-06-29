@@ -970,6 +970,61 @@ app.get("/stats/dentistas-por-ciudad-especialidad-lista/:ciudad/:especialidad", 
   );
 });
 
+app.get("/stats/clinicas-por-especialidad", (req, res) => {
+  db.all(
+    `SELECT e.nombre as especialidad, COUNT(DISTINCT o.usuario_id) as total
+     FROM publicaciones o
+     LEFT JOIN publicacion_especialidades pe ON o.id = pe.publicacion_id
+     LEFT JOIN especialidades e ON pe.especialidad_id = e.id
+     WHERE o.tipo = 'oferta' AND o.activo = 1
+     GROUP BY e.id, e.nombre
+     ORDER BY total DESC`,
+    (err, resultado) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener clínicas por especialidad" });
+      }
+      res.json(resultado || []);
+    }
+  );
+});
+
+app.get("/stats/clinicas-por-ciudad", (req, res) => {
+  db.all(
+    `SELECT o.ciudad, COUNT(DISTINCT o.usuario_id) as total
+     FROM publicaciones o
+     WHERE o.tipo = 'oferta' AND o.activo = 1
+     GROUP BY o.ciudad
+     ORDER BY total DESC`,
+    (err, resultado) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener clínicas por ciudad" });
+      }
+      res.json(resultado || []);
+    }
+  );
+});
+
+app.get("/stats/clinicas-por-ciudad-especialidad", (req, res) => {
+  db.all(
+    `SELECT o.ciudad, e.nombre as especialidad, COUNT(DISTINCT o.usuario_id) as total
+     FROM publicaciones o
+     LEFT JOIN publicacion_especialidades pe ON o.id = pe.publicacion_id
+     LEFT JOIN especialidades e ON pe.especialidad_id = e.id
+     WHERE o.tipo = 'oferta' AND o.activo = 1
+     GROUP BY o.ciudad, e.id, e.nombre
+     ORDER BY o.ciudad, e.nombre`,
+    (err, resultado) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener clínicas por ciudad y especialidad" });
+      }
+      res.json(resultado || []);
+    }
+  );
+});
+
 /* ===========================
    🔹 MENSAJES
 =========================== */

@@ -1079,6 +1079,103 @@ const app = {
       document.getElementById("modalOpcionesStats").classList.add("active");
     },
 
+    async mostrarTotalClinicas() {
+      document.getElementById("modalOpcionesClinicas").classList.add("active");
+    },
+
+    async mostrarClinicasPorEspecialidad() {
+      try {
+        const datos = await utils.request("/stats/clinicas-por-especialidad");
+        let html = "<div class='desglose-list'>";
+
+        if (datos.length === 0) {
+          html += "<p>Sin datos</p>";
+        } else {
+          datos.forEach(d => {
+            html += `
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarClinicasEspecialidad('${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
+                <strong>${d.especialidad || "Sin especialidad"}</strong>
+                <span class="desglose-numero">${d.total}</span>
+              </div>
+            `;
+          });
+        }
+
+        html += "</div>";
+        document.getElementById("interesadosBody").innerHTML = html;
+        document.getElementById("modalOpcionesClinicas").classList.remove("active");
+        document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "Clínicas por Especialidad";
+        document.getElementById("modalInteresados").classList.add("active");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarClinicasPorCiudad() {
+      try {
+        const datos = await utils.request("/stats/clinicas-por-ciudad");
+        let html = "<div class='desglose-list'>";
+
+        if (datos.length === 0) {
+          html += "<p>Sin datos</p>";
+        } else {
+          datos.forEach(d => {
+            html += `
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarClinicasCiudad('${d.ciudad.replace(/'/g, "\\'")}')">
+                <strong>${d.ciudad}</strong>
+                <span class="desglose-numero">${d.total}</span>
+              </div>
+            `;
+          });
+        }
+
+        html += "</div>";
+        document.getElementById("interesadosBody").innerHTML = html;
+        document.getElementById("modalOpcionesClinicas").classList.remove("active");
+        document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "Clínicas por Ciudad";
+        document.getElementById("modalInteresados").classList.add("active");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarClinicasPorCiudadEspecialidad() {
+      try {
+        const datos = await utils.request("/stats/clinicas-por-ciudad-especialidad");
+        let html = "<div class='desglose-grupos'>";
+
+        if (datos.length === 0) {
+          html += "<p>Sin datos</p>";
+        } else {
+          let ciudadActual = null;
+          datos.forEach(d => {
+            if (d.ciudad !== ciudadActual) {
+              if (ciudadActual !== null) {
+                html += "</div>";
+              }
+              ciudadActual = d.ciudad;
+              html += `<div class='desglose-grupo'><h4>${ciudadActual}</h4>`;
+            }
+            html += `
+              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarClinicasCiudadEspecialidad('${d.ciudad.replace(/'/g, "\\'")}', '${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
+                <strong>${d.especialidad || "Sin especialidad"}</strong>
+                <span class="desglose-numero">${d.total}</span>
+              </div>
+            `;
+          });
+          html += "</div>";
+        }
+
+        html += "</div>";
+        document.getElementById("interesadosBody").innerHTML = html;
+        document.getElementById("modalOpcionesClinicas").classList.remove("active");
+        document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "Clínicas por Ciudad y Especialidad";
+        document.getElementById("modalInteresados").classList.add("active");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
     async mostrarDesglosePorEspecialidad() {
       try {
         const datos = await utils.request("/stats/dentistas-por-especialidad");
@@ -2553,7 +2650,7 @@ const app = {
           const misAceptadas = await utils.request(`/stats/mis-postulaciones-aceptadas/${estadoApp.usuario.id}`);
 
           statsGrid.innerHTML = `
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarOfertasActivas()">
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarTotalClinicas()">
               <span>📋</span>
               <h3>${ofertas}</h3>
               <p>Clínicas</p>
