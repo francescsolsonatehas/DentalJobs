@@ -619,6 +619,28 @@ const app = {
   // ============================================
 
   modal: {
+    cerrarTodosModales() {
+      // Cerrar todos los modales para evitar bloqueos
+      const modales = [
+        "modalAuth",
+        "modalPublicar",
+        "modalDetalle",
+        "modalPostulaciones",
+        "modalContacto",
+        "modalCandidatos",
+        "modalInteresados",
+        "modalOpcionesStats",
+        "modalOpcionesClinicas",
+        "modalOpcionesClinicasPotenciales"
+      ];
+      modales.forEach(id => {
+        const modal = document.getElementById(id);
+        if (modal) {
+          modal.classList.remove("active");
+        }
+      });
+    },
+
     abrirPublicar() {
       if (!estadoApp.token) {
         utils.mostrarAlerta("Debes iniciar sesión para publicar", "error");
@@ -938,7 +960,7 @@ const app = {
     },
 
     cerrarDetalle() {
-      document.getElementById("modalDetalle").classList.remove("active");
+      this.cerrarTodosModales();
     },
 
     abrirContacto() {
@@ -1091,7 +1113,7 @@ const app = {
     },
 
     cerrarInteresados() {
-      document.getElementById("modalInteresados").classList.remove("active");
+      this.cerrarTodosModales();
     }
   },
 
