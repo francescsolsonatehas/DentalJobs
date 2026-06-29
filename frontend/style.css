@@ -915,6 +915,8 @@ input:focus, select:focus {
   overflow: auto;
   backdrop-filter: blur(4px);
   animation: fadeIn 0.2s ease;
+  pointer-events: none;
+  opacity: 0;
 }
 
 @keyframes fadeIn {
@@ -929,6 +931,8 @@ input:focus, select:focus {
 
 .modal.active {
   display: flex;
+  pointer-events: auto;
+  opacity: 1;
 }
 
 .modal-content {
