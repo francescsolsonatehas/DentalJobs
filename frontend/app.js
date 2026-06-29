@@ -1813,6 +1813,129 @@ const app = {
       }
     },
 
+    async mostrarPostulacionesRecibidas() {
+      try {
+        const postulaciones = await utils.request(`/stats/postulaciones-recibidas-dentista-lista/${estadoApp.usuario.id}`);
+        app.stats.mostrarListaPostulacionesRecibidas(postulaciones, "Postulaciones Recibidas");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarListaPostulacionesRecibidas(postulaciones, titulo) {
+      if (postulaciones.length === 0) {
+        utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
+        return;
+      }
+
+      // Agrupar por publicación
+      const porPublicacion = {};
+      const porPublicacionId = {};
+
+      postulaciones.forEach(p => {
+        if (!porPublicacionId[p.publicacion_id]) {
+          porPublicacionId[p.publicacion_id] = {
+            ciudad: p.solicitud_ciudad,
+            especialidad_id: p.especialidad_id,
+            postulaciones: []
+          };
+        }
+        porPublicacionId[p.publicacion_id].postulaciones.push(p);
+      });
+
+      // Obtener especialidades para cada publicación
+      for (const pubId of Object.keys(porPublicacionId)) {
+        try {
+          const data = await utils.request(`/publicaciones/${pubId}/especialidades`, { method: 'GET' });
+          const especialidades = data.especialidades ? data.especialidades.map(e => e.nombre).join(", ") : 'Sin especialidades';
+          const ciudad = porPublicacionId[pubId].ciudad;
+          const clave = `${especialidades}-${ciudad}`;
+
+          porPublicacion[clave] = {
+            especialidades: especialidades,
+            ciudad: ciudad,
+            postulaciones: porPublicacionId[pubId].postulaciones
+          };
+        } catch (error) {
+          console.error("Error al obtener especialidades:", error);
+        }
+      }
+
+      let totalPostulaciones = 0;
+      let html = `<div class="candidatos-list">`;
+
+      Object.values(porPublicacion).forEach(pub => {
+        totalPostulaciones += pub.postulaciones.length;
+
+        html += `
+          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
+            <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">
+              🦷 ${pub.especialidades} - 📍 ${pub.ciudad}
+            </h4>
+            <p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Clínicas postuladas: ${pub.postulaciones.length}</strong></p>
+
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem;">
+        `;
+
+        pub.postulaciones.forEach(p => {
+          const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[p.estado];
+          html += `
+            <div style="background: white; border-left: 3px solid ${estadoColor}; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <strong style="color: #0f4c75; display: block; margin-bottom: 0.3rem;">${p.nombre}</strong>
+                <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${p.email}</p>
+                ${p.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${p.ciudad}</p>` : ''}
+                <span style="background: ${estadoColor}; color: white; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.75rem; text-transform: capitalize; margin-top: 0.3rem; display: inline-block;">${p.estado}</span>
+              </div>
+              <button class="btn-primary" onclick="app.stats.mostrarDetallePostulacion(${JSON.stringify(p).replace(/"/g, '&quot;')})" style="white-space: nowrap; margin-left: 1rem;">Ver detalles</button>
+            </div>
+          `;
+        });
+
+        html += `
+            </div>
+          </div>
+        `;
+      });
+
+      html += "</div>";
+
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = `${titulo} (${totalPostulaciones})`;
+      document.getElementById("modalInteresados").classList.add("active");
+    },
+
+    mostrarDetallePostulacion(postulacion) {
+      let html = `
+        <div style="padding: 1.5rem;">
+          <h3 style="margin-top: 0; color: var(--primary);">${postulacion.nombre}</h3>
+
+          <div class="info-section">
+            <h4>Contacto</h4>
+            <p><strong>📧 Email:</strong> ${postulacion.email}</p>
+            ${postulacion.telefono ? `<p><strong>📞 Teléfono:</strong> ${postulacion.telefono}</p>` : ''}
+          </div>
+
+          <div class="info-section">
+            <h4>Ubicación</h4>
+            ${postulacion.ciudad ? `<p><strong>📍 Ciudad:</strong> ${postulacion.ciudad}</p>` : ''}
+            ${postulacion.direccion ? `<p><strong>🏠 Dirección:</strong> ${postulacion.direccion}</p>` : ''}
+            ${postulacion.codigo_postal ? `<p><strong>📮 Código Postal:</strong> ${postulacion.codigo_postal}</p>` : ''}
+          </div>
+
+          <div class="info-section">
+            <h4>Estado de la Postulación</h4>
+            <p><strong>Estado:</strong> ${postulacion.estado}</p>
+            ${postulacion.mensaje ? `<p><strong>Mensaje:</strong> ${postulacion.mensaje}</p>` : ''}
+          </div>
+        </div>
+      `;
+
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = postulacion.nombre;
+      document.getElementById("modalInteresados").classList.add("active");
+    },
+
     async mostrarContactados() {
       try {
         const contactados = await utils.request(`/stats/contactados-lista/${estadoApp.usuario.id}`);
@@ -2824,6 +2947,7 @@ const app = {
           const misPostulaciones = await utils.request(`/stats/mis-postulaciones/${estadoApp.usuario.id}`);
           const misAceptadas = await utils.request(`/stats/mis-postulaciones-aceptadas/${estadoApp.usuario.id}`);
           const clinicasPotenciales = await utils.request(`/stats/clinicas-potenciales/${estadoApp.usuario.id}`);
+          const postulacionesRecibidas = await utils.request(`/stats/postulaciones-recibidas-dentista/${estadoApp.usuario.id}`);
 
           statsGrid.innerHTML = `
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarTotalClinicas()">
@@ -2849,6 +2973,12 @@ const app = {
               <h3>${misAceptadas.total}</h3>
               <p>Postulaciones a Clínicas Aceptadas</p>
               <div class="stat-tooltip">Ofertas donde han aceptado mi postulación</div>
+            </div>
+            <div class="stat-item stat-clickable" onclick="app.stats.mostrarPostulacionesRecibidas()">
+              <span>📧</span>
+              <h3>${postulacionesRecibidas.total}</h3>
+              <p>Postulaciones Recibidas</p>
+              <div class="stat-tooltip">Clínicas postuladas a nuestras publicaciones</div>
             </div>
           `;
         }
