@@ -1100,6 +1100,7 @@ const app = {
         html += "</div>";
         document.getElementById("interesadosBody").innerHTML = html;
         document.getElementById("modalOpcionesStats").classList.remove("active");
+        document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "";
         document.getElementById("modalInteresados").classList.add("active");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
@@ -1127,6 +1128,7 @@ const app = {
         html += "</div>";
         document.getElementById("interesadosBody").innerHTML = html;
         document.getElementById("modalOpcionesStats").classList.remove("active");
+        document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "";
         document.getElementById("modalInteresados").classList.add("active");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
@@ -1163,6 +1165,7 @@ const app = {
         html += "</div>";
         document.getElementById("interesadosBody").innerHTML = html;
         document.getElementById("modalOpcionesStats").classList.remove("active");
+        document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "";
         document.getElementById("modalInteresados").classList.add("active");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
