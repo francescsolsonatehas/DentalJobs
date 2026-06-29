@@ -1082,7 +1082,7 @@ const app = {
     async mostrarDesglosePorEspecialidad() {
       try {
         const datos = await utils.request("/stats/dentistas-por-especialidad");
-        let html = "<h3>Dentistas por Especialidad</h3><div class='desglose-list'>";
+        let html = "<div class='desglose-list'>";
 
         if (datos.length === 0) {
           html += "<p>Sin datos</p>";
@@ -1110,7 +1110,7 @@ const app = {
     async mostrarDesglosePorCiudad() {
       try {
         const datos = await utils.request("/stats/dentistas-por-ciudad");
-        let html = "<h3>Dentistas por Ciudad</h3><div class='desglose-list'>";
+        let html = "<div class='desglose-list'>";
 
         if (datos.length === 0) {
           html += "<p>Sin datos</p>";
@@ -1138,7 +1138,7 @@ const app = {
     async mostrarDesglosePorCiudadEspecialidad() {
       try {
         const datos = await utils.request("/stats/dentistas-por-ciudad-especialidad");
-        let html = "<h3>Dentistas por Ciudad y Especialidad</h3><div class='desglose-grupos'>";
+        let html = "<div class='desglose-grupos'>";
 
         if (datos.length === 0) {
           html += "<p>Sin datos</p>";
