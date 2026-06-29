@@ -3442,20 +3442,18 @@ const app = {
 // Cerradores globales de modales (presionando Esc)
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
-    document.querySelectorAll(".modal.active").forEach(modal => {
-      modal.classList.remove("active");
-    });
+    app.modal.cerrarTodosModales();
   }
-}, true);
+});
 
-// Cerrador por clic fuera del modal - usar event delegation
+// Cerrador por clic fuera del modal - SOLO para modales activos
 document.addEventListener("click", (e) => {
-  if (e.target.classList && e.target.classList.contains("modal")) {
+  // Solo cerrar si es click en un modal activo
+  if (e.target.classList && e.target.classList.contains("modal") && e.target.classList.contains("active")) {
     e.target.classList.remove("active");
-    e.stopImmediatePropagation();
-    e.preventDefault();
+    app.modal.cerrarTodosModales();
   }
-}, { capture: true, passive: false });
+});
 
 
 // Inicializar la aplicación
