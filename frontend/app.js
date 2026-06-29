@@ -3456,5 +3456,24 @@ document.addEventListener("click", (e) => {
 });
 
 
+// Función de debug para encontrar qué está bloqueando clicks
+window.findBlocker = () => {
+  console.log("=== BUSCANDO ELEMENTO QUE BLOQUEA ===");
+  const buttons = Array.from(document.querySelectorAll('.stat-item, [onclick*="mostrar"]'));
+  buttons.forEach(btn => {
+    const rect = btn.getBoundingClientRect();
+    const centerX = rect.x + rect.width / 2;
+    const centerY = rect.y + rect.height / 2;
+    const element = document.elementFromPoint(centerX, centerY);
+    console.log("Button:", btn.textContent.trim());
+    console.log("Element at position:", element?.id || element?.className || element?.tagName);
+    console.log("z-index:", getComputedStyle(element)?.zIndex || "auto");
+    console.log("pointer-events:", getComputedStyle(element)?.pointerEvents || "auto");
+    console.log("display:", getComputedStyle(element)?.display || "auto");
+    console.log("visibility:", getComputedStyle(element)?.visibility || "auto");
+    console.log("---");
+  });
+};
+
 // Inicializar la aplicación
 app.ui.init();
