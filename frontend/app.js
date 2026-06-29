@@ -2670,7 +2670,7 @@ const app = {
               <span>🔍</span>
               <h3>${posiblesCandidatos.total}</h3>
               <p>Dentistas Potenciales</p>
-              <div class="stat-tooltip">Dentistas que coinciden con ciudad y especialidad de mis ofertas</div>
+              <div class="stat-tooltip">Dentistas que coinciden con ciudad y especialidad de mis publicaciones</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulacionesDentistas()">
               <span>📬</span>
