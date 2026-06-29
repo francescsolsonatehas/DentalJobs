@@ -1959,8 +1959,8 @@ const app = {
             const tipo = estadoApp.publicacionActual?.tipo;
 
             if (publicacionId && tipo === 'solicitud') {
-              // Recargar desde "Empresas" (abrirInteresados)
-              app.modal.abrirInteresados(publicacionId, tipo);
+              // Recargar contenido de "Empresas" sin reabrrir
+              app.modal.refrescarInteresados(publicacionId, tipo);
             } else if (estadoApp.tipoUsuario === 'dentista') {
               // Recargar desde stats "Postulaciones Recibidas"
               app.stats.mostrarPostulacionesRecibidas();
@@ -1969,6 +1969,51 @@ const app = {
         }, 300);
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async refrescarInteresados(publicacionId, tipo) {
+      try {
+        if (tipo === 'solicitud') {
+          const candidatos = await utils.request(`/stats/postulaciones-recibidas-dentista-lista/${estadoApp.usuario.id}`);
+          const candidatosPublicacion = candidatos.filter(c => c.publicacion_id === publicacionId);
+
+          let html = `<div class="candidatos-list">`;
+          candidatosPublicacion.forEach(c => {
+            const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[c.estado];
+            html += `
+              <div style="background: white; border-left: 3px solid ${estadoColor}; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                  <div>
+                    <strong style="color: #0f4c75; display: block; margin-bottom: 0.3rem;">${c.nombre}</strong>
+                    <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${c.email}</p>
+                    ${c.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${c.ciudad}</p>` : ''}
+                  </div>
+                  <span style="background: ${estadoColor}; color: white; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.75rem; text-transform: capitalize; white-space: nowrap;">${c.estado}</span>
+                </div>
+                <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+                  ${c.estado === 'pendiente' ? `
+                    <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'aceptada')" style="background: #10b981; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">✅ Aceptar</button>
+                    <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'rechazada')" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">❌ Rechazar</button>
+                  ` : `
+                    <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'pendiente')" style="background: #f59e0b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">↩️ Deshacer</button>
+                  `}
+                </div>
+              </div>
+            `;
+          });
+          html += `</div>`;
+
+          document.getElementById("modalInteresados").querySelector(".modal-content").innerHTML = `
+            <div class="modal-header">
+              <h2>Empresas Interesadas (${candidatosPublicacion.length})</h2>
+              <button class="close-btn" onclick="app.modal.cerrarInteresados()">✕</button>
+            </div>
+            ${html}
+          `;
+        }
+      } catch (error) {
+        console.error("Error al refrescar interesados:", error);
       }
     },
 
