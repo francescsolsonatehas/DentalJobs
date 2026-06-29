@@ -819,13 +819,12 @@ app.get("/stats/posibles-candidatos-lista/:empresa_id", verifyToken, (req, res) 
 
 app.get("/stats/clinicas-potenciales/:usuario_id", verifyToken, (req, res) => {
   db.get(
-    `SELECT COUNT(DISTINCT o.usuario_id) as total
-     FROM publicaciones o
-     WHERE o.tipo = 'oferta' AND o.activo = 1
-     AND EXISTS (
-       SELECT 1 FROM publicaciones s
-       WHERE s.usuario_id = ? AND s.tipo = 'solicitud' AND s.activo = 1
-       AND o.ciudad = s.ciudad
+    `SELECT COUNT(*) as total
+     FROM (
+       SELECT DISTINCT s.id as publicacion_id, o.usuario_id
+       FROM publicaciones o
+       INNER JOIN publicaciones s ON s.usuario_id = ? AND s.tipo = 'solicitud' AND s.activo = 1 AND o.ciudad = s.ciudad
+       WHERE o.tipo = 'oferta' AND o.activo = 1
      )`,
     [req.params.usuario_id],
     (err, result) => {
