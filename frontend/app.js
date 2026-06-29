@@ -1903,12 +1903,24 @@ const app = {
           body: JSON.stringify({ estado: nuevoEstado })
         });
         utils.mostrarAlerta("Estado actualizado correctamente", "success");
+
+        // Cerrar el modal actual
+        document.getElementById("modalInteresados").classList.remove("active");
+
         // Recargar los datos
         await app.ui.actualizarStats();
+
+        // Recargar la vista actual según el contexto
         if (estadoApp.tipoUsuario === 'clinica') {
-          await app.stats.mostrarCandidatosInteresados();
+          setTimeout(() => app.stats.mostrarCandidatosInteresados(), 500);
         } else {
-          await app.stats.mostrarPostulacionesRecibidas();
+          setTimeout(() => {
+            app.stats.mostrarPostulacionesRecibidas();
+            // También recargar Postulaciones Recibidas Aceptadas para mantener coherencia
+            if (document.querySelector('[onclick*="mostrarPostulacionesRecibdasAceptadas"]')) {
+              app.stats.mostrarPostulacionesRecibdasAceptadas();
+            }
+          }, 500);
         }
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
