@@ -3285,6 +3285,7 @@ const app = {
           try {
             const mensajes = await utils.request(`/mensajes/${pub.id}`);
             const interesados = new Set(mensajes.map(m => m.remitente_email)).size;
+            console.log("Generando botón de empresas:", {pubId: pub.id, pubTipo: pub.tipo, interesados});
             interesadosHTML = `
               <button class="btn-interesados" onclick="app.modal.abrirInteresados(${pub.id}, '${pub.tipo}')">
                 👥 ${interesados} Empresas
