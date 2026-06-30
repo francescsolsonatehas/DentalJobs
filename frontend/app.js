@@ -3136,6 +3136,9 @@ const app = {
 
     async mostrarPlataforma() {
       document.getElementById("heroLanding").style.display = "none";
+      document.getElementById("landingFeatures").style.display = "none";
+      document.getElementById("landingBenefitsDentistas").style.display = "none";
+      document.getElementById("landingBenefitsClinicas").style.display = "none";
       document.getElementById("heroPlataforma").style.display = "block";
       document.getElementById("statsContainer").style.display = "block";
       document.getElementById("mainContainer").style.display = "block";
