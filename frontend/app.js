@@ -1906,7 +1906,7 @@ const app = {
         });
         utils.mostrarAlerta("Estado actualizado correctamente", "success");
 
-        // Recargar stats
+        // Recargar stats del banner
         await app.ui.actualizarStats();
 
         // Recargar el contenido del modal SIN cerrarlo
@@ -1922,6 +1922,8 @@ const app = {
             } else if (estadoApp.tipoUsuario === 'dentista') {
               // Recargar desde stats "Postulaciones Recibidas"
               app.stats.mostrarPostulacionesRecibidas();
+              // También recargar aceptadas
+              app.stats.mostrarPostulacionesRecibdasAceptadas();
             }
           }
         }, 300);
