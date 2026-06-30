@@ -3173,23 +3173,11 @@ const app = {
               <p>Postulaciones a Dentistas</p>
               <div class="stat-tooltip">Postulaciones a publicaciones de dentistas</div>
             </div>
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulacionesDentistasAceptadas()">
-              <span>✅</span>
-              <h3>${misPostulacionesDentistasAceptadas.total}</h3>
-              <p>Postulaciones a Dentistas Aceptadas</p>
-              <div class="stat-tooltip">Postulaciones a publicaciones de dentistas aceptadas</div>
-            </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarCandidatosInteresados()">
               <span>📧</span>
               <h3>${candidatosInteresados.total}</h3>
               <p>Postulaciones Recibidas</p>
               <div class="stat-tooltip">Dentistas postulados a nuestras publicaciones</div>
-            </div>
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarContactados()">
-              <span>✅</span>
-              <h3>${contactados}</h3>
-              <p>Postulaciones Recibidas Aceptadas</p>
-              <div class="stat-tooltip">Dentistas postulados a nuestras publicaciones aceptados</div>
             </div>
           `;
         } else {
