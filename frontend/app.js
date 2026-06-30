@@ -1037,18 +1037,14 @@ const app = {
     },
 
     async abrirInteresados(publicacionId, tipo) {
-      console.log("abrirInteresados LLAMADO con:", {publicacionId, tipo, tipoString: String(tipo), esIgual: tipo === 'solicitud'});
       try {
         if (tipo === 'solicitud') {
           // Para dentistas: usar la misma lógica que mostrarPostulacionesRecibidas
           const postulaciones = await utils.request(`/stats/postulaciones-recibidas-dentista-lista/${estadoApp.usuario.id}`);
           const idInt = parseInt(publicacionId);
-          console.log("DEBUG abrirInteresados:", {publicacionId, idInt, postulacionesCount: postulaciones.length, tipo});
           const filtradas = postulaciones.filter(p => {
-            console.log("DEBUG filtro:", {p_pub_id: p.publicacion_id, idInt, match: parseInt(p.publicacion_id) === idInt});
             return parseInt(p.publicacion_id) === idInt;
           });
-          console.log("DEBUG filtradas:", filtradas.length);
           app.stats.mostrarListaPostulacionesRecibidas(filtradas, `Empresas Interesadas`);
         } else {
           // Para clínicas: mostrar mensajes
@@ -3285,8 +3281,7 @@ const app = {
           try {
             const mensajes = await utils.request(`/mensajes/${pub.id}`);
             const interesados = new Set(mensajes.map(m => m.remitente_email)).size;
-            console.log("Generando botón de empresas:", {pubId: pub.id, pubTipo: pub.tipo, interesados});
-            interesadosHTML = `
+              interesadosHTML = `
               <button class="btn-interesados" onclick="app.modal.abrirInteresados(${pub.id}, '${pub.tipo}')">
                 👥 ${interesados} Empresas
               </button>
