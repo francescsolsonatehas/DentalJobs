@@ -1503,7 +1503,6 @@ const app = {
     mostrarPerfilClinica(clinica) {
       let html = `
         <div style="padding: 2rem; background: #f9fafb; border-radius: 12px;">
-          <h3 style="margin: 0 0 1.5rem 0; color: #0f4c75; font-size: 1.8rem; font-weight: 700;">🏥 ${clinica.nombre}</h3>
 
           <div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📞 Contacto</h4>
