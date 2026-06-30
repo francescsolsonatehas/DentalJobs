@@ -3010,6 +3010,31 @@ const app = {
   // ============================================
 
   ui: {
+    statsPollingInterval: null,
+
+    iniciarActualizacionAutomatica() {
+      // Detener polling anterior si existe
+      if (this.statsPollingInterval) {
+        clearInterval(this.statsPollingInterval);
+      }
+
+      // Actualizar stats cada 30 segundos
+      this.statsPollingInterval = setInterval(async () => {
+        try {
+          await app.ui.actualizarStats();
+        } catch (error) {
+          console.error("Error al actualizar stats:", error);
+        }
+      }, 30000);
+    },
+
+    detenerActualizacionAutomatica() {
+      if (this.statsPollingInterval) {
+        clearInterval(this.statsPollingInterval);
+        this.statsPollingInterval = null;
+      }
+    },
+
     async init() {
       await app.especialidades.cargar();
 
@@ -3081,6 +3106,9 @@ const app = {
 
       await app.publicaciones.cargar();
       await app.ui.actualizarStats();
+
+      // Iniciar actualización automática cada 30 segundos
+      app.ui.iniciarActualizacionAutomatica();
     },
 
     async actualizarStats() {
