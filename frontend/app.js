@@ -1725,69 +1725,7 @@ const app = {
         return;
       }
 
-      // Ordenar por: ciudad → fecha → especialidad → salario
-      const postulacionesOrdenadas = postulaciones.sort((a, b) => {
-        const ciudadA = (a.ciudad || '').toLowerCase();
-        const ciudadB = (b.ciudad || '').toLowerCase();
-        if (ciudadA !== ciudadB) {
-          return ciudadA.localeCompare(ciudadB);
-        }
-        const fechaA = new Date(a.creado_en || 0);
-        const fechaB = new Date(b.creado_en || 0);
-        if (fechaA.getTime() !== fechaB.getTime()) {
-          return fechaB - fechaA;
-        }
-        const espA = (a.especialidad_id || 0);
-        const espB = (b.especialidad_id || 0);
-        if (espA !== espB) {
-          return espA - espB;
-        }
-        const salarioA = parseFloat(a.salario) || 0;
-        const salarioB = parseFloat(b.salario) || 0;
-        return salarioB - salarioA;
-      });
-
-      let html = `<div class="candidatos-list">`;
-
-      postulacionesOrdenadas.forEach(post => {
-        const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[post.estado];
-        const tituloPublicacion = post.ciudad || 'Publicación';
-        const especialidad = post.especialidad_id ? (estadoApp.especialidades.find(e => e.id === post.especialidad_id)?.nombre || 'Sin especialidad') : 'Sin especialidad';
-        const fecha = utils.formatearFecha(post.creado_en);
-        html += `
-          <div style="background: white; border: 2px solid ${estadoColor}; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-              <div>
-                <h4 style="margin: 0 0 0.3rem 0; color: #0f4c75; font-size: 1.2rem; font-weight: 700;">${tituloPublicacion}</h4>
-                ${post.empresa_nombre ? `<p style="margin: 0; color: #6b7280; font-size: 0.95rem;">🏢 ${post.empresa_nombre}</p>` : ''}
-              </div>
-              <span style="background: ${estadoColor}; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize; white-space: nowrap;">${post.estado}</span>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; font-size: 0.9rem; color: #6b7280;">
-              <p style="margin: 0;"><strong>📍 Ciudad:</strong> ${post.ciudad}</p>
-              <p style="margin: 0;"><strong>📅 Fecha:</strong> ${fecha}</p>
-              <p style="margin: 0;"><strong>🦷 Especialidad:</strong> ${especialidad}</p>
-              ${post.salario ? `<p style="margin: 0;"><strong>💰 Salario:</strong> ${post.salario}</p>` : ''}
-              ${post.contrato ? `<p style="margin: 0;"><strong>📋 Contrato:</strong> ${post.contrato}</p>` : ''}
-              ${post.jornada ? `<p style="margin: 0;"><strong>⏰ Jornada:</strong> ${post.jornada}</p>` : ''}
-            </div>
-            <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem; margin-top: 1rem;">
-              <p style="margin: 0; color: #6b7280; white-space: pre-wrap; line-height: 1.6; font-size: 0.9rem;">${post.descripcion || 'Sin descripción'}</p>
-            </div>
-            ${post.mensaje ? `<div style="margin-top: 1rem; padding: 1rem; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
-              <p style="margin: 0; font-size: 0.85rem; color: #0c4a6e; font-weight: 600;">💬 Tu mensaje:</p>
-              <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #0c4a6e; white-space: pre-wrap;">${post.mensaje}</p>
-            </div>` : ''}
-            <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
-              <button class="btn-primary" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">👁️ Ver detalles</button>
-              <button onclick="app.candidaturas.retirarPostulacion(${post.id})" style="flex: 1; background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">🗑️ Retirar</button>
-            </div>
-          </div>
-        `;
-      });
-
-      html += "</div>";
-
+      const html = this.generarHtmlPostulaciones(postulaciones);
       document.getElementById("interesadosBody").innerHTML = html;
       document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = `${titulo} (${postulaciones.length})`;
       document.getElementById("modalInteresados").classList.add("active");
