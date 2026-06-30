@@ -1637,10 +1637,10 @@ const app = {
           document.getElementById("interesadosBody").innerHTML = html;
 
           // Actualizar título con nuevo count
-          const titulo = tipo === 'postulaciones' ? 'Postulaciones a Clínicas' : 'Postulaciones a Clínicas Aceptadas';
-          const titleElement = document.getElementById("modalInteresados").querySelector(".modal-header h2");
-          if (titleElement) {
-            titleElement.textContent = `${titulo} (${postulaciones.length})`;
+          const modal = document.getElementById("modalInteresados");
+          if (modal) {
+            const titulo = tipo === 'postulaciones' ? 'Postulaciones a Clínicas' : 'Postulaciones a Clínicas Aceptadas';
+            modal.querySelector(".modal-header h2").textContent = `${titulo} (${postulaciones.length})`;
           }
         } catch (error) {
           console.error("Error en polling:", error);
