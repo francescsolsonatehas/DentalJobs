@@ -1696,9 +1696,21 @@ const app = {
         return;
       }
 
+      // Ordenar por ciudad primero, luego por especialidad
+      const postulacionesOrdenadas = postulaciones.sort((a, b) => {
+        const ciudadA = (a.ciudad || '').toLowerCase();
+        const ciudadB = (b.ciudad || '').toLowerCase();
+        if (ciudadA !== ciudadB) {
+          return ciudadA.localeCompare(ciudadB);
+        }
+        const espA = (a.especialidad_id || 0);
+        const espB = (b.especialidad_id || 0);
+        return espA - espB;
+      });
+
       let html = `<div class="candidatos-list">`;
 
-      postulaciones.forEach(post => {
+      postulacionesOrdenadas.forEach(post => {
         const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[post.estado];
         const tituloPublicacion = post.ciudad || 'Publicación';
         html += `
