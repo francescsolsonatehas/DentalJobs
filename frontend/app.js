@@ -3018,14 +3018,14 @@ const app = {
         clearInterval(this.statsPollingInterval);
       }
 
-      // Actualizar stats cada 10 minutos
+      // Actualizar stats cada 30 segundos
       this.statsPollingInterval = setInterval(async () => {
         try {
           await app.ui.actualizarStats();
         } catch (error) {
           console.error("Error al actualizar stats:", error);
         }
-      }, 600000);
+      }, 30000);
     },
 
     detenerActualizacionAutomatica() {
