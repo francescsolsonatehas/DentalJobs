@@ -1042,7 +1042,12 @@ const app = {
           // Para dentistas: usar la misma lógica que mostrarPostulacionesRecibidas
           const postulaciones = await utils.request(`/stats/postulaciones-recibidas-dentista-lista/${estadoApp.usuario.id}`);
           const idInt = parseInt(publicacionId);
-          const filtradas = postulaciones.filter(p => parseInt(p.publicacion_id) === idInt);
+          console.log("DEBUG abrirInteresados:", {publicacionId, idInt, postulacionesCount: postulaciones.length, tipo});
+          const filtradas = postulaciones.filter(p => {
+            console.log("DEBUG filtro:", {p_pub_id: p.publicacion_id, idInt, match: parseInt(p.publicacion_id) === idInt});
+            return parseInt(p.publicacion_id) === idInt;
+          });
+          console.log("DEBUG filtradas:", filtradas.length);
           app.stats.mostrarListaPostulacionesRecibidas(filtradas, `Empresas Interesadas`);
         } else {
           // Para clínicas: mostrar mensajes
