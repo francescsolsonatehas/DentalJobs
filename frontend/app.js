@@ -2089,8 +2089,8 @@ const app = {
           const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[p.estado];
           html += `
             <div style="background: white; border-left: 3px solid ${estadoColor}; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem;">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start; cursor: pointer;" onclick="app.stats.mostrarDetallePostulacion(${JSON.stringify(p).replace(/"/g, '&quot;')})">
-                <div>
+              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="flex: 1; cursor: pointer;" onclick="app.stats.mostrarDetallePostulacion('${p.id}', '${p.nombre.replace(/'/g, "\\'")}', '${p.email.replace(/'/g, "\\'")}', '${(p.ciudad || '').replace(/'/g, "\\'")}', '${(p.direccion || '').replace(/'/g, "\\'")}', '${(p.codigo_postal || '').replace(/'/g, "\\'")}', '${p.estado}', '${(p.mensaje || '').replace(/'/g, "\\'").replace(/"/g, '\\"')}')">
                   <strong style="color: #0f4c75; display: block; margin-bottom: 0.3rem;">${p.nombre}</strong>
                   <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${p.email}</p>
                   ${p.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${p.ciudad}</p>` : ''}
@@ -2122,34 +2122,33 @@ const app = {
       document.getElementById("modalInteresados").classList.add("active");
     },
 
-    mostrarDetallePostulacion(postulacion) {
+    mostrarDetallePostulacion(id, nombre, email, ciudad, direccion, codigoPostal, estado, mensaje) {
       let html = `
         <div style="padding: 1.5rem;">
-          <h3 style="margin-top: 0; color: var(--primary);">${postulacion.nombre}</h3>
+          <h3 style="margin-top: 0; color: var(--primary);">${nombre}</h3>
 
           <div class="info-section">
             <h4>Contacto</h4>
-            <p><strong>📧 Email:</strong> ${postulacion.email}</p>
-            ${postulacion.telefono ? `<p><strong>📞 Teléfono:</strong> ${postulacion.telefono}</p>` : ''}
+            <p><strong>📧 Email:</strong> ${email}</p>
           </div>
 
           <div class="info-section">
             <h4>Ubicación</h4>
-            ${postulacion.ciudad ? `<p><strong>📍 Ciudad:</strong> ${postulacion.ciudad}</p>` : ''}
-            ${postulacion.direccion ? `<p><strong>🏠 Dirección:</strong> ${postulacion.direccion}</p>` : ''}
-            ${postulacion.codigo_postal ? `<p><strong>📮 Código Postal:</strong> ${postulacion.codigo_postal}</p>` : ''}
+            ${ciudad ? `<p><strong>📍 Ciudad:</strong> ${ciudad}</p>` : ''}
+            ${direccion ? `<p><strong>🏠 Dirección:</strong> ${direccion}</p>` : ''}
+            ${codigoPostal ? `<p><strong>📮 Código Postal:</strong> ${codigoPostal}</p>` : ''}
           </div>
 
           <div class="info-section">
             <h4>Estado de la Postulación</h4>
-            <p><strong>Estado:</strong> ${postulacion.estado}</p>
-            ${postulacion.mensaje ? `<p><strong>Mensaje:</strong> ${postulacion.mensaje}</p>` : ''}
+            <p><strong>Estado:</strong> ${estado}</p>
+            ${mensaje ? `<p><strong>Mensaje:</strong> ${mensaje}</p>` : ''}
           </div>
         </div>
       `;
 
       document.getElementById("interesadosBody").innerHTML = html;
-      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = postulacion.nombre;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = nombre;
       document.getElementById("modalInteresados").classList.add("active");
     },
 
