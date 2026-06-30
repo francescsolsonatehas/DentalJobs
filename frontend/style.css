@@ -1633,3 +1633,26 @@ select:focus {
 #filtrosTitle {
   display: none !important;
 }
+
+/* Animación flotante para hero */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(30px);
+  }
+}
+
+/* Hover effect para feature cards */
+@media (hover: hover) {
+  [style*="flex-direction: column"] > div[style*="background: white; padding: 2rem"] {
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  [style*="flex-direction: column"] > div[style*="background: white; padding: 2rem"]:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(15, 76, 117, 0.15) !important;
+  }
+}

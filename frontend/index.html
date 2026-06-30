@@ -24,10 +24,131 @@
     </header>
 
     <!-- Hero Landing -->
-    <section class="hero" id="heroLanding">
-        <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; gap: 2rem;">
-            <h1 style="font-size: 3rem; margin: 0;">🦷 Tu plataforma de empleo en odontología</h1>
-            <p style="font-size: 1.2rem; margin: 0; max-width: 600px;">Conecta clínicas dentales con profesionales especializados. Rápido, fácil y seguro.</p>
+    <section class="hero" id="heroLanding" style="background: linear-gradient(135deg, #0f4c75 0%, #247ba0 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+        <div style="position: absolute; top: -50%; right: -10%; width: 600px; height: 600px; background: rgba(255,255,255,0.1); border-radius: 50%; animation: float 8s ease-in-out infinite;"></div>
+        <div style="position: absolute; bottom: -30%; left: -5%; width: 400px; height: 400px; background: rgba(255,255,255,0.08); border-radius: 50%; animation: float 10s ease-in-out infinite reverse;"></div>
+
+        <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3rem; max-width: 900px; padding: 2rem; text-align: center; position: relative; z-index: 1;">
+            <div>
+                <h1 style="font-size: 4rem; margin: 0 0 1rem 0; color: white; font-weight: 800; line-height: 1.2;">
+                    🦷 Tu plataforma de empleo en odontología
+                </h1>
+                <p style="font-size: 1.3rem; margin: 0; color: rgba(255,255,255,0.9); line-height: 1.6; max-width: 700px;">
+                    Conecta clínicas dentales con profesionales especializados. Rápido, fácil y seguro.
+                </p>
+            </div>
+
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;">
+                <button class="btn-primary" onclick="app.landing.seleccionarTipo('empresa')" style="padding: 1rem 2.5rem; font-size: 1.1rem; cursor: pointer;">🏥 Soy Empresa</button>
+                <button class="btn-secondary" onclick="app.landing.seleccionarTipo('candidato')" style="padding: 1rem 2.5rem; font-size: 1.1rem; cursor: pointer;">👨‍⚕️ Soy Candidato</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin-top: 2rem; width: 100%; max-width: 600px;">
+                <div style="background: rgba(255,255,255,0.15); padding: 1.5rem; border-radius: 12px; backdrop-filter: blur(10px);">
+                    <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">⚡</div>
+                    <p style="margin: 0; color: white; font-weight: 600;">Rápido</p>
+                    <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: rgba(255,255,255,0.8);">Encuentra trabajo en días</p>
+                </div>
+                <div style="background: rgba(255,255,255,0.15); padding: 1.5rem; border-radius: 12px; backdrop-filter: blur(10px);">
+                    <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🔒</div>
+                    <p style="margin: 0; color: white; font-weight: 600;">Seguro</p>
+                    <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: rgba(255,255,255,0.8);">Datos protegidos</p>
+                </div>
+                <div style="background: rgba(255,255,255,0.15); padding: 1.5rem; border-radius: 12px; backdrop-filter: blur(10px);">
+                    <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">✨</div>
+                    <p style="margin: 0; color: white; font-weight: 600;">Fácil</p>
+                    <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: rgba(255,255,255,0.8);">Interfaz intuitiva</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section style="background: #f9fafb; padding: 5rem 2rem;">
+        <div style="max-width: 1200px; margin: 0 auto;">
+            <h2 style="text-align: center; font-size: 2.5rem; color: #0f4c75; margin: 0 0 3rem 0;">Cómo funciona</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem;">
+                <div style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.3s;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">1️⃣</div>
+                    <h3 style="color: #0f4c75; margin: 0 0 1rem 0;">Registrate</h3>
+                    <p style="margin: 0; color: #6b7280; line-height: 1.6;">Crea tu perfil en segundos. Ya sea como clínica o como profesional.</p>
+                </div>
+                <div style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.3s;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">2️⃣</div>
+                    <h3 style="color: #0f4c75; margin: 0 0 1rem 0;">Busca o Publica</h3>
+                    <p style="margin: 0; color: #6b7280; line-height: 1.6;">Encuentra el trabajo perfecto o publica tu oferta al instante.</p>
+                </div>
+                <div style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.3s;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">3️⃣</div>
+                    <h3 style="color: #0f4c75; margin: 0 0 1rem 0;">Conecta</h3>
+                    <p style="margin: 0; color: #6b7280; line-height: 1.6;">Comunícate directamente y negocia los términos.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Benefits Section -->
+    <section style="background: white; padding: 5rem 2rem;">
+        <div style="max-width: 1200px; margin: 0 auto;">
+            <h2 style="text-align: center; font-size: 2.5rem; color: #0f4c75; margin: 0 0 3rem 0;">Para Profesionales</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center;">
+                <div>
+                    <ul style="list-style: none; padding: 0; margin: 0;">
+                        <li style="margin: 1rem 0; display: flex; gap: 1rem; align-items: center;">
+                            <span style="font-size: 1.5rem;">✅</span>
+                            <span style="color: #6b7280;">Acceso a ofertas exclusivas</span>
+                        </li>
+                        <li style="margin: 1rem 0; display: flex; gap: 1rem; align-items: center;">
+                            <span style="font-size: 1.5rem;">✅</span>
+                            <span style="color: #6b7280;">Perfil profesional destacado</span>
+                        </li>
+                        <li style="margin: 1rem 0; display: flex; gap: 1rem; align-items: center;">
+                            <span style="font-size: 1.5rem;">✅</span>
+                            <span style="color: #6b7280;">Notificaciones en tiempo real</span>
+                        </li>
+                        <li style="margin: 1rem 0; display: flex; gap: 1rem; align-items: center;">
+                            <span style="font-size: 1.5rem;">✅</span>
+                            <span style="color: #6b7280;">Seguimiento de postulaciones</span>
+                        </li>
+                    </ul>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 5rem; margin-bottom: 1rem;">👨‍⚕️</div>
+                    <p style="color: #6b7280; font-size: 1.1rem; line-height: 1.8;">Encuentra la oportunidad de empleo que se ajuste a tus necesidades y expectativas profesionales.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section style="background: #f9fafb; padding: 5rem 2rem;">
+        <div style="max-width: 1200px; margin: 0 auto;">
+            <h2 style="text-align: center; font-size: 2.5rem; color: #0f4c75; margin: 0 0 3rem 0;">Para Clínicas</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center;">
+                <div style="text-align: center; order: 2;">
+                    <div style="font-size: 5rem; margin-bottom: 1rem;">🏥</div>
+                    <p style="color: #6b7280; font-size: 1.1rem; line-height: 1.8;">Encuentra los mejores profesionales dentales especializados para tu equipo.</p>
+                </div>
+                <div style="order: 1;">
+                    <ul style="list-style: none; padding: 0; margin: 0;">
+                        <li style="margin: 1rem 0; display: flex; gap: 1rem; align-items: center;">
+                            <span style="font-size: 1.5rem;">✅</span>
+                            <span style="color: #6b7280;">Base de candidatos verificados</span>
+                        </li>
+                        <li style="margin: 1rem 0; display: flex; gap: 1rem; align-items: center;">
+                            <span style="font-size: 1.5rem;">✅</span>
+                            <span style="color: #6b7280;">Filtros avanzados por especialidad</span>
+                        </li>
+                        <li style="margin: 1rem 0; display: flex; gap: 1rem; align-items: center;">
+                            <span style="font-size: 1.5rem;">✅</span>
+                            <span style="color: #6b7280;">Gestión de postulaciones</span>
+                        </li>
+                        <li style="margin: 1rem 0; display: flex; gap: 1rem; align-items: center;">
+                            <span style="font-size: 1.5rem;">✅</span>
+                            <span style="color: #6b7280;">Ahorra tiempo en selección</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </section>
 
