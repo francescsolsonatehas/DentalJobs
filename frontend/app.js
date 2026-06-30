@@ -2008,13 +2008,19 @@ const app = {
             const tipo = estadoApp.publicacionActual?.tipo;
 
             if (publicacionId && tipo === 'solicitud') {
-              // Recargar desde "Empresas" (abrirInteresados)
+              // Recargar desde "Empresas" (abrirInteresados) - dentista
+              app.modal.abrirInteresados(publicacionId, tipo);
+            } else if (publicacionId && tipo === 'oferta') {
+              // Recargar desde "Postulaciones Recibidas" - clínica
               app.modal.abrirInteresados(publicacionId, tipo);
             } else if (estadoApp.tipoUsuario === 'dentista') {
-              // Recargar desde stats "Postulaciones Recibidas"
+              // Recargar desde stats "Postulaciones Recibidas" - dentista
               app.stats.mostrarPostulacionesRecibidas();
               // También recargar aceptadas
               app.stats.mostrarPostulacionesRecibdasAceptadas();
+            } else if (estadoApp.tipoUsuario === 'clinica') {
+              // Recargar desde stats "Candidatos Interesados" - clínica
+              app.stats.mostrarCandidatosInteresados();
             }
           }
         }, 300);
