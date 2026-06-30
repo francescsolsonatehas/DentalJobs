@@ -1447,14 +1447,16 @@ const app = {
         `;
 
         clinicasList.forEach(c => {
+          const clinicaConEspecialidad = {...c, especialidades: pub.especialidades};
           html += `
             <div style="background: white; border-left: 3px solid #0F4C75; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <strong style="color: #0f4c75; display: block; margin-bottom: 0.3rem;">${c.nombre}</strong>
+                <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">🦷 ${pub.especialidades}</p>
                 <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${c.email}</p>
                 ${c.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${c.ciudad}</p>` : ''}
               </div>
-              <button class="btn-primary" onclick="app.stats.mostrarPerfilClinica(${JSON.stringify(c).replace(/"/g, '&quot;')})" style="white-space: nowrap; margin-left: 1rem;">Ver detalles</button>
+              <button class="btn-primary" onclick="app.stats.mostrarPerfilClinica(${JSON.stringify(clinicaConEspecialidad).replace(/"/g, '&quot;')})" style="white-space: nowrap; margin-left: 1rem;">Ver detalles</button>
             </div>
           `;
         });
@@ -1503,6 +1505,11 @@ const app = {
     mostrarPerfilClinica(clinica) {
       let html = `
         <div style="padding: 2rem; background: #f9fafb; border-radius: 12px;">
+
+          ${clinica.especialidades ? `<div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+            <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">🦷 Especialidad</h4>
+            <p style="margin: 0; font-size: 0.95rem;">${clinica.especialidades}</p>
+          </div>` : ''}
 
           <div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📞 Contacto</h4>
