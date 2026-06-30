@@ -3152,7 +3152,6 @@ const app = {
                 <div class="stat-tooltip">Dentistas postulados a nuestras publicaciones aceptados</div>
               </div>
             `;
-            return;
           }
 
           statsGrid.innerHTML = `
