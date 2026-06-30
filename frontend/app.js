@@ -1691,6 +1691,7 @@ const app = {
     },
 
     mostrarListaPostulaciones(postulaciones, titulo) {
+      console.log("EJECUTANDO mostrarListaPostulaciones con", postulaciones.length, "postulaciones");
       if (postulaciones.length === 0) {
         utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
         return;
