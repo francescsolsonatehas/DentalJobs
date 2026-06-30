@@ -1502,23 +1502,33 @@ const app = {
 
     mostrarPerfilClinica(clinica) {
       let html = `
-        <div style="padding: 1.5rem;">
-          <h3 style="margin-top: 0; color: var(--primary);">${clinica.nombre}</h3>
+        <div style="padding: 2rem; background: #f9fafb; border-radius: 12px;">
+          <h3 style="margin: 0 0 1.5rem 0; color: #0f4c75; font-size: 1.8rem; font-weight: 700;">🏥 ${clinica.nombre}</h3>
 
-          <div class="info-section">
-            <h4>Contacto</h4>
-            <p><strong>📧 Email:</strong> ${clinica.email}</p>
-            ${clinica.telefono ? `<p><strong>📞 Teléfono:</strong> ${clinica.telefono}</p>` : ''}
-            ${clinica.movil ? `<p><strong>📱 Móvil:</strong> ${clinica.movil}</p>` : ''}
+          <div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+            <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📞 Contacto</h4>
+            <p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📧 Email:</strong> ${clinica.email}</p>
+            ${clinica.telefono ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📞 Teléfono:</strong> ${clinica.telefono}</p>` : ''}
+            ${clinica.movil ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📱 Móvil:</strong> ${clinica.movil}</p>` : ''}
           </div>
 
-          <div class="info-section">
-            <h4>Ubicación</h4>
-            <p><strong>📍 Ciudad:</strong> ${clinica.ciudad}</p>
-            ${clinica.direccion ? `<p><strong>🏠 Dirección:</strong> ${clinica.direccion}</p>` : ''}
-            ${clinica.codigo_postal ? `<p><strong>📮 Código Postal:</strong> ${clinica.codigo_postal}</p>` : ''}
-            ${clinica.pais ? `<p><strong>🌍 País:</strong> ${clinica.pais}</p>` : ''}
+          <div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+            <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📍 Ubicación</h4>
+            <p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>🌆 Ciudad:</strong> ${clinica.ciudad}</p>
+            ${clinica.direccion ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>🏠 Dirección:</strong> ${clinica.direccion}</p>` : ''}
+            ${clinica.codigo_postal ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📮 Código Postal:</strong> ${clinica.codigo_postal}</p>` : ''}
+            ${clinica.pais ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>🌍 País:</strong> ${clinica.pais}</p>` : ''}
           </div>
+
+          ${clinica.descripcion ? `<div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+            <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📋 Descripción</h4>
+            <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap;">${clinica.descripcion}</p>
+          </div>` : ''}
+
+          ${clinica.web ? `<div style="background: white; border-radius: 8px; padding: 1.5rem;">
+            <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">🌐 Web</h4>
+            <p style="margin: 0; font-size: 0.95rem;"><a href="${clinica.web}" target="_blank" style="color: #0ea5e9; text-decoration: none;">${clinica.web}</a></p>
+          </div>` : ''}
         </div>
       `;
 
