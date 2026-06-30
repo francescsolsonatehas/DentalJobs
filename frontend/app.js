@@ -1696,16 +1696,26 @@ const app = {
         return;
       }
 
-      // Ordenar por ciudad primero, luego por especialidad
+      // Ordenar por: ciudad → fecha → especialidad → salario
       const postulacionesOrdenadas = postulaciones.sort((a, b) => {
         const ciudadA = (a.ciudad || '').toLowerCase();
         const ciudadB = (b.ciudad || '').toLowerCase();
         if (ciudadA !== ciudadB) {
           return ciudadA.localeCompare(ciudadB);
         }
+        const fechaA = new Date(a.creado_en || 0);
+        const fechaB = new Date(b.creado_en || 0);
+        if (fechaA.getTime() !== fechaB.getTime()) {
+          return fechaB - fechaA;
+        }
         const espA = (a.especialidad_id || 0);
         const espB = (b.especialidad_id || 0);
-        return espA - espB;
+        if (espA !== espB) {
+          return espA - espB;
+        }
+        const salarioA = parseFloat(a.salario) || 0;
+        const salarioB = parseFloat(b.salario) || 0;
+        return salarioB - salarioA;
       });
 
       let html = `<div class="candidatos-list">`;
@@ -1713,6 +1723,8 @@ const app = {
       postulacionesOrdenadas.forEach(post => {
         const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[post.estado];
         const tituloPublicacion = post.ciudad || 'Publicación';
+        const especialidad = post.especialidad_id ? (estadoApp.especialidades.find(e => e.id === post.especialidad_id)?.nombre || 'Sin especialidad') : 'Sin especialidad';
+        const fecha = utils.formatearFecha(post.creado_en);
         html += `
           <div style="background: white; border: 2px solid ${estadoColor}; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
@@ -1724,9 +1736,11 @@ const app = {
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; font-size: 0.9rem; color: #6b7280;">
               <p style="margin: 0;"><strong>📍 Ciudad:</strong> ${post.ciudad}</p>
+              <p style="margin: 0;"><strong>📅 Fecha:</strong> ${fecha}</p>
+              <p style="margin: 0;"><strong>🦷 Especialidad:</strong> ${especialidad}</p>
+              ${post.salario ? `<p style="margin: 0;"><strong>💰 Salario:</strong> ${post.salario}</p>` : ''}
               ${post.contrato ? `<p style="margin: 0;"><strong>📋 Contrato:</strong> ${post.contrato}</p>` : ''}
               ${post.jornada ? `<p style="margin: 0;"><strong>⏰ Jornada:</strong> ${post.jornada}</p>` : ''}
-              ${post.salario ? `<p style="margin: 0;"><strong>💰 Salario:</strong> ${post.salario}</p>` : ''}
             </div>
             <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem; margin-top: 1rem;">
               <p style="margin: 0; color: #6b7280; white-space: pre-wrap; line-height: 1.6; font-size: 0.9rem;">${post.descripcion || 'Sin descripción'}</p>
@@ -1735,7 +1749,10 @@ const app = {
               <p style="margin: 0; font-size: 0.85rem; color: #0c4a6e; font-weight: 600;">💬 Tu mensaje:</p>
               <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #0c4a6e; white-space: pre-wrap;">${post.mensaje}</p>
             </div>` : ''}
-            <button onclick="app.candidaturas.retirarPostulacion(${post.id})" style="margin-top: 1.5rem; background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; width: 100%; transition: background 0.2s;">🗑️ Retirar postulación</button>
+            <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+              <button class="btn-primary" style="flex: 1;">👁️ Ver detalles</button>
+              <button onclick="app.candidaturas.retirarPostulacion(${post.id})" style="flex: 1; background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">🗑️ Retirar</button>
+            </div>
           </div>
         `;
       });
