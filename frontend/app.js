@@ -1037,6 +1037,7 @@ const app = {
     },
 
     async abrirInteresados(publicacionId, tipo) {
+      console.log("abrirInteresados LLAMADO con:", {publicacionId, tipo, tipoString: String(tipo), esIgual: tipo === 'solicitud'});
       try {
         if (tipo === 'solicitud') {
           // Para dentistas: usar la misma lógica que mostrarPostulacionesRecibidas
@@ -1094,6 +1095,7 @@ const app = {
           document.getElementById("modalInteresados").classList.add("active");
         }
       } catch (error) {
+        console.error("ERROR en abrirInteresados:", error);
         utils.mostrarAlerta(error.message, "error");
       }
     },
