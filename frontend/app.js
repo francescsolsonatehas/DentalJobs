@@ -1041,7 +1041,8 @@ const app = {
         if (tipo === 'solicitud') {
           // Para dentistas: usar la misma lógica que mostrarPostulacionesRecibidas
           const postulaciones = await utils.request(`/stats/postulaciones-recibidas-dentista-lista/${estadoApp.usuario.id}`);
-          const filtradas = postulaciones.filter(p => p.publicacion_id === publicacionId);
+          const idInt = parseInt(publicacionId);
+          const filtradas = postulaciones.filter(p => parseInt(p.publicacion_id) === idInt);
           app.stats.mostrarListaPostulacionesRecibidas(filtradas, `Empresas Interesadas`);
         } else {
           // Para clínicas: mostrar mensajes
