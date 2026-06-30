@@ -3193,14 +3193,12 @@ const app = {
             </div>
           `;
         } else {
-          // Dentista: siempre mostrar Ofertas Disponibles de Clínicas, Postulaciones a Clínicas y Postulaciones a Clínicas Aceptadas
+          // Dentista: mostrar Clínicas, Clínicas Potenciales, Postulaciones a Clínicas y Postulaciones Recibidas
           const todas = await utils.request("/publicaciones");
           const ofertas = todas.filter(p => p.tipo === 'oferta').length;
           const misPostulaciones = await utils.request(`/stats/mis-postulaciones/${estadoApp.usuario.id}`);
-          const misAceptadas = await utils.request(`/stats/mis-postulaciones-aceptadas/${estadoApp.usuario.id}`);
           const clinicasPotenciales = await utils.request(`/stats/clinicas-potenciales/${estadoApp.usuario.id}`);
           const postulacionesRecibidas = await utils.request(`/stats/postulaciones-recibidas-dentista/${estadoApp.usuario.id}`);
-          const postulacionesRecibdasAceptadas = await utils.request(`/stats/postulaciones-recibidas-aceptadas-dentista/${estadoApp.usuario.id}`);
 
           statsGrid.innerHTML = `
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarTotalClinicas()">
@@ -3221,23 +3219,11 @@ const app = {
               <p>Postulaciones a Clínicas</p>
               <div class="stat-tooltip">Postulaciones a publicaciones de clínicas</div>
             </div>
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulacionesAceptadas()">
-              <span>✅</span>
-              <h3>${misAceptadas.total}</h3>
-              <p>Postulaciones a Clínicas Aceptadas</p>
-              <div class="stat-tooltip">Ofertas donde han aceptado mi postulación</div>
-            </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarPostulacionesRecibidas()">
               <span>📧</span>
               <h3>${postulacionesRecibidas.total}</h3>
               <p>Postulaciones Recibidas</p>
               <div class="stat-tooltip">Clínicas postuladas a nuestras publicaciones</div>
-            </div>
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarPostulacionesRecibdasAceptadas()">
-              <span>✅</span>
-              <h3>${postulacionesRecibdasAceptadas.total}</h3>
-              <p>Postulaciones Recibidas Aceptadas</p>
-              <div class="stat-tooltip">Clínicas aceptadas en nuestras publicaciones</div>
             </div>
           `;
         }
