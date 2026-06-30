@@ -1043,7 +1043,7 @@ const app = {
           const postulaciones = await utils.request(`/stats/postulaciones-recibidas-dentista-lista/${estadoApp.usuario.id}`);
           const idInt = parseInt(publicacionId);
           const filtradas = postulaciones.filter(p => {
-            return parseInt(p.publicacion_id) === idInt;
+            return parseInt(p.publicacion_id) == idInt;
           });
           app.stats.mostrarListaPostulacionesRecibidas(filtradas, `Empresas Interesadas`);
         } else {
