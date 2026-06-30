@@ -1614,29 +1614,42 @@ const app = {
         clearInterval(this.pollingInterval);
       }
 
-      // Polling cada 5 segundos mientras el modal esté abierto
-      this.pollingInterval = setInterval(async () => {
+      // Función para hacer polling
+      const hacerPolling = async () => {
         const modal = document.getElementById("modalInteresados");
         if (!modal || !modal.classList.contains("active")) {
           // Si el modal se cierra, detener polling
-          clearInterval(this.pollingInterval);
+          if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+          }
           return;
         }
 
         try {
+          let postulaciones = [];
           if (tipo === 'postulaciones') {
-            const postulaciones = await utils.request(`/stats/mis-postulaciones-lista/${estadoApp.usuario.id}`);
-            const html = app.stats.generarHtmlPostulaciones(postulaciones);
-            document.getElementById("interesadosBody").innerHTML = html;
+            postulaciones = await utils.request(`/stats/mis-postulaciones-lista/${estadoApp.usuario.id}`);
           } else if (tipo === 'aceptadas') {
-            const postulaciones = await utils.request(`/stats/mis-postulaciones-aceptadas-lista/${estadoApp.usuario.id}`);
-            const html = app.stats.generarHtmlPostulaciones(postulaciones);
-            document.getElementById("interesadosBody").innerHTML = html;
+            postulaciones = await utils.request(`/stats/mis-postulaciones-aceptadas-lista/${estadoApp.usuario.id}`);
+          }
+
+          const html = app.stats.generarHtmlPostulaciones(postulaciones);
+          document.getElementById("interesadosBody").innerHTML = html;
+
+          // Actualizar título con nuevo count
+          const modal = document.getElementById("modalInteresados");
+          if (modal) {
+            const titulo = tipo === 'postulaciones' ? 'Postulaciones a Clínicas' : 'Postulaciones a Clínicas Aceptadas';
+            modal.querySelector(".modal-header h2").textContent = `${titulo} (${postulaciones.length})`;
           }
         } catch (error) {
           console.error("Error en polling:", error);
         }
-      }, 5000);
+      };
+
+      // Ejecutar inmediatamente y luego cada 3 segundos
+      hacerPolling();
+      this.pollingInterval = setInterval(hacerPolling, 3000);
     },
 
     generarHtmlPostulaciones(postulaciones) {
