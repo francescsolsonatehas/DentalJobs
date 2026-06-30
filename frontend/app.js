@@ -1432,8 +1432,40 @@ const app = {
       let totalClinicas = 0;
       let html = `<div class="candidatos-list">`;
 
-      Object.values(porPublicacion).forEach(pub => {
-        const clinicasList = Object.values(pub.clinicas);
+      // Ordenar grupos por: ciudad → especialidad
+      const publicacionesOrdenadas = Object.values(porPublicacion).sort((a, b) => {
+        const ciudadA = (a.ciudad || '').toLowerCase();
+        const ciudadB = (b.ciudad || '').toLowerCase();
+        if (ciudadA !== ciudadB) {
+          return ciudadA.localeCompare(ciudadB);
+        }
+        const espA = (a.especialidades || '').toLowerCase();
+        const espB = (b.especialidades || '').toLowerCase();
+        return espA.localeCompare(espB);
+      });
+
+      publicacionesOrdenadas.forEach(pub => {
+        // Ordenar clínicas dentro del grupo por: ciudad → fecha → especialidad → salario
+        const clinicasList = Object.values(pub.clinicas).sort((a, b) => {
+          const ciudadA = (a.ciudad || '').toLowerCase();
+          const ciudadB = (b.ciudad || '').toLowerCase();
+          if (ciudadA !== ciudadB) {
+            return ciudadA.localeCompare(ciudadB);
+          }
+          const fechaA = new Date(a.creado_en || 0);
+          const fechaB = new Date(b.creado_en || 0);
+          if (fechaA.getTime() !== fechaB.getTime()) {
+            return fechaB - fechaA;
+          }
+          const espA = (a.especialidad_id || 0);
+          const espB = (b.especialidad_id || 0);
+          if (espA !== espB) {
+            return espA - espB;
+          }
+          const salarioA = parseFloat(a.salario) || 0;
+          const salarioB = parseFloat(b.salario) || 0;
+          return salarioB - salarioA;
+        });
         totalClinicas += clinicasList.length;
 
         html += `
@@ -2082,20 +2114,53 @@ const app = {
       let totalPostulaciones = 0;
       let html = `<div class="candidatos-list">`;
 
-      Object.values(porPublicacion).forEach(pub => {
-        totalPostulaciones += pub.postulaciones.length;
+      // Ordenar grupos por: ciudad → especialidad
+      const publicacionesOrdenadas = Object.values(porPublicacion).sort((a, b) => {
+        const ciudadA = (a.ciudad || '').toLowerCase();
+        const ciudadB = (b.ciudad || '').toLowerCase();
+        if (ciudadA !== ciudadB) {
+          return ciudadA.localeCompare(ciudadB);
+        }
+        const espA = (a.especialidades || '').toLowerCase();
+        const espB = (b.especialidades || '').toLowerCase();
+        return espA.localeCompare(espB);
+      });
+
+      publicacionesOrdenadas.forEach(pub => {
+        // Ordenar postulaciones dentro del grupo por: ciudad → fecha → especialidad → salario
+        const postulacionesOrdenadas = pub.postulaciones.sort((a, b) => {
+          const ciudadA = (a.ciudad || '').toLowerCase();
+          const ciudadB = (b.ciudad || '').toLowerCase();
+          if (ciudadA !== ciudadB) {
+            return ciudadA.localeCompare(ciudadB);
+          }
+          const fechaA = new Date(a.creado_en || 0);
+          const fechaB = new Date(b.creado_en || 0);
+          if (fechaA.getTime() !== fechaB.getTime()) {
+            return fechaB - fechaA;
+          }
+          const espA = (a.especialidad_id || 0);
+          const espB = (b.especialidad_id || 0);
+          if (espA !== espB) {
+            return espA - espB;
+          }
+          const salarioA = parseFloat(a.salario) || 0;
+          const salarioB = parseFloat(b.salario) || 0;
+          return salarioB - salarioA;
+        });
+        totalPostulaciones += postulacionesOrdenadas.length;
 
         html += `
           <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">
               🦷 ${pub.especialidades} - 📍 ${pub.ciudad}
             </h4>
-            <p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Clínicas postuladas: ${pub.postulaciones.length}</strong></p>
+            <p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Clínicas postuladas: ${postulacionesOrdenadas.length}</strong></p>
 
             <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem;">
         `;
 
-        pub.postulaciones.forEach(p => {
+        postulacionesOrdenadas.forEach(p => {
           const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[p.estado];
           html += `
             <div style="background: white; border-left: 3px solid ${estadoColor}; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem;">
