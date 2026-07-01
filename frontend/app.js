@@ -99,6 +99,53 @@ const utils = {
     const sizes = ['Bytes', 'KB', 'MB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  },
+
+  ordenarPorCiudadYEspecialidad(items) {
+    return items.sort((a, b) => {
+      const ciudadA = (a.ciudad || '').toLowerCase();
+      const ciudadB = (b.ciudad || '').toLowerCase();
+      if (ciudadA !== ciudadB) {
+        return ciudadA.localeCompare(ciudadB);
+      }
+      const espA = (a.especialidades || '').toLowerCase();
+      const espB = (b.especialidades || '').toLowerCase();
+      return espA.localeCompare(espB);
+    });
+  },
+
+  ordenarPorCiudadFechaEspecialidadSalario(items) {
+    return items.sort((a, b) => {
+      const ciudadA = (a.ciudad || '').toLowerCase();
+      const ciudadB = (b.ciudad || '').toLowerCase();
+      if (ciudadA !== ciudadB) {
+        return ciudadA.localeCompare(ciudadB);
+      }
+      const fechaA = new Date(a.creado_en || 0);
+      const fechaB = new Date(b.creado_en || 0);
+      if (fechaA.getTime() !== fechaB.getTime()) {
+        return fechaB - fechaA;
+      }
+      const espA = (a.especialidad_id || 0);
+      const espB = (b.especialidad_id || 0);
+      if (espA !== espB) {
+        return espA - espB;
+      }
+      const salarioA = parseFloat(a.salario) || 0;
+      const salarioB = parseFloat(b.salario) || 0;
+      return salarioB - salarioA;
+    });
+  },
+
+  escapeJsonForHtml(obj) {
+    return JSON.stringify(obj).replace(/"/g, '&quot;');
+  },
+
+  ocultarElementos(...ids) {
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = "none";
+    });
   }
 };
 
@@ -1433,39 +1480,11 @@ const app = {
       let html = `<div class="candidatos-list">`;
 
       // Ordenar grupos por: ciudad → especialidad
-      const publicacionesOrdenadas = Object.values(porPublicacion).sort((a, b) => {
-        const ciudadA = (a.ciudad || '').toLowerCase();
-        const ciudadB = (b.ciudad || '').toLowerCase();
-        if (ciudadA !== ciudadB) {
-          return ciudadA.localeCompare(ciudadB);
-        }
-        const espA = (a.especialidades || '').toLowerCase();
-        const espB = (b.especialidades || '').toLowerCase();
-        return espA.localeCompare(espB);
-      });
+      const publicacionesOrdenadas = utils.ordenarPorCiudadYEspecialidad(Object.values(porPublicacion));
 
       publicacionesOrdenadas.forEach(pub => {
         // Ordenar clínicas dentro del grupo por: ciudad → fecha → especialidad → salario
-        const clinicasList = Object.values(pub.clinicas).sort((a, b) => {
-          const ciudadA = (a.ciudad || '').toLowerCase();
-          const ciudadB = (b.ciudad || '').toLowerCase();
-          if (ciudadA !== ciudadB) {
-            return ciudadA.localeCompare(ciudadB);
-          }
-          const fechaA = new Date(a.creado_en || 0);
-          const fechaB = new Date(b.creado_en || 0);
-          if (fechaA.getTime() !== fechaB.getTime()) {
-            return fechaB - fechaA;
-          }
-          const espA = (a.especialidad_id || 0);
-          const espB = (b.especialidad_id || 0);
-          if (espA !== espB) {
-            return espA - espB;
-          }
-          const salarioA = parseFloat(a.salario) || 0;
-          const salarioB = parseFloat(b.salario) || 0;
-          return salarioB - salarioA;
-        });
+        const clinicasList = utils.ordenarPorCiudadFechaEspecialidadSalario(Object.values(pub.clinicas));
         totalClinicas += clinicasList.length;
 
         html += `
@@ -1704,26 +1723,7 @@ const app = {
       }
 
       // Ordenar por: ciudad → fecha → especialidad → salario
-      const ordenadas = postulaciones.sort((a, b) => {
-        const ciudadA = (a.ciudad || '').toLowerCase();
-        const ciudadB = (b.ciudad || '').toLowerCase();
-        if (ciudadA !== ciudadB) {
-          return ciudadA.localeCompare(ciudadB);
-        }
-        const fechaA = new Date(a.creado_en || 0);
-        const fechaB = new Date(b.creado_en || 0);
-        if (fechaA.getTime() !== fechaB.getTime()) {
-          return fechaB - fechaA;
-        }
-        const espA = (a.especialidad_id || 0);
-        const espB = (b.especialidad_id || 0);
-        if (espA !== espB) {
-          return espA - espB;
-        }
-        const salarioA = parseFloat(a.salario) || 0;
-        const salarioB = parseFloat(b.salario) || 0;
-        return salarioB - salarioA;
-      });
+      const ordenadas = utils.ordenarPorCiudadFechaEspecialidadSalario(postulaciones);
 
       let html = `<div class="candidatos-list">`;
       ordenadas.forEach(post => {
@@ -2115,16 +2115,7 @@ const app = {
       let html = `<div class="candidatos-list">`;
 
       // Ordenar grupos por: ciudad → especialidad
-      const publicacionesOrdenadas = Object.values(porPublicacion).sort((a, b) => {
-        const ciudadA = (a.ciudad || '').toLowerCase();
-        const ciudadB = (b.ciudad || '').toLowerCase();
-        if (ciudadA !== ciudadB) {
-          return ciudadA.localeCompare(ciudadB);
-        }
-        const espA = (a.especialidades || '').toLowerCase();
-        const espB = (b.especialidades || '').toLowerCase();
-        return espA.localeCompare(espB);
-      });
+      const publicacionesOrdenadas = utils.ordenarPorCiudadYEspecialidad(Object.values(porPublicacion));
 
       publicacionesOrdenadas.forEach(pub => {
         // Ordenar postulaciones dentro del grupo por: ciudad → fecha → especialidad → salario
@@ -3135,10 +3126,7 @@ const app = {
     },
 
     async mostrarPlataforma() {
-      document.getElementById("heroLanding").style.display = "none";
-      document.getElementById("landingFeatures").style.display = "none";
-      document.getElementById("landingBenefitsDentistas").style.display = "none";
-      document.getElementById("landingBenefitsClinicas").style.display = "none";
+      utils.ocultarElementos("heroLanding", "landingFeatures", "landingBenefitsDentistas", "landingBenefitsClinicas");
       document.getElementById("heroPlataforma").style.display = "block";
       document.getElementById("statsContainer").style.display = "block";
       document.getElementById("mainContainer").style.display = "block";
