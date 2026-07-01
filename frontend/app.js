@@ -1698,7 +1698,7 @@ const app = {
             postulaciones = await utils.request(`/stats/mis-postulaciones-aceptadas-lista/${estadoApp.usuario.id}`);
           }
 
-          const html = app.stats.generarHtmlPostulaciones(postulaciones);
+          const html = await app.stats.generarHtmlPostulaciones(postulaciones);
           document.getElementById("interesadosBody").innerHTML = html;
 
           // Actualizar título con nuevo count
@@ -1717,10 +1717,24 @@ const app = {
       this.pollingInterval = setInterval(hacerPolling, 3000);
     },
 
-    generarHtmlPostulaciones(postulaciones) {
+    async generarHtmlPostulaciones(postulaciones) {
       if (postulaciones.length === 0) {
         return '<div style="padding: 2rem; text-align: center; color: #6b7280;"><p>No hay postulaciones</p></div>';
       }
+
+      // Obtener especialidades reales de cada publicación (guardadas en tabla de unión)
+      const especialidadesPorPublicacion = {};
+      const publicacionIds = [...new Set(postulaciones.map(p => p.publicacion_id))];
+      await Promise.all(publicacionIds.map(async (pubId) => {
+        try {
+          const data = await utils.request(`/publicaciones/${pubId}/especialidades`, { method: 'GET' });
+          especialidadesPorPublicacion[pubId] = data.especialidades && data.especialidades.length > 0
+            ? data.especialidades.map(e => e.nombre).join(", ")
+            : 'Sin especialidad';
+        } catch (error) {
+          especialidadesPorPublicacion[pubId] = 'Sin especialidad';
+        }
+      }));
 
       // Ordenar por: ciudad → fecha → especialidad → salario
       const ordenadas = utils.ordenarPorCiudadFechaEspecialidadSalario(postulaciones);
@@ -1729,8 +1743,9 @@ const app = {
       ordenadas.forEach(post => {
         const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[post.estado];
         const tituloPublicacion = post.ciudad || 'Publicación';
-        const especialidad = post.especialidad_id ? (estadoApp.especialidades.find(e => e.id === post.especialidad_id)?.nombre || 'Sin especialidad') : 'Sin especialidad';
+        const especialidad = especialidadesPorPublicacion[post.publicacion_id] || 'Sin especialidad';
         const fecha = utils.formatearFecha(post.creado_en);
+        const postConEspecialidad = {...post, especialidad_nombre: especialidad};
         html += `
           <div style="background: white; border: 2px solid ${estadoColor}; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
@@ -1756,7 +1771,7 @@ const app = {
               <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #0c4a6e; white-space: pre-wrap;">${post.mensaje}</p>
             </div>` : ''}
             <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
-              <button class="btn-primary" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">👁️ Ver detalles</button>
+              <button class="btn-primary" onclick="app.stats.mostrarDetalleMiPostulacion(${utils.escapeJsonForHtml(postConEspecialidad)})" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">👁️ Ver detalles</button>
               <button onclick="app.candidaturas.retirarPostulacion(${post.id})" style="flex: 1; background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">🗑️ Retirar</button>
             </div>
           </div>
@@ -1766,13 +1781,53 @@ const app = {
       return html;
     },
 
-    mostrarListaPostulaciones(postulaciones, titulo) {
+    mostrarDetalleMiPostulacion(post) {
+      const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[post.estado];
+      const especialidad = post.especialidad_nombre || 'Sin especialidad';
+      const fecha = utils.formatearFecha(post.creado_en);
+
+      let html = `
+        <div style="padding: 2rem; background: #f9fafb; border-radius: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h3 style="margin: 0; color: #0f4c75; font-size: 1.5rem; font-weight: 700;">${post.empresa_nombre || post.ciudad}</h3>
+            <span style="background: ${estadoColor}; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize;">${post.estado}</span>
+          </div>
+
+          <div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+            <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📋 Detalles</h4>
+            <p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📍 Ciudad:</strong> ${post.ciudad}</p>
+            <p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📅 Fecha:</strong> ${fecha}</p>
+            <p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>🦷 Especialidad:</strong> ${especialidad}</p>
+            ${post.salario ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>💰 Salario:</strong> ${post.salario}</p>` : ''}
+            ${post.contrato ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📋 Contrato:</strong> ${post.contrato}</p>` : ''}
+            ${post.jornada ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>⏰ Jornada:</strong> ${post.jornada}</p>` : ''}
+            ${post.empresa_email ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📧 Email:</strong> ${post.empresa_email}</p>` : ''}
+          </div>
+
+          ${post.descripcion ? `<div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+            <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📝 Descripción</h4>
+            <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap;">${post.descripcion}</p>
+          </div>` : ''}
+
+          ${post.mensaje ? `<div style="background: white; border-radius: 8px; padding: 1.5rem;">
+            <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">💬 Tu mensaje</h4>
+            <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap;">${post.mensaje}</p>
+          </div>` : ''}
+        </div>
+      `;
+
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = post.empresa_nombre || post.ciudad;
+      document.getElementById("modalInteresados").classList.add("active");
+    },
+
+    async mostrarListaPostulaciones(postulaciones, titulo) {
       if (postulaciones.length === 0) {
         utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
         return;
       }
 
-      const html = this.generarHtmlPostulaciones(postulaciones);
+      const html = await this.generarHtmlPostulaciones(postulaciones);
       document.getElementById("interesadosBody").innerHTML = html;
       document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = `${titulo} (${postulaciones.length})`;
       document.getElementById("modalInteresados").classList.add("active");
