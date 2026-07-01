@@ -1391,7 +1391,7 @@ const app = {
     async mostrarDentistasEspecialidad(especialidad) {
       try {
         const dentistas = await utils.request(`/stats/dentistas-por-especialidad-lista/${encodeURIComponent(especialidad)}`);
-        app.stats.mostrarListaCandidatos(dentistas, `Dentistas - ${especialidad}`);
+        app.stats.mostrarListaDentistas(dentistas, `Dentistas - ${especialidad}`);
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -1400,7 +1400,7 @@ const app = {
     async mostrarDentistasCiudad(ciudad) {
       try {
         const dentistas = await utils.request(`/stats/dentistas-por-ciudad-lista/${encodeURIComponent(ciudad)}`);
-        app.stats.mostrarListaCandidatos(dentistas, `Dentistas - ${ciudad}`);
+        app.stats.mostrarListaDentistas(dentistas, `Dentistas - ${ciudad}`);
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -1409,7 +1409,7 @@ const app = {
     async mostrarDentistasCiudadEspecialidad(ciudad, especialidad) {
       try {
         const dentistas = await utils.request(`/stats/dentistas-por-ciudad-especialidad-lista/${encodeURIComponent(ciudad)}/${encodeURIComponent(especialidad)}`);
-        app.stats.mostrarListaCandidatos(dentistas, `Dentistas - ${ciudad} - ${especialidad}`);
+        app.stats.mostrarListaDentistas(dentistas, `Dentistas - ${ciudad} - ${especialidad}`);
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -1528,6 +1528,34 @@ const app = {
 
       document.getElementById("interesadosBody").innerHTML = html;
       document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = `${titulo} (${totalClinicas})`;
+      document.getElementById("modalInteresados").classList.add("active");
+    },
+
+    mostrarListaDentistas(dentistas, titulo) {
+      if (dentistas.length === 0) {
+        utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
+        return;
+      }
+
+      let html = `<div class="candidatos-list">`;
+
+      dentistas.forEach(d => {
+        html += `
+          <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">${d.nombre}</h4>
+            <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📧 Email:</strong> ${d.email}</p>
+            ${d.telefono ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📞 Teléfono:</strong> ${d.telefono}</p>` : ''}
+            ${d.movil ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📱 Móvil:</strong> ${d.movil}</p>` : ''}
+            <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📍 Ciudad:</strong> ${d.ciudad}</p>
+            ${d.direccion ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>🏠 Dirección:</strong> ${d.direccion}</p>` : ''}
+          </div>
+        `;
+      });
+
+      html += "</div>";
+
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = `${titulo} (${dentistas.length})`;
       document.getElementById("modalInteresados").classList.add("active");
     },
 
