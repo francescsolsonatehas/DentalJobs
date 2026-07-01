@@ -3401,7 +3401,7 @@ const app = {
             const interesados = (data.candidatos || []).length;
               interesadosHTML = `
               <button class="btn-interesados" onclick="app.modal.abrirInteresados(${pub.id}, '${pub.tipo}')">
-                👥 ${interesados} Clínicas
+                👥 Clínicas (${interesados})
               </button>
             `;
           } catch (error) {
