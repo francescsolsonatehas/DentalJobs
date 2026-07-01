@@ -1839,10 +1839,7 @@ const app = {
         const misPostulaciones = data.candidaturas || [];
 
         // Filtrar solo postulaciones a solicitudes de dentistas
-        const postulacionesDentistas = misPostulaciones.filter(p => {
-          const pub = estadoApp.publicaciones.find(pub => pub.id === p.publicacion_id);
-          return pub && pub.tipo === 'solicitud';
-        });
+        const postulacionesDentistas = misPostulaciones.filter(p => p.publicacion_tipo === 'solicitud');
 
         app.stats.mostrarListaPostulaciones(postulacionesDentistas, "Mis Postulaciones a Dentistas");
       } catch (error) {
@@ -1856,10 +1853,7 @@ const app = {
         const misPostulaciones = data.candidaturas || [];
 
         // Filtrar solo postulaciones aceptadas a solicitudes de dentistas
-        const postulacionesAceptadas = misPostulaciones.filter(p => {
-          const pub = estadoApp.publicaciones.find(pub => pub.id === p.publicacion_id);
-          return pub && pub.tipo === 'solicitud' && p.estado === 'aceptada';
-        });
+        const postulacionesAceptadas = misPostulaciones.filter(p => p.publicacion_tipo === 'solicitud' && p.estado === 'aceptada');
 
         app.stats.mostrarListaPostulaciones(postulacionesAceptadas, "Mis Postulaciones a Dentistas Aceptadas");
       } catch (error) {
