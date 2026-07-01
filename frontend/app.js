@@ -5,6 +5,8 @@ let estadoApp = {
   usuario: localStorage.getItem("usuario") ? JSON.parse(localStorage.getItem("usuario")) : null,
   tipoUsuario: localStorage.getItem("tipoUsuario"), // 'clinica' o 'dentista'
   publicaciones: [],
+  paginaActual: 1,
+  hayMasPublicaciones: false,
   especialidades: [],
   archivosUsuario: [],
   filtros: {
@@ -344,7 +346,7 @@ const app = {
   // ============================================
 
   publicaciones: {
-    async cargar() {
+    async cargar(pagina = 1) {
       // Cerrar todos los modales antes de cargar
       app.modal.cerrarTodosModales();
 
@@ -376,9 +378,14 @@ const app = {
         if (jornada) url += `jornada=${encodeURIComponent(jornada)}&`;
       }
 
+      const limit = 20;
+      url += `page=${pagina}&limit=${limit}`;
+
       try {
-        let publicaciones = await utils.request(url.slice(0, -1));
-        estadoApp.publicaciones = publicaciones;
+        let publicaciones = await utils.request(url);
+        estadoApp.publicaciones = pagina === 1 ? publicaciones : estadoApp.publicaciones.concat(publicaciones);
+        estadoApp.paginaActual = pagina;
+        estadoApp.hayMasPublicaciones = publicaciones.length === limit;
         app.ui.renderizarPublicaciones();
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
@@ -3462,7 +3469,13 @@ const app = {
         `;
       }));
 
-      container.innerHTML = `<div class="publicaciones">${html.join("")}</div>`;
+      const botonCargarMas = estadoApp.hayMasPublicaciones
+        ? `<div style="text-align: center; margin-top: 2rem;">
+             <button class="btn-outline" onclick="app.publicaciones.cargar(${estadoApp.paginaActual + 1})">Cargar más</button>
+           </div>`
+        : "";
+
+      container.innerHTML = `<div class="publicaciones">${html.join("")}</div>${botonCargarMas}`;
     }
   },
 

@@ -1,7 +1,7 @@
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 
-const dbPath = path.join(__dirname, "dental_jobs.db");
+const dbPath = process.env.DB_PATH || path.join(__dirname, "dental_jobs.db");
 const db = new sqlite3.Database(dbPath);
 
 db.serialize(() => {
@@ -33,7 +33,6 @@ db.serialize(() => {
     CREATE TABLE IF NOT EXISTS publicaciones (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tipo TEXT NOT NULL,
-      titulo TEXT NOT NULL,
       descripcion TEXT,
       ciudad TEXT NOT NULL,
       especialidad_id INTEGER REFERENCES especialidades(id),

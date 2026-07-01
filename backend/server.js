@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const morgan = require("morgan");
 const bcrypt = require("bcryptjs");
 const multer = require("multer");
 const db = require("./db");
@@ -9,6 +10,7 @@ const app = express();
 
 app.use(express.json());
 app.use(cors());
+app.use(morgan("short"));
 app.use(express.static('../frontend'));
 
 // Configurar multer para uploads en memoria
@@ -416,6 +418,11 @@ app.get("/publicaciones", (req, res) => {
   }
 
   query += " ORDER BY p.creado_en DESC";
+
+  const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+  const page = Math.max(parseInt(req.query.page) || 1, 1);
+  query += " LIMIT ? OFFSET ?";
+  params.push(limit, (page - 1) * limit);
 
   db.all(query, params, (err, publicaciones) => {
     if (err) {
@@ -1596,6 +1603,12 @@ app.delete("/candidaturas/:id", verifyToken, (req, res) => {
    🔹 INICIAR SERVIDOR
 =========================== */
 
-app.listen(3000, () => {
-  console.log("✅ Servidor corriendo en http://localhost:3000");
-});
+const PORT = process.env.PORT || 3000;
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
