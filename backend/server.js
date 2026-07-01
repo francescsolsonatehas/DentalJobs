@@ -659,7 +659,18 @@ app.delete("/publicaciones/:id", verifyToken, (req, res) => {
         console.error(err);
         return res.status(500).json({ error: "Error al eliminar publicación" });
       }
-      res.json({ mensaje: "Publicación eliminada" });
+
+      db.run(
+        "UPDATE candidaturas SET estado = 'retirada', actualizado_en = CURRENT_TIMESTAMP WHERE publicacion_id = ? AND estado != 'retirada'",
+        [req.params.id],
+        (err) => {
+          if (err) {
+            console.error(err);
+            return res.status(500).json({ error: "Error al retirar candidaturas asociadas" });
+          }
+          res.json({ mensaje: "Publicación eliminada" });
+        }
+      );
     });
   });
 });
@@ -682,7 +693,10 @@ app.get("/stats/total-dentistas", (req, res) => {
 app.get("/stats/mis-postulaciones/:usuario_id", verifyToken, (req, res) => {
   const usuario_id = req.params.usuario_id;
   db.get(
-    `SELECT COUNT(*) as total FROM candidaturas WHERE usuario_id = ?`,
+    `SELECT COUNT(*) as total
+     FROM candidaturas c
+     INNER JOIN publicaciones p ON c.publicacion_id = p.id
+     WHERE c.usuario_id = ? AND p.activo = 1`,
     [usuario_id],
     (err, result) => {
       if (err) {
@@ -703,7 +717,7 @@ app.get("/stats/mis-postulaciones-lista/:usuario_id", verifyToken, (req, res) =>
      FROM candidaturas c
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
      INNER JOIN usuarios u ON p.usuario_id = u.id
-     WHERE c.usuario_id = ?
+     WHERE c.usuario_id = ? AND p.activo = 1
      ORDER BY p.id, c.creado_en DESC`,
     [usuario_id],
     (err, postulaciones) => {
@@ -1484,7 +1498,7 @@ app.get("/candidaturas/mis-postulaciones", verifyToken, (req, res) => {
      FROM candidaturas c
      JOIN publicaciones p ON c.publicacion_id = p.id
      JOIN usuarios u ON p.usuario_id = u.id
-     WHERE c.usuario_id = ?
+     WHERE c.usuario_id = ? AND p.activo = 1
      ORDER BY c.creado_en DESC`,
     [usuario_id],
     (err, rows) => {
