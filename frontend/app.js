@@ -1061,7 +1061,7 @@ const app = {
       document.getElementById("modalCandidatos").classList.add("active");
       const titulo = document.querySelector("#modalCandidatos .modal-header h2");
       if (titulo) {
-        titulo.textContent = `Candidatos: ${publicacionTitulo}`;
+        titulo.textContent = `Dentistas: ${publicacionTitulo}`;
       }
       app.candidaturas.cargarCandidatos(publicacionId);
     },
@@ -3401,7 +3401,7 @@ const app = {
             const interesados = (data.candidatos || []).length;
               interesadosHTML = `
               <button class="btn-interesados" onclick="app.modal.abrirInteresados(${pub.id}, '${pub.tipo}')">
-                👥 ${interesados} Empresas
+                👥 ${interesados} Clínicas
               </button>
             `;
           } catch (error) {
@@ -3462,7 +3462,7 @@ const app = {
                 }
                 return '';
               })()}
-              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${generatedTitle.replace(/'/g, "\\'")}')" style="flex: 1;">👥 Candidatos (${candidatosPorOferta[pub.id]})</button>` : ''}
+              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${generatedTitle.replace(/'/g, "\\'")}')" style="flex: 1;">👥 Dentistas (${candidatosPorOferta[pub.id]})</button>` : ''}
               ${interesadosHTML}
             </div>
           </div>
