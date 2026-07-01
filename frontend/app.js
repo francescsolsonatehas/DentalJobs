@@ -3397,8 +3397,8 @@ const app = {
         // Solo mostrar interesados para solicitudes (dentistas buscando trabajo), no para ofertas (usamos candidaturas)
         if (estadoApp.filtros.soloMias && estadoApp.usuario && pub.usuario_id === estadoApp.usuario.id && pub.tipo === 'solicitud') {
           try {
-            const mensajes = await utils.request(`/mensajes/${pub.id}`);
-            const interesados = new Set(mensajes.map(m => m.remitente_email)).size;
+            const data = await utils.request(`/publicaciones/${pub.id}/candidatos`);
+            const interesados = (data.candidatos || []).length;
               interesadosHTML = `
               <button class="btn-interesados" onclick="app.modal.abrirInteresados(${pub.id}, '${pub.tipo}')">
                 👥 ${interesados} Empresas
