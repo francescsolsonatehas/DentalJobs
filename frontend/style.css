@@ -1634,6 +1634,93 @@ select:focus {
   display: none !important;
 }
 
+/* ========== LANDING PAGE STYLES ========== */
+
+/* Hero sections */
+.landing-hero {
+  background: linear-gradient(135deg, #0f4c75 0%, #247ba0 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.landing-hero-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 3rem;
+  max-width: 900px;
+  padding: 2rem;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.landing-hero-title {
+  font-size: 4rem;
+  margin: 0 0 1rem 0;
+  color: white;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.landing-hero-subtitle {
+  font-size: 1.3rem;
+  margin: 0;
+  color: rgba(255,255,255,0.9);
+  line-height: 1.6;
+  max-width: 700px;
+}
+
+.landing-floating-bg {
+  position: absolute;
+  background: rgba(255,255,255,0.1);
+  border-radius: 50%;
+  animation: float 8s ease-in-out infinite;
+}
+
+.landing-floating-bg.top { top: -50%; right: -10%; width: 600px; height: 600px; }
+.landing-floating-bg.bottom { bottom: -30%; left: -5%; width: 400px; height: 400px; animation-duration: 10s; animation-direction: reverse; }
+
+/* Feature cards */
+.landing-feature-card {
+  background: rgba(255,255,255,0.15);
+  padding: 1.5rem;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.feature-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.feature-title { margin: 0; color: white; font-weight: 600; }
+.feature-desc { margin: 0.5rem 0 0 0; font-size: 0.9rem; color: rgba(255,255,255,0.8); }
+
+/* Section layouts */
+.landing-section { padding: 5rem 2rem; }
+.landing-section.bg-light { background: #f9fafb; }
+.landing-section.bg-white { background: white; }
+
+.landing-container { max-width: 1200px; margin: 0 auto; }
+.landing-section-title { text-align: center; font-size: 2.5rem; color: #0f4c75; margin: 0 0 3rem 0; }
+
+/* Grid layouts */
+.feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; }
+.feature-card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.3s; }
+.feature-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(15, 76, 117, 0.15); }
+
+/* Benefits section layout */
+.benefits-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
+.benefits-list { list-style: none; padding: 0; margin: 0; }
+.benefits-item { margin: 1rem 0; display: flex; gap: 1rem; align-items: center; }
+.benefits-icon { font-size: 1.5rem; }
+.benefits-text { color: #6b7280; }
+
+.benefits-emoji { font-size: 5rem; margin-bottom: 1rem; text-align: center; }
+.benefits-description { color: #6b7280; font-size: 1.1rem; line-height: 1.8; text-align: center; }
+
 /* Animación flotante para hero */
 @keyframes float {
   0%, 100% {
