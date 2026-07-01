@@ -1050,12 +1050,16 @@ app.get("/stats/dentistas-por-ciudad-especialidad", (req, res) => {
 
 app.get("/stats/dentistas-por-especialidad-lista/:especialidad", (req, res) => {
   db.all(
-    `SELECT DISTINCT s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad, e.nombre as especialidad
+    `SELECT s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad,
+       GROUP_CONCAT(DISTINCT COALESCE(e2.nombre, e.nombre)) as especialidades
      FROM publicaciones s
      INNER JOIN usuarios u ON s.usuario_id = u.id
      LEFT JOIN especialidades e ON s.especialidad_id = e.id
+     LEFT JOIN publicacion_especialidades pe2 ON pe2.publicacion_id = s.id
+     LEFT JOIN especialidades e2 ON pe2.especialidad_id = e2.id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
-     AND (LOWER(e.nombre) = LOWER(?) OR (? = 'Sin especialidad' AND s.especialidad_id IS NULL))`,
+     AND (LOWER(e.nombre) = LOWER(?) OR (? = 'Sin especialidad' AND s.especialidad_id IS NULL))
+     GROUP BY s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad`,
     [req.params.especialidad, req.params.especialidad],
     (err, dentistas) => {
       if (err) {
@@ -1069,12 +1073,16 @@ app.get("/stats/dentistas-por-especialidad-lista/:especialidad", (req, res) => {
 
 app.get("/stats/dentistas-por-ciudad-lista/:ciudad", (req, res) => {
   db.all(
-    `SELECT DISTINCT s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad, e.nombre as especialidad
+    `SELECT s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad,
+       GROUP_CONCAT(DISTINCT COALESCE(e2.nombre, e.nombre)) as especialidades
      FROM publicaciones s
      INNER JOIN usuarios u ON s.usuario_id = u.id
      LEFT JOIN especialidades e ON s.especialidad_id = e.id
+     LEFT JOIN publicacion_especialidades pe2 ON pe2.publicacion_id = s.id
+     LEFT JOIN especialidades e2 ON pe2.especialidad_id = e2.id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
-     AND LOWER(s.ciudad) = LOWER(?)`,
+     AND LOWER(s.ciudad) = LOWER(?)
+     GROUP BY s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad`,
     [req.params.ciudad],
     (err, dentistas) => {
       if (err) {
@@ -1088,13 +1096,17 @@ app.get("/stats/dentistas-por-ciudad-lista/:ciudad", (req, res) => {
 
 app.get("/stats/dentistas-por-ciudad-especialidad-lista/:ciudad/:especialidad", (req, res) => {
   db.all(
-    `SELECT DISTINCT s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad, e.nombre as especialidad
+    `SELECT s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad,
+       GROUP_CONCAT(DISTINCT COALESCE(e2.nombre, e.nombre)) as especialidades
      FROM publicaciones s
      INNER JOIN usuarios u ON s.usuario_id = u.id
      LEFT JOIN especialidades e ON s.especialidad_id = e.id
+     LEFT JOIN publicacion_especialidades pe2 ON pe2.publicacion_id = s.id
+     LEFT JOIN especialidades e2 ON pe2.especialidad_id = e2.id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
      AND LOWER(s.ciudad) = LOWER(?)
-     AND (LOWER(e.nombre) = LOWER(?) OR (? = 'Sin especialidad' AND s.especialidad_id IS NULL))`,
+     AND (LOWER(e.nombre) = LOWER(?) OR (? = 'Sin especialidad' AND s.especialidad_id IS NULL))
+     GROUP BY s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad`,
     [req.params.ciudad, req.params.especialidad, req.params.especialidad],
     (err, dentistas) => {
       if (err) {
@@ -1163,13 +1175,18 @@ app.get("/stats/clinicas-por-ciudad-especialidad", (req, res) => {
 
 app.get("/stats/clinicas-por-especialidad-lista/:especialidad", (req, res) => {
   db.all(
-    `SELECT DISTINCT o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad
+    `SELECT o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad,
+       GROUP_CONCAT(DISTINCT COALESCE(e2.nombre, el.nombre)) as especialidades
      FROM publicaciones o
      INNER JOIN usuarios u ON o.usuario_id = u.id
      LEFT JOIN publicacion_especialidades pe ON o.id = pe.publicacion_id
      LEFT JOIN especialidades e ON pe.especialidad_id = e.id
+     LEFT JOIN publicacion_especialidades pe2 ON pe2.publicacion_id = o.id
+     LEFT JOIN especialidades e2 ON pe2.especialidad_id = e2.id
+     LEFT JOIN especialidades el ON el.id = o.especialidad_id
      WHERE o.tipo = 'oferta' AND o.activo = 1
-     AND (LOWER(e.nombre) = LOWER(?) OR (? = 'Sin especialidad' AND pe.especialidad_id IS NULL))`,
+     AND (LOWER(e.nombre) = LOWER(?) OR (? = 'Sin especialidad' AND pe.especialidad_id IS NULL))
+     GROUP BY o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad`,
     [req.params.especialidad, req.params.especialidad],
     (err, clinicas) => {
       if (err) {
@@ -1183,11 +1200,16 @@ app.get("/stats/clinicas-por-especialidad-lista/:especialidad", (req, res) => {
 
 app.get("/stats/clinicas-por-ciudad-lista/:ciudad", (req, res) => {
   db.all(
-    `SELECT DISTINCT o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad
+    `SELECT o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad,
+       GROUP_CONCAT(DISTINCT COALESCE(e2.nombre, el.nombre)) as especialidades
      FROM publicaciones o
      INNER JOIN usuarios u ON o.usuario_id = u.id
+     LEFT JOIN publicacion_especialidades pe2 ON pe2.publicacion_id = o.id
+     LEFT JOIN especialidades e2 ON pe2.especialidad_id = e2.id
+     LEFT JOIN especialidades el ON el.id = o.especialidad_id
      WHERE o.tipo = 'oferta' AND o.activo = 1
-     AND LOWER(o.ciudad) = LOWER(?)`,
+     AND LOWER(o.ciudad) = LOWER(?)
+     GROUP BY o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad`,
     [req.params.ciudad],
     (err, clinicas) => {
       if (err) {
@@ -1201,14 +1223,19 @@ app.get("/stats/clinicas-por-ciudad-lista/:ciudad", (req, res) => {
 
 app.get("/stats/clinicas-por-ciudad-especialidad-lista/:ciudad/:especialidad", (req, res) => {
   db.all(
-    `SELECT DISTINCT o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad
+    `SELECT o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad,
+       GROUP_CONCAT(DISTINCT COALESCE(e2.nombre, el.nombre)) as especialidades
      FROM publicaciones o
      INNER JOIN usuarios u ON o.usuario_id = u.id
      LEFT JOIN publicacion_especialidades pe ON o.id = pe.publicacion_id
      LEFT JOIN especialidades e ON pe.especialidad_id = e.id
+     LEFT JOIN publicacion_especialidades pe2 ON pe2.publicacion_id = o.id
+     LEFT JOIN especialidades e2 ON pe2.especialidad_id = e2.id
+     LEFT JOIN especialidades el ON el.id = o.especialidad_id
      WHERE o.tipo = 'oferta' AND o.activo = 1
      AND LOWER(o.ciudad) = LOWER(?)
-     AND (LOWER(e.nombre) = LOWER(?) OR (? = 'Sin especialidad' AND pe.especialidad_id IS NULL))`,
+     AND (LOWER(e.nombre) = LOWER(?) OR (? = 'Sin especialidad' AND pe.especialidad_id IS NULL))
+     GROUP BY o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad`,
     [req.params.ciudad, req.params.especialidad, req.params.especialidad],
     (err, clinicas) => {
       if (err) {
