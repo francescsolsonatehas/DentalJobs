@@ -2232,7 +2232,6 @@ const app = {
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">
               🦷 ${pub.especialidades} - 📍 ${pub.ciudad}
             </h4>
-            <p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Clínicas postuladas: ${postulacionesOrdenadas.length}</strong></p>
 
             <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem;">
         `;
@@ -2438,7 +2437,6 @@ const app = {
           <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
             <p style="margin: 0 0 1rem 0; color: #1f2937; font-size: 0.9rem;"><strong>🦷 Especialidades:</strong> ${especialidadesText || 'Sin especialidades'} | <strong>📍 Ciudad:</strong> ${oferta.oferta_ciudad}</p>
             <div style="border-top: 1px solid #d1d5db; padding-top: 1rem;">
-              <p style="margin: 0 0 0.5rem 0; font-weight: 600; color: #1f2937;">Candidatos (${oferta.candidatos.length})</p>
         `;
 
         oferta.candidatos.forEach(c => {
