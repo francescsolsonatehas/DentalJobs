@@ -777,7 +777,14 @@ app.get("/stats/mis-postulaciones-aceptadas-lista/:usuario_id", verifyToken, (re
 app.get("/stats/posibles-candidatos/:empresa_id", verifyToken, (req, res) => {
   // Contar dentistas únicos que coinciden con Ciudad y Especialidad de mis ofertas
   db.all(
-    `SELECT DISTINCT s.id as publicacion_id, s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad
+    `WITH pub_esp AS (
+       SELECT pe.publicacion_id, pe.especialidad_id FROM publicacion_especialidades pe
+       UNION
+       SELECT p.id as publicacion_id, p.especialidad_id FROM publicaciones p
+       WHERE p.especialidad_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
+     )
+     SELECT DISTINCT s.id as publicacion_id, s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad
      FROM publicaciones s
      INNER JOIN usuarios u ON s.usuario_id = u.id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
@@ -785,7 +792,14 @@ app.get("/stats/posibles-candidatos/:empresa_id", verifyToken, (req, res) => {
        SELECT COUNT(*) FROM publicaciones o
        WHERE o.usuario_id = ? AND o.tipo = 'oferta' AND o.activo = 1
        AND (o.ciudad = s.ciudad OR s.ciudad LIKE '%' || o.ciudad || '%' OR o.ciudad LIKE '%' || s.ciudad || '%')
-       AND (o.especialidad_id = s.especialidad_id OR o.especialidad_id IS NULL OR s.especialidad_id IS NULL)
+       AND (
+         NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = o.id)
+         OR NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = s.id)
+         OR EXISTS (
+           SELECT 1 FROM pub_esp peo INNER JOIN pub_esp pes ON peo.especialidad_id = pes.especialidad_id
+           WHERE peo.publicacion_id = o.id AND pes.publicacion_id = s.id
+         )
+       )
      ) > 0`,
     [req.params.empresa_id],
     (err, candidatos) => {
@@ -818,7 +832,14 @@ app.get("/stats/candidatos-interesados/:empresa_id", verifyToken, (req, res) => 
 
 app.get("/stats/posibles-candidatos-lista/:empresa_id", verifyToken, (req, res) => {
   db.all(
-    `SELECT DISTINCT s.id as publicacion_id, s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad
+    `WITH pub_esp AS (
+       SELECT pe.publicacion_id, pe.especialidad_id FROM publicacion_especialidades pe
+       UNION
+       SELECT p.id as publicacion_id, p.especialidad_id FROM publicaciones p
+       WHERE p.especialidad_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
+     )
+     SELECT DISTINCT s.id as publicacion_id, s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad
      FROM publicaciones s
      INNER JOIN usuarios u ON s.usuario_id = u.id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
@@ -826,7 +847,14 @@ app.get("/stats/posibles-candidatos-lista/:empresa_id", verifyToken, (req, res) 
        SELECT COUNT(*) FROM publicaciones o
        WHERE o.usuario_id = ? AND o.tipo = 'oferta' AND o.activo = 1
        AND (o.ciudad = s.ciudad OR s.ciudad LIKE '%' || o.ciudad || '%' OR o.ciudad LIKE '%' || s.ciudad || '%')
-       AND (o.especialidad_id = s.especialidad_id OR o.especialidad_id IS NULL OR s.especialidad_id IS NULL)
+       AND (
+         NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = o.id)
+         OR NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = s.id)
+         OR EXISTS (
+           SELECT 1 FROM pub_esp peo INNER JOIN pub_esp pes ON peo.especialidad_id = pes.especialidad_id
+           WHERE peo.publicacion_id = o.id AND pes.publicacion_id = s.id
+         )
+       )
      ) > 0`,
     [req.params.empresa_id],
     (err, candidatos) => {
@@ -841,12 +869,27 @@ app.get("/stats/posibles-candidatos-lista/:empresa_id", verifyToken, (req, res) 
 
 app.get("/stats/clinicas-potenciales/:usuario_id", verifyToken, (req, res) => {
   db.get(
-    `SELECT COUNT(*) as total
+    `WITH pub_esp AS (
+       SELECT pe.publicacion_id, pe.especialidad_id FROM publicacion_especialidades pe
+       UNION
+       SELECT p.id as publicacion_id, p.especialidad_id FROM publicaciones p
+       WHERE p.especialidad_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
+     )
+     SELECT COUNT(*) as total
      FROM (
        SELECT DISTINCT s.id as publicacion_id, o.usuario_id
        FROM publicaciones o
        INNER JOIN publicaciones s ON s.usuario_id = ? AND s.tipo = 'solicitud' AND s.activo = 1 AND o.ciudad = s.ciudad
        WHERE o.tipo = 'oferta' AND o.activo = 1
+       AND (
+         NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = o.id)
+         OR NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = s.id)
+         OR EXISTS (
+           SELECT 1 FROM pub_esp peo INNER JOIN pub_esp pes ON peo.especialidad_id = pes.especialidad_id
+           WHERE peo.publicacion_id = o.id AND pes.publicacion_id = s.id
+         )
+       )
      )`,
     [req.params.usuario_id],
     (err, result) => {
@@ -861,11 +904,26 @@ app.get("/stats/clinicas-potenciales/:usuario_id", verifyToken, (req, res) => {
 
 app.get("/stats/clinicas-potenciales-lista/:usuario_id", verifyToken, (req, res) => {
   db.all(
-    `SELECT DISTINCT s.id as publicacion_id, o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad
+    `WITH pub_esp AS (
+       SELECT pe.publicacion_id, pe.especialidad_id FROM publicacion_especialidades pe
+       UNION
+       SELECT p.id as publicacion_id, p.especialidad_id FROM publicaciones p
+       WHERE p.especialidad_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
+     )
+     SELECT DISTINCT s.id as publicacion_id, o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad
      FROM publicaciones o
      INNER JOIN usuarios u ON o.usuario_id = u.id
      INNER JOIN publicaciones s ON s.usuario_id = ? AND s.tipo = 'solicitud' AND s.activo = 1 AND o.ciudad = s.ciudad
-     WHERE o.tipo = 'oferta' AND o.activo = 1`,
+     WHERE o.tipo = 'oferta' AND o.activo = 1
+     AND (
+       NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = o.id)
+       OR NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = s.id)
+       OR EXISTS (
+         SELECT 1 FROM pub_esp peo INNER JOIN pub_esp pes ON peo.especialidad_id = pes.especialidad_id
+         WHERE peo.publicacion_id = o.id AND pes.publicacion_id = s.id
+       )
+     )`,
     [req.params.usuario_id],
     (err, clinicas) => {
       if (err) {
