@@ -13,6 +13,9 @@
             <div class="logo">🦷 DentalJobs</div>
             <div class="nav-buttons" id="navButtonsLogueado">
                 <button class="btn-primary btn-small" id="btnPublicar" onclick="app.modal.abrirPublicar()" style="display: none;">Publicar</button>
+                <button class="btn-outline btn-small" id="btnAlertas" onclick="app.alertas.mostrar()" style="display: none; position: relative;">
+                    🔔 <span id="alertasBadge" style="display: none; background: #ef4444; color: white; border-radius: 50%; padding: 0.1rem 0.4rem; font-size: 0.7rem; position: absolute; top: -4px; right: -4px;">0</span>
+                </button>
                 <button class="btn-outline btn-small" id="btnPerfil" onclick="app.modal.abrirPerfil()" style="display: none;">Mi perfil</button>
                 <button class="btn-text btn-small" id="btnLogout" onclick="app.auth.logout()" style="display: none;">Logout</button>
             </div>
@@ -173,6 +176,7 @@
                 <button id="btnMias" onclick="app.filtros.mostrarMias(this)" style="display: none;">Mis publicaciones</button>
                 <button id="btnPublicaciones" onclick="app.filtros.mostrarMisPublicaciones(this)" style="display: none;">Publicaciones</button>
                 <button id="btnContactadas" onclick="app.filtros.mostrarContactadas(this)" style="display: none;">Contactadas</button>
+                <button id="btnFavoritos" onclick="app.filtros.mostrarFavoritos(this)" style="display: none;">⭐ Favoritos</button>
                 <button id="btnMisPostulacionesDentistas" onclick="app.filtros.mostrarMisPostulacionesDentistas(this)" style="display: none;">Mis Postulaciones a Dentistas</button>
                 <button id="btnMisPostulacionesDentistasAceptadas" onclick="app.filtros.mostrarMisPostulacionesDentistasAceptadas(this)" style="display: none;">Mis Postulaciones a Dentistas Aceptadas</button>
             </div>
@@ -207,6 +211,25 @@
                         <option value="Flexible">Flexible</option>
                     </select>
                 </div>
+                <div class="filter-group">
+                    <label for="filterSalarioMin">Salario mínimo</label>
+                    <input id="filterSalarioMin" type="number" placeholder="Ej: 20000" oninput="app.publicaciones.cargar()">
+                </div>
+                <div class="filter-group">
+                    <label for="filterExperienciaMin">Años de experiencia</label>
+                    <input id="filterExperienciaMin" type="number" placeholder="Ej: 3" oninput="app.publicaciones.cargar()">
+                </div>
+                <div class="filter-group">
+                    <label for="filterOrden">Ordenar por</label>
+                    <select id="filterOrden" onchange="app.publicaciones.cargar()">
+                        <option value="recientes">Más recientes</option>
+                        <option value="salario">Salario</option>
+                        <option value="relevancia">Relevancia</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-top: 1rem;">
+                <button class="btn-outline btn-small" id="btnGuardarBusqueda" onclick="app.busquedas.guardarActual()" style="display: none;">💾 Guardar esta búsqueda</button>
             </div>
         </div>
 
@@ -279,6 +302,10 @@
                         <input id="ofertaSalario" type="text" placeholder="Ej: 2000-2500€/mes">
                     </div>
                     <div class="form-group">
+                        <label for="ofertaExperiencia">Años de experiencia exigidos</label>
+                        <input id="ofertaExperiencia" type="number" min="0" placeholder="Ej: 3">
+                    </div>
+                    <div class="form-group">
                         <label for="ofertaDescripcion">Descripción *</label>
                         <textarea id="ofertaDescripcion" required></textarea>
                     </div>
@@ -333,6 +360,10 @@
                             <option value="Parcial">Parcial</option>
                             <option value="Flexible">Flexible</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="solicitudExperiencia">Años de experiencia</label>
+                        <input id="solicitudExperiencia" type="number" min="0" placeholder="Ej: 5">
                     </div>
                     <div class="form-group">
                         <label for="solicitudDescripcion">Perfil y experiencia *</label>

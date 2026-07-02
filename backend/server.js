@@ -395,10 +395,32 @@ app.get("/especialidades", (req, res) => {
 =========================== */
 
 app.get("/publicaciones", (req, res) => {
-  const { tipo, especialidad, ciudad, usuario_id } = req.query;
+  const { tipo, especialidad, ciudad, usuario_id, contrato, jornada, salarioMin, experienciaMin, sort, paraUsuarioId } = req.query;
 
-  let query = "SELECT p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id WHERE p.activo = 1";
-  const params = [];
+  let selectCols = "p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad";
+  const selectParams = [];
+
+  const usarRelevancia = sort === 'relevancia' && paraUsuarioId;
+  if (usarRelevancia) {
+    selectCols += `, CASE WHEN EXISTS (
+      SELECT 1 FROM publicaciones v
+      WHERE v.usuario_id = ? AND v.tipo != p.tipo AND v.activo = 1
+      AND (v.ciudad = p.ciudad OR v.ciudad LIKE '%' || p.ciudad || '%' OR p.ciudad LIKE '%' || v.ciudad || '%')
+      AND (
+        NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
+        OR NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = v.id)
+        OR EXISTS (
+          SELECT 1 FROM publicacion_especialidades pev
+          INNER JOIN publicacion_especialidades pep ON pev.especialidad_id = pep.especialidad_id
+          WHERE pev.publicacion_id = v.id AND pep.publicacion_id = p.id
+        )
+      )
+    ) THEN 1 ELSE 0 END as relevancia_score`;
+    selectParams.push(paraUsuarioId);
+  }
+
+  let query = `SELECT ${selectCols} FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id WHERE p.activo = 1`;
+  const params = [...selectParams];
 
   if (tipo) {
     query += " AND p.tipo = ?";
@@ -410,14 +432,49 @@ app.get("/publicaciones", (req, res) => {
     params.push(usuario_id);
   }
 
-  // Nota: Para filtrar por especialidad, el frontend debe hacer un JOIN con publicacion_especialidades
-  // O puede filtrar después de obtener los datos
   if (ciudad) {
     query += " AND p.ciudad LIKE ?";
     params.push(`%${ciudad}%`);
   }
 
-  query += " ORDER BY p.creado_en DESC";
+  if (contrato) {
+    query += " AND p.contrato = ?";
+    params.push(contrato);
+  }
+
+  if (jornada) {
+    query += " AND p.jornada = ?";
+    params.push(jornada);
+  }
+
+  if (especialidad) {
+    query += " AND EXISTS (SELECT 1 FROM publicacion_especialidades pe WHERE pe.publicacion_id = p.id AND pe.especialidad_id = ?)";
+    params.push(especialidad);
+  }
+
+  if (salarioMin) {
+    query += " AND p.salario_min >= ?";
+    params.push(parseInt(salarioMin));
+  }
+
+  if (experienciaMin) {
+    if (tipo === 'solicitud') {
+      // Dentistas con al menos esta experiencia
+      query += " AND p.experiencia_minima >= ?";
+    } else {
+      // Ofertas que exigen como máximo esta experiencia (el dentista sí califica)
+      query += " AND p.experiencia_minima <= ?";
+    }
+    params.push(parseInt(experienciaMin));
+  }
+
+  if (sort === 'salario') {
+    query += " ORDER BY p.salario_min DESC, p.creado_en DESC";
+  } else if (usarRelevancia) {
+    query += " ORDER BY relevancia_score DESC, p.creado_en DESC";
+  } else {
+    query += " ORDER BY p.creado_en DESC";
+  }
 
   const limit = Math.min(parseInt(req.query.limit) || 20, 500);
   const page = Math.max(parseInt(req.query.page) || 1, 1);
@@ -489,8 +546,58 @@ app.get("/publicaciones/usuario/:usuario_id/candidatos", verifyToken, (req, res)
   );
 });
 
+// Comprueba las búsquedas guardadas del mismo tipo que la publicación recién creada
+// y genera una alerta para cada una cuyos criterios coincidan.
+function generarAlertasParaPublicacion(publicacionId, tipo, ciudad, especialidadIds, contrato, jornada, salarioMin, experienciaMinima) {
+  db.all(
+    "SELECT * FROM busquedas_guardadas WHERE tipo = ?",
+    [tipo],
+    (err, busquedas) => {
+      if (err || !busquedas) {
+        if (err) console.error(err);
+        return;
+      }
+
+      const coinciden = busquedas.filter(b => {
+        if (b.ciudad && !(ciudad.toLowerCase().includes(b.ciudad.toLowerCase()) || b.ciudad.toLowerCase().includes(ciudad.toLowerCase()))) {
+          return false;
+        }
+        if (b.especialidad_id && !especialidadIds.includes(b.especialidad_id)) {
+          return false;
+        }
+        if (b.contrato && b.contrato !== contrato) {
+          return false;
+        }
+        if (b.jornada && b.jornada !== jornada) {
+          return false;
+        }
+        if (b.salario_min && (salarioMin === null || salarioMin < b.salario_min)) {
+          return false;
+        }
+        if (b.experiencia_minima !== null && b.experiencia_minima !== undefined && experienciaMinima !== null) {
+          if (tipo === 'oferta' && experienciaMinima > b.experiencia_minima) {
+            return false; // la oferta exige más experiencia de la que tiene quien busca
+          }
+          if (tipo === 'solicitud' && experienciaMinima < b.experiencia_minima) {
+            return false; // el dentista tiene menos experiencia de la buscada
+          }
+        }
+        return true;
+      });
+
+      if (coinciden.length === 0) return;
+
+      const stmt = db.prepare("INSERT INTO alertas (usuario_id, busqueda_guardada_id, publicacion_id) VALUES (?, ?, ?)");
+      coinciden.forEach(b => {
+        stmt.run(b.usuario_id, b.id, publicacionId);
+      });
+      stmt.finalize();
+    }
+  );
+}
+
 app.post("/publicaciones", verifyToken, (req, res) => {
-  const { tipo, descripcion, ciudad, especialidades, contrato, jornada, salario, nombre_contacto, email_contacto, telefono_contacto } = req.body;
+  const { tipo, descripcion, ciudad, especialidades, contrato, jornada, salario, experiencia, nombre_contacto, email_contacto, telefono_contacto } = req.body;
 
   if (!tipo || !ciudad) {
     return res.status(400).json({ error: "Faltan datos obligatorios" });
@@ -502,11 +609,15 @@ app.post("/publicaciones", verifyToken, (req, res) => {
     return res.status(403).json({ error: "No puedes crear este tipo de publicación" });
   }
 
+  const salarioMatch = (salario || '').match(/\d+/);
+  const salarioMin = salarioMatch ? parseInt(salarioMatch[0]) : null;
+  const experienciaMinima = experiencia !== undefined && experiencia !== '' ? parseInt(experiencia) : null;
+
   db.run(
     `INSERT INTO publicaciones
-     (tipo, descripcion, ciudad, especialidad_id, contrato, jornada, salario, usuario_id, nombre_contacto, email_contacto, telefono_contacto)
-     VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
-    [tipo, descripcion, ciudad, contrato || null, jornada || null, salario || null, req.usuario.id, nombre_contacto, email_contacto, telefono_contacto],
+     (tipo, descripcion, ciudad, especialidad_id, contrato, jornada, salario, salario_min, experiencia_minima, usuario_id, nombre_contacto, email_contacto, telefono_contacto)
+     VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [tipo, descripcion, ciudad, contrato || null, jornada || null, salario || null, salarioMin, experienciaMinima, req.usuario.id, nombre_contacto, email_contacto, telefono_contacto],
     function(err) {
       if (err) {
         console.error(err);
@@ -523,6 +634,8 @@ app.post("/publicaciones", verifyToken, (req, res) => {
         });
         stmt.finalize();
       }
+
+      generarAlertasParaPublicacion(publicacionId, tipo, ciudad, especialidades || [], contrato, jornada, salarioMin, experienciaMinima);
 
       res.json({
         mensaje: "Publicación creada",
@@ -592,7 +705,7 @@ app.post("/publicaciones/:id/especialidades", verifyToken, (req, res) => {
 });
 
 app.put("/publicaciones/:id", verifyToken, (req, res) => {
-  const { descripcion, ciudad, especialidades, contrato, jornada, salario, nombre_contacto, email_contacto, telefono_contacto } = req.body;
+  const { descripcion, ciudad, especialidades, contrato, jornada, salario, experiencia, nombre_contacto, email_contacto, telefono_contacto } = req.body;
   const publicacionId = req.params.id;
 
   db.get("SELECT usuario_id FROM publicaciones WHERE id = ?", [publicacionId], (err, pub) => {
@@ -609,12 +722,16 @@ app.put("/publicaciones/:id", verifyToken, (req, res) => {
       return res.status(403).json({ error: "No tienes permiso para modificar esta publicación" });
     }
 
+    const salarioMatch = (salario || '').match(/\d+/);
+    const salarioMin = salarioMatch ? parseInt(salarioMatch[0]) : null;
+    const experienciaMinima = experiencia !== undefined && experiencia !== '' ? parseInt(experiencia) : null;
+
     db.run(
       `UPDATE publicaciones
-       SET descripcion = ?, ciudad = ?, contrato = ?, jornada = ?, salario = ?,
+       SET descripcion = ?, ciudad = ?, contrato = ?, jornada = ?, salario = ?, salario_min = ?, experiencia_minima = ?,
            nombre_contacto = ?, email_contacto = ?, telefono_contacto = ?
        WHERE id = ?`,
-      [descripcion, ciudad, contrato || null, jornada || null, salario || null,
+      [descripcion, ciudad, contrato || null, jornada || null, salario || null, salarioMin, experienciaMinima,
        nombre_contacto, email_contacto, telefono_contacto || null, publicacionId],
       function(err) {
         if (err) {
@@ -1853,6 +1970,161 @@ app.delete("/candidaturas/:id", verifyToken, (req, res) => {
           res.json({ mensaje: "Candidatura eliminada" });
         }
       );
+    }
+  );
+});
+
+/* ===========================
+   🔹 FAVORITOS
+=========================== */
+
+app.post("/favoritos", verifyToken, (req, res) => {
+  const { publicacion_id } = req.body;
+  const usuario_id = req.usuario.id;
+
+  if (!publicacion_id) {
+    return res.status(400).json({ error: "publicacion_id requerido" });
+  }
+
+  db.run(
+    "INSERT INTO favoritos (usuario_id, publicacion_id) VALUES (?, ?)",
+    [usuario_id, publicacion_id],
+    function(err) {
+      if (err) {
+        if (err.message.includes("UNIQUE")) {
+          return res.status(400).json({ error: "Ya está en tus favoritos" });
+        }
+        console.error(err);
+        return res.status(500).json({ error: "Error al añadir a favoritos" });
+      }
+      res.json({ mensaje: "Añadido a favoritos", favorito_id: this.lastID });
+    }
+  );
+});
+
+app.get("/favoritos", verifyToken, (req, res) => {
+  db.all(
+    `SELECT f.id as favorito_id, p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email
+     FROM favoritos f
+     INNER JOIN publicaciones p ON f.publicacion_id = p.id
+     LEFT JOIN usuarios u ON p.usuario_id = u.id
+     WHERE f.usuario_id = ?
+     ORDER BY f.creado_en DESC`,
+    [req.usuario.id],
+    (err, favoritos) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener favoritos" });
+      }
+      res.json(favoritos || []);
+    }
+  );
+});
+
+app.delete("/favoritos/:publicacion_id", verifyToken, (req, res) => {
+  db.run(
+    "DELETE FROM favoritos WHERE usuario_id = ? AND publicacion_id = ?",
+    [req.usuario.id, req.params.publicacion_id],
+    (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al quitar de favoritos" });
+      }
+      res.json({ mensaje: "Quitado de favoritos" });
+    }
+  );
+});
+
+/* ===========================
+   🔹 BÚSQUEDAS GUARDADAS Y ALERTAS
+=========================== */
+
+app.post("/busquedas-guardadas", verifyToken, (req, res) => {
+  const { nombre, tipo, ciudad, especialidad_id, contrato, jornada, salarioMin, experienciaMin } = req.body;
+  const usuario_id = req.usuario.id;
+
+  if (!tipo) {
+    return res.status(400).json({ error: "tipo requerido" });
+  }
+
+  db.run(
+    `INSERT INTO busquedas_guardadas
+     (usuario_id, nombre, tipo, ciudad, especialidad_id, contrato, jornada, salario_min, experiencia_minima)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [usuario_id, nombre || null, tipo, ciudad || null, especialidad_id || null, contrato || null, jornada || null,
+     salarioMin || null, experienciaMin !== undefined && experienciaMin !== '' ? experienciaMin : null],
+    function(err) {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al guardar búsqueda" });
+      }
+      res.json({ mensaje: "Búsqueda guardada", id: this.lastID });
+    }
+  );
+});
+
+app.get("/busquedas-guardadas", verifyToken, (req, res) => {
+  db.all(
+    "SELECT * FROM busquedas_guardadas WHERE usuario_id = ? ORDER BY creado_en DESC",
+    [req.usuario.id],
+    (err, busquedas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener búsquedas guardadas" });
+      }
+      res.json(busquedas || []);
+    }
+  );
+});
+
+app.delete("/busquedas-guardadas/:id", verifyToken, (req, res) => {
+  db.get("SELECT usuario_id FROM busquedas_guardadas WHERE id = ?", [req.params.id], (err, busqueda) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al eliminar búsqueda guardada" });
+    }
+    if (!busqueda || busqueda.usuario_id !== req.usuario.id) {
+      return res.status(403).json({ error: "No tienes permiso para eliminar esta búsqueda" });
+    }
+    db.run("DELETE FROM busquedas_guardadas WHERE id = ?", [req.params.id], (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al eliminar búsqueda guardada" });
+      }
+      res.json({ mensaje: "Búsqueda guardada eliminada" });
+    });
+  });
+});
+
+app.get("/alertas", verifyToken, (req, res) => {
+  db.all(
+    `SELECT a.id as alerta_id, a.leido, a.creado_en as alerta_creado_en, p.*
+     FROM alertas a
+     INNER JOIN publicaciones p ON a.publicacion_id = p.id
+     WHERE a.usuario_id = ?
+     ORDER BY a.creado_en DESC`,
+    [req.usuario.id],
+    (err, alertas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener alertas" });
+      }
+      db.run("UPDATE alertas SET leido = 1 WHERE usuario_id = ? AND leido = 0", [req.usuario.id]);
+      res.json(alertas || []);
+    }
+  );
+});
+
+app.get("/alertas/no-leidas/count", verifyToken, (req, res) => {
+  db.get(
+    "SELECT COUNT(*) as total FROM alertas WHERE usuario_id = ? AND leido = 0",
+    [req.usuario.id],
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener alertas sin leer" });
+      }
+      res.json({ total: result.total || 0 });
     }
   );
 });

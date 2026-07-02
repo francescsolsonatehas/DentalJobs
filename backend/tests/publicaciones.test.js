@@ -97,4 +97,75 @@ test("publicaciones", async (t) => {
     assert.equal(res.status, 200);
     assert.ok(res.body.length <= 2);
   });
+
+  await t.test("filtro por contrato solo devuelve publicaciones con ese contrato", async () => {
+    await request(app)
+      .post("/publicaciones")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ tipo: "oferta", ciudad: "FiltroContrato", descripcion: "x", contrato: "Temporal" });
+    await request(app)
+      .post("/publicaciones")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ tipo: "oferta", ciudad: "FiltroContrato", descripcion: "x", contrato: "Indefinido" });
+
+    const res = await request(app).get("/publicaciones?ciudad=FiltroContrato&contrato=Temporal");
+    assert.equal(res.status, 200);
+    assert.ok(res.body.length >= 1);
+    assert.ok(res.body.every((p) => p.contrato === "Temporal"));
+  });
+
+  await t.test("filtro por jornada solo devuelve publicaciones con esa jornada", async () => {
+    await request(app)
+      .post("/publicaciones")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ tipo: "oferta", ciudad: "FiltroJornada", descripcion: "x", jornada: "Parcial" });
+    await request(app)
+      .post("/publicaciones")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ tipo: "oferta", ciudad: "FiltroJornada", descripcion: "x", jornada: "Completa" });
+
+    const res = await request(app).get("/publicaciones?ciudad=FiltroJornada&jornada=Parcial");
+    assert.equal(res.status, 200);
+    assert.ok(res.body.length >= 1);
+    assert.ok(res.body.every((p) => p.jornada === "Parcial"));
+  });
+
+  await t.test("salario_min se calcula a partir del texto del salario", async () => {
+    const res = await request(app)
+      .post("/publicaciones")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ tipo: "oferta", ciudad: "TestSalario", descripcion: "x", salario: "30000-35000€" });
+
+    const listado = await request(app).get("/publicaciones?ciudad=TestSalario");
+    const pub = listado.body.find((p) => p.id === res.body.id);
+    assert.equal(pub.salario_min, 30000);
+  });
+
+  await t.test("filtro salarioMin excluye publicaciones por debajo del mínimo", async () => {
+    await request(app)
+      .post("/publicaciones")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ tipo: "oferta", ciudad: "TestSalarioMin", descripcion: "x", salario: "40000" });
+
+    const conFiltroAlto = await request(app).get("/publicaciones?ciudad=TestSalarioMin&salarioMin=45000");
+    assert.equal(conFiltroAlto.body.length, 0);
+
+    const conFiltroBajo = await request(app).get("/publicaciones?ciudad=TestSalarioMin&salarioMin=35000");
+    assert.equal(conFiltroBajo.body.length, 1);
+  });
+
+  await t.test("experiencia_minima se guarda y sort=salario ordena descendente", async () => {
+    await request(app)
+      .post("/publicaciones")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ tipo: "oferta", ciudad: "TestOrden", descripcion: "x", salario: "20000", experiencia: 2 });
+    await request(app)
+      .post("/publicaciones")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ tipo: "oferta", ciudad: "TestOrden", descripcion: "x", salario: "50000", experiencia: 4 });
+
+    const res = await request(app).get("/publicaciones?ciudad=TestOrden&sort=salario");
+    assert.equal(res.body[0].salario_min, 50000);
+    assert.equal(res.body[0].experiencia_minima, 4);
+  });
 });

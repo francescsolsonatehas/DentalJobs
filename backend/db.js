@@ -132,6 +132,14 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
+  db.run(`ALTER TABLE publicaciones ADD COLUMN salario_min INTEGER`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
+  db.run(`ALTER TABLE publicaciones ADD COLUMN experiencia_minima INTEGER`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
   db.run(`
     CREATE TABLE IF NOT EXISTS archivos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -144,6 +152,56 @@ db.serialize(() => {
       creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS favoritos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      publicacion_id INTEGER NOT NULL REFERENCES publicaciones(id),
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(usuario_id, publicacion_id)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS busquedas_guardadas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      nombre TEXT,
+      tipo TEXT NOT NULL,
+      ciudad TEXT,
+      especialidad_id INTEGER REFERENCES especialidades(id),
+      contrato TEXT,
+      jornada TEXT,
+      salario_min INTEGER,
+      experiencia_minima INTEGER,
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS alertas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      busqueda_guardada_id INTEGER REFERENCES busquedas_guardadas(id),
+      publicacion_id INTEGER REFERENCES publicaciones(id),
+      leido INTEGER DEFAULT 0,
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Backfill: calcular salario_min para publicaciones existentes que aún no lo tienen
+  db.all("SELECT id, salario FROM publicaciones WHERE salario_min IS NULL AND salario IS NOT NULL", (err, filas) => {
+    if (err || !filas) return;
+    const stmt = db.prepare("UPDATE publicaciones SET salario_min = ? WHERE id = ?");
+    filas.forEach(fila => {
+      const match = (fila.salario || '').match(/\d+/);
+      if (match) {
+        stmt.run(parseInt(match[0]), fila.id);
+      }
+    });
+    stmt.finalize();
+  });
 
   db.get("SELECT COUNT(*) as count FROM especialidades", (err, row) => {
     if (row.count === 0) {

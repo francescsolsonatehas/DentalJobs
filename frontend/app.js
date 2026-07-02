@@ -364,8 +364,11 @@ const app = {
       const especialidad = document.getElementById("filterEspecialidad").value;
       const contrato = document.getElementById("filterContrato").value;
       const jornada = document.getElementById("filterJornada").value;
+      const salarioMin = document.getElementById("filterSalarioMin").value;
+      const experienciaMin = document.getElementById("filterExperienciaMin").value;
+      const orden = document.getElementById("filterOrden").value;
 
-      estadoApp.filtros = { tipo, ciudad, especialidad, contrato, jornada, soloMias: estadoApp.filtros.soloMias };
+      estadoApp.filtros = { tipo, ciudad, especialidad, contrato, jornada, salarioMin, experienciaMin, orden, soloMias: estadoApp.filtros.soloMias };
 
       let url = "/publicaciones?";
       if (tipo) url += `tipo=${tipo}&`;
@@ -376,6 +379,12 @@ const app = {
         if (especialidad) url += `especialidad=${especialidad}&`;
         if (contrato) url += `contrato=${encodeURIComponent(contrato)}&`;
         if (jornada) url += `jornada=${encodeURIComponent(jornada)}&`;
+        if (salarioMin) url += `salarioMin=${salarioMin}&`;
+        if (experienciaMin) url += `experienciaMin=${experienciaMin}&`;
+        if (orden && orden !== 'recientes') {
+          url += `sort=${orden}&`;
+          if (orden === 'relevancia' && estadoApp.usuario) url += `paraUsuarioId=${estadoApp.usuario.id}&`;
+        }
       }
 
       const limit = 20;
@@ -407,6 +416,21 @@ const app = {
       }
     },
 
+    async cargarFavoritos() {
+      if (!estadoApp.usuario) {
+        utils.mostrarAlerta("Debes iniciar sesión", "error");
+        return;
+      }
+
+      try {
+        const publicaciones = await utils.request("/favoritos");
+        estadoApp.publicaciones = publicaciones;
+        app.ui.renderizarPublicaciones();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
     async crear(tipo) {
       if (!estadoApp.token) {
         utils.mostrarAlerta("Debes iniciar sesión para publicar", "error");
@@ -429,6 +453,7 @@ const app = {
           contrato: document.getElementById("ofertaContrato").value || null,
           jornada: document.getElementById("ofertaJornada").value || null,
           salario: document.getElementById("ofertaSalario").value || null,
+          experiencia: document.getElementById("ofertaExperiencia").value || null,
           nombre_contacto: document.getElementById("ofertaNombreContacto").value,
           email_contacto: document.getElementById("ofertaEmailContacto").value,
           telefono_contacto: document.getElementById("ofertaTelefonoContacto").value || null
@@ -447,6 +472,7 @@ const app = {
           especialidades: especialidades,
           contrato: document.getElementById("solicitudContrato").value || null,
           jornada: document.getElementById("solicitudJornada").value || null,
+          experiencia: document.getElementById("solicitudExperiencia").value || null,
           nombre_contacto: document.getElementById("solicitudNombreContacto").value,
           email_contacto: document.getElementById("solicitudEmailContacto").value,
           telefono_contacto: document.getElementById("solicitudTelefonoContacto").value || null
@@ -616,6 +642,18 @@ const app = {
       filtersTitle.textContent = "Solicitudes contactadas";
 
       app.publicaciones.cargarContactadas();
+    },
+
+    mostrarFavoritos(btn) {
+      estadoApp.filtros.soloMias = false;
+      estadoApp.filtros.contactadas = false;
+      document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
+
+      const filtersTitle = document.getElementById("filtrosTitle");
+      filtersTitle.textContent = "Favoritos";
+
+      app.publicaciones.cargarFavoritos();
     },
 
     mostrarMisPostulaciones(btn) {
@@ -848,6 +886,12 @@ const app = {
               <td style="padding: 0.8rem;">${publicacion.salario}</td>
             </tr>
             ` : ''}
+            ${publicacion.experiencia_minima !== null && publicacion.experiencia_minima !== undefined ? `
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🎓 Experiencia:</td>
+              <td style="padding: 0.8rem;">${publicacion.experiencia_minima} años</td>
+            </tr>
+            ` : ''}
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📅 Publicado:</td>
               <td style="padding: 0.8rem;">${utils.formatearFecha(publicacion.creado_en)}</td>
@@ -969,6 +1013,10 @@ const app = {
             <input id="editSalario" type="text" value="${pub.salario || ''}">
           </div>
           <div class="form-group">
+            <label for="editExperiencia">Años de experiencia</label>
+            <input id="editExperiencia" type="number" min="0" value="${pub.experiencia_minima ?? ''}">
+          </div>
+          <div class="form-group">
             <label for="editNombreContacto">Nombre de contacto *</label>
             <input id="editNombreContacto" type="text" value="${pub.nombre_contacto}" required>
           </div>
@@ -1016,6 +1064,7 @@ const app = {
           contrato: document.getElementById("editContrato").value || null,
           jornada: document.getElementById("editJornada").value || null,
           salario: document.getElementById("editSalario").value || null,
+          experiencia: document.getElementById("editExperiencia").value || null,
           nombre_contacto: document.getElementById("editNombreContacto").value,
           email_contacto: document.getElementById("editEmailContacto").value,
           telefono_contacto: document.getElementById("editTelefonoContacto").value || null
@@ -3180,6 +3229,7 @@ const app = {
       this.statsPollingInterval = setInterval(async () => {
         try {
           await app.ui.actualizarStats();
+          await app.alertas.actualizarContador();
         } catch (error) {
           console.error("Error al actualizar stats:", error);
         }
@@ -3222,6 +3272,10 @@ const app = {
       document.getElementById("btnPublicar").style.display = "inline-block";
       document.getElementById("btnPerfil").style.display = "inline-block";
       document.getElementById("btnLogout").style.display = "inline-block";
+      document.getElementById("btnGuardarBusqueda").style.display = "inline-block";
+      document.getElementById("btnFavoritos").style.display = "inline-block";
+      document.getElementById("btnAlertas").style.display = "inline-block";
+      app.alertas.actualizarContador();
 
       // Actualizar texto del hero según tipo de usuario
       const heroTitle = document.querySelector("#heroPlataforma h1");
@@ -3376,12 +3430,19 @@ const app = {
 
       // Cargar postulaciones del usuario actual para verificar estado
       let misPostulaciones = [];
+      let misFavoritos = new Set();
       if (estadoApp.usuario) {
         try {
           const data = await utils.request("/candidaturas/mis-postulaciones");
           misPostulaciones = data.candidaturas || [];
         } catch (error) {
           console.error("Error al cargar postulaciones:", error);
+        }
+        try {
+          const favoritos = await utils.request("/favoritos");
+          misFavoritos = new Set(favoritos.map(f => f.id));
+        } catch (error) {
+          console.error("Error al cargar favoritos:", error);
         }
       }
 
@@ -3439,10 +3500,12 @@ const app = {
           }
         }
 
+        const esFavorito = misFavoritos.has(pub.id);
         return `
           <div class="card ${tipoClase}">
-            <div class="card-header">
-              ${tipoBadge ? `<span class="card-type ${tipoClase}">${tipoBadge}</span>` : ""}
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              ${tipoBadge ? `<span class="card-type ${tipoClase}">${tipoBadge}</span>` : "<span></span>"}
+              ${estadoApp.usuario ? `<button onclick="app.favoritos.toggle(${pub.id}, this)" data-favorito="${esFavorito}" style="background: none; border: none; cursor: pointer; font-size: 1.3rem; padding: 0;" title="${esFavorito ? 'Quitar de favoritos' : 'Guardar en favoritos'}">${esFavorito ? '⭐' : '☆'}</button>` : ''}
             </div>
             <h3>${generatedTitle}</h3>
             <div class="card-details">
@@ -3453,6 +3516,8 @@ const app = {
               ${especialidad ? `<div class="detail"><span class="detail-icon">🦷</span><span>${especialidad.nombre}</span></div>` : ""}
               ${pub.contrato ? `<div class="detail"><span class="detail-icon">📋</span><span>${pub.contrato}</span></div>` : ""}
               ${pub.jornada ? `<div class="detail"><span class="detail-icon">⏰</span><span>${pub.jornada}</span></div>` : ""}
+              ${pub.salario ? `<div class="detail"><span class="detail-icon">💰</span><span>${pub.salario}</span></div>` : ""}
+              ${pub.experiencia_minima !== null && pub.experiencia_minima !== undefined ? `<div class="detail"><span class="detail-icon">🎓</span><span>${pub.experiencia_minima} años exp.</span></div>` : ""}
             </div>
             <div class="badges">
               ${pub.nombre_contacto ? `<span class="badge">${pub.nombre_contacto}</span>` : ""}
@@ -3506,6 +3571,121 @@ const app = {
         : "";
 
       container.innerHTML = `<div class="publicaciones">${html.join("")}</div>${botonCargarMas}`;
+    }
+  },
+
+  // ============================================
+  // Módulo: Favoritos
+  // ============================================
+
+  favoritos: {
+    async toggle(publicacionId, btn) {
+      const esFavorito = btn.dataset.favorito === "true";
+      try {
+        if (esFavorito) {
+          await utils.request(`/favoritos/${publicacionId}`, { method: "DELETE" });
+          btn.dataset.favorito = "false";
+          btn.textContent = "☆";
+          btn.title = "Guardar en favoritos";
+        } else {
+          await utils.request("/favoritos", {
+            method: "POST",
+            body: JSON.stringify({ publicacion_id: publicacionId })
+          });
+          btn.dataset.favorito = "true";
+          btn.textContent = "⭐";
+          btn.title = "Quitar de favoritos";
+        }
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    }
+  },
+
+  // ============================================
+  // Módulo: Búsquedas guardadas
+  // ============================================
+
+  busquedas: {
+    async guardarActual() {
+      if (!estadoApp.usuario) {
+        utils.mostrarAlerta("Debes iniciar sesión", "error");
+        return;
+      }
+
+      const f = estadoApp.filtros;
+      const tipo = f.tipo || (estadoApp.tipoUsuario === 'clinica' ? 'solicitud' : 'oferta');
+
+      try {
+        await utils.request("/busquedas-guardadas", {
+          method: "POST",
+          body: JSON.stringify({
+            tipo,
+            ciudad: f.ciudad || null,
+            especialidad_id: f.especialidad || null,
+            contrato: f.contrato || null,
+            jornada: f.jornada || null,
+            salarioMin: f.salarioMin || null,
+            experienciaMin: f.experienciaMin || null
+          })
+        });
+        utils.mostrarAlerta("Búsqueda guardada. Te avisaremos con la campana 🔔 cuando haya novedades.", "success");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    }
+  },
+
+  // ============================================
+  // Módulo: Alertas
+  // ============================================
+
+  alertas: {
+    async actualizarContador() {
+      if (!estadoApp.usuario) return;
+      try {
+        const data = await utils.request("/alertas/no-leidas/count");
+        const badge = document.getElementById("alertasBadge");
+        if (data.total > 0) {
+          badge.textContent = data.total;
+          badge.style.display = "inline-block";
+        } else {
+          badge.style.display = "none";
+        }
+      } catch (error) {
+        console.error("Error al obtener alertas:", error);
+      }
+    },
+
+    async mostrar() {
+      try {
+        const alertas = await utils.request("/alertas");
+
+        if (alertas.length === 0) {
+          utils.mostrarAlerta("No tienes alertas todavía", "info");
+        } else {
+          let html = `<div class="candidatos-list">`;
+          alertas.forEach(a => {
+            html += `
+              <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+                <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">${a.descripcion || a.ciudad}</h4>
+                <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📍 Ciudad:</strong> ${a.ciudad}</p>
+                ${a.salario ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>💰 Salario:</strong> ${a.salario}</p>` : ''}
+                <p style="margin: 0.5rem 0 0 0; font-size: 0.8rem; color: #9ca3af;">${utils.formatearFecha(a.alerta_creado_en)}</p>
+              </div>
+            `;
+          });
+          html += "</div>";
+          document.getElementById("interesadosBody").innerHTML = html;
+          document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = `Alertas (${alertas.length})`;
+          document.getElementById("modalInteresados").classList.add("active");
+        }
+
+        // El propio GET /alertas ya las marca como leídas en el backend
+        document.getElementById("alertasBadge").style.display = "none";
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
     }
   },
 
