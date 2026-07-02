@@ -653,8 +653,12 @@ app.get("/publicaciones/:id/especialidades", (req, res) => {
   db.all(
     `SELECT e.id, e.nombre FROM especialidades e
      INNER JOIN publicacion_especialidades pe ON e.id = pe.especialidad_id
-     WHERE pe.publicacion_id = ?`,
-    [publicacionId],
+     WHERE pe.publicacion_id = ?
+     UNION
+     SELECT e.id, e.nombre FROM especialidades e
+     INNER JOIN publicaciones p ON p.especialidad_id = e.id
+     WHERE p.id = ? AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = ?)`,
+    [publicacionId, publicacionId, publicacionId],
     (err, especialidades) => {
       if (err) {
         console.error(err);
