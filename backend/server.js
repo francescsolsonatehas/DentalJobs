@@ -685,7 +685,7 @@ app.delete("/publicaciones/:id", verifyToken, (req, res) => {
 // Endpoints de estadísticas
 app.get("/stats/total-dentistas", (req, res) => {
   db.get(
-    "SELECT COUNT(*) as total FROM publicaciones WHERE tipo = 'solicitud' AND activo = 1",
+    "SELECT COUNT(DISTINCT usuario_id) as total FROM publicaciones WHERE tipo = 'solicitud' AND activo = 1",
     (err, result) => {
       if (err) {
         console.error(err);
@@ -698,7 +698,7 @@ app.get("/stats/total-dentistas", (req, res) => {
 
 app.get("/stats/total-clinicas", (req, res) => {
   db.get(
-    "SELECT COUNT(*) as total FROM publicaciones WHERE tipo = 'oferta' AND activo = 1",
+    "SELECT COUNT(DISTINCT usuario_id) as total FROM publicaciones WHERE tipo = 'oferta' AND activo = 1",
     (err, result) => {
       if (err) {
         console.error(err);
