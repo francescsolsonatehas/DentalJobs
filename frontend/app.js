@@ -1822,6 +1822,12 @@ const app = {
     },
 
     mostrarDetalleMiPostulacion(post) {
+      // Detener el refresco automático: si no, sobrescribe este detalle con la lista a los pocos segundos
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+        this.pollingInterval = null;
+      }
+
       const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[post.estado];
       const especialidad = post.especialidad_nombre || 'Sin especialidad';
       const fecha = utils.formatearFecha(post.creado_en);
