@@ -1643,8 +1643,7 @@ const app = {
 
     async mostrarOfertasActivas() {
       try {
-        const todas = await utils.request("/publicaciones");
-        const ofertas = todas.filter(p => p.tipo === 'oferta' && p.activo === 1);
+        const ofertas = await utils.request("/publicaciones?tipo=oferta&limit=500");
 
         if (ofertas.length === 0) {
           utils.mostrarAlerta("No hay ofertas activas", "info");
@@ -1902,8 +1901,7 @@ const app = {
 
     async mostrarMisSolicitudes() {
       try {
-        const todas = await utils.request("/publicaciones");
-        const misSolicitudes = todas.filter(p => p.tipo === 'solicitud' && p.usuario_id === estadoApp.usuario.id);
+        const misSolicitudes = await utils.request(`/publicaciones?tipo=solicitud&usuario_id=${estadoApp.usuario.id}&limit=500`);
 
         if (misSolicitudes.length === 0) {
           utils.mostrarAlerta("No has publicado ninguna solicitud", "info");
@@ -2004,13 +2002,7 @@ const app = {
     async mostrarSolicitudConRespuesta(solicitudId) {
       try {
         // Obtener la solicitud completa
-        const todas = await utils.request("/publicaciones");
-        const solicitud = todas.find(p => p.id === solicitudId);
-
-        if (!solicitud) {
-          utils.mostrarAlerta("Solicitud no encontrada", "error");
-          return;
-        }
+        const solicitud = await utils.request(`/publicaciones/${solicitudId}`);
 
         const esp = estadoApp.especialidades.find(e => e.id === solicitud.especialidad_id);
 
@@ -3334,8 +3326,7 @@ const app = {
           `;
         } else {
           // Dentista: mostrar Clínicas, Clínicas Potenciales, Postulaciones a Clínicas y Postulaciones Recibidas
-          const todas = await utils.request("/publicaciones");
-          const ofertas = todas.filter(p => p.tipo === 'oferta').length;
+          const totalClinicas = await utils.request("/stats/total-clinicas");
           const misPostulaciones = await utils.request(`/stats/mis-postulaciones/${estadoApp.usuario.id}`);
           const clinicasPotenciales = await utils.request(`/stats/clinicas-potenciales/${estadoApp.usuario.id}`);
           const postulacionesRecibidas = await utils.request(`/stats/postulaciones-recibidas-dentista/${estadoApp.usuario.id}`);
@@ -3343,7 +3334,7 @@ const app = {
           statsGrid.innerHTML = `
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarTotalClinicas()">
               <span>📋</span>
-              <h3>${ofertas}</h3>
+              <h3>${totalClinicas.total}</h3>
               <p>Clínicas</p>
               <div class="stat-tooltip">Total de clínicas en la plataforma. Ver desglose por especialidad, ciudad o ambas</div>
             </div>

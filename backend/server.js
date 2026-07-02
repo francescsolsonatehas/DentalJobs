@@ -419,7 +419,7 @@ app.get("/publicaciones", (req, res) => {
 
   query += " ORDER BY p.creado_en DESC";
 
-  const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+  const limit = Math.min(parseInt(req.query.limit) || 20, 500);
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   query += " LIMIT ? OFFSET ?";
   params.push(limit, (page - 1) * limit);
@@ -690,6 +690,19 @@ app.get("/stats/total-dentistas", (req, res) => {
       if (err) {
         console.error(err);
         return res.status(500).json({ error: "Error al obtener total de dentistas" });
+      }
+      res.json({ total: result.total || 0 });
+    }
+  );
+});
+
+app.get("/stats/total-clinicas", (req, res) => {
+  db.get(
+    "SELECT COUNT(*) as total FROM publicaciones WHERE tipo = 'oferta' AND activo = 1",
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener total de clínicas" });
       }
       res.json({ total: result.total || 0 });
     }
