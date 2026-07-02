@@ -988,10 +988,20 @@ app.get("/stats/dentistas-por-especialidad", (req, res) => {
      )
      SELECT e.nombre as especialidad, COUNT(DISTINCT s.usuario_id) as total
      FROM publicaciones s
-     LEFT JOIN pub_esp pe ON pe.publicacion_id = s.id
-     LEFT JOIN especialidades e ON pe.especialidad_id = e.id
+     INNER JOIN pub_esp pe ON pe.publicacion_id = s.id
+     INNER JOIN especialidades e ON pe.especialidad_id = e.id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
      GROUP BY e.id, e.nombre
+     UNION ALL
+     SELECT 'Sin especialidad' as especialidad, COUNT(DISTINCT s.usuario_id) as total
+     FROM publicaciones s
+     WHERE s.tipo = 'solicitud' AND s.activo = 1
+     AND NOT EXISTS (
+       SELECT 1 FROM pub_esp pe2
+       INNER JOIN publicaciones s2 ON s2.id = pe2.publicacion_id
+       WHERE s2.usuario_id = s.usuario_id AND s2.tipo = 'solicitud' AND s2.activo = 1
+     )
+     HAVING COUNT(DISTINCT s.usuario_id) > 0
      ORDER BY total DESC`,
     (err, resultado) => {
       if (err) {
@@ -1107,11 +1117,22 @@ app.get("/stats/dentistas-por-ciudad-especialidad", (req, res) => {
      )
      SELECT s.ciudad, e.nombre as especialidad, COUNT(DISTINCT s.usuario_id) as total
      FROM publicaciones s
-     LEFT JOIN pub_esp pe ON pe.publicacion_id = s.id
-     LEFT JOIN especialidades e ON pe.especialidad_id = e.id
+     INNER JOIN pub_esp pe ON pe.publicacion_id = s.id
+     INNER JOIN especialidades e ON pe.especialidad_id = e.id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
      GROUP BY s.ciudad, e.id, e.nombre
-     ORDER BY s.ciudad, e.nombre`,
+     UNION ALL
+     SELECT s.ciudad, 'Sin especialidad' as especialidad, COUNT(DISTINCT s.usuario_id) as total
+     FROM publicaciones s
+     WHERE s.tipo = 'solicitud' AND s.activo = 1
+     AND NOT EXISTS (
+       SELECT 1 FROM pub_esp pe2
+       INNER JOIN publicaciones s2 ON s2.id = pe2.publicacion_id
+       WHERE s2.usuario_id = s.usuario_id AND s2.tipo = 'solicitud' AND s2.activo = 1
+     )
+     GROUP BY s.ciudad
+     HAVING COUNT(DISTINCT s.usuario_id) > 0
+     ORDER BY ciudad, especialidad`,
     (err, resultado) => {
       if (err) {
         console.error(err);
@@ -1124,7 +1145,14 @@ app.get("/stats/dentistas-por-ciudad-especialidad", (req, res) => {
 
 app.get("/stats/dentistas-por-especialidad-lista/:especialidad", (req, res) => {
   db.all(
-    `SELECT s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad,
+    `WITH pub_esp AS (
+       SELECT pe.publicacion_id, pe.especialidad_id FROM publicacion_especialidades pe
+       UNION
+       SELECT p.id as publicacion_id, p.especialidad_id FROM publicaciones p
+       WHERE p.especialidad_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
+     )
+     SELECT s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad,
        GROUP_CONCAT(DISTINCT COALESCE(e2.nombre, e.nombre)) as especialidades
      FROM publicaciones s
      INNER JOIN usuarios u ON s.usuario_id = u.id
@@ -1132,7 +1160,23 @@ app.get("/stats/dentistas-por-especialidad-lista/:especialidad", (req, res) => {
      LEFT JOIN publicacion_especialidades pe2 ON pe2.publicacion_id = s.id
      LEFT JOIN especialidades e2 ON pe2.especialidad_id = e2.id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
-     AND (LOWER(e.nombre) = LOWER(?) OR (? = 'Sin especialidad' AND s.especialidad_id IS NULL))
+     AND (
+       EXISTS (
+         SELECT 1 FROM pub_esp pem
+         INNER JOIN especialidades em ON pem.especialidad_id = em.id
+         INNER JOIN publicaciones sm ON sm.id = pem.publicacion_id
+         WHERE sm.usuario_id = s.usuario_id AND sm.tipo = 'solicitud' AND sm.activo = 1
+         AND LOWER(em.nombre) = LOWER(?)
+       )
+       OR (
+         ? = 'Sin especialidad'
+         AND NOT EXISTS (
+           SELECT 1 FROM pub_esp pen
+           INNER JOIN publicaciones sn ON sn.id = pen.publicacion_id
+           WHERE sn.usuario_id = s.usuario_id AND sn.tipo = 'solicitud' AND sn.activo = 1
+         )
+       )
+     )
      GROUP BY s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad`,
     [req.params.especialidad, req.params.especialidad],
     (err, dentistas) => {
@@ -1170,7 +1214,14 @@ app.get("/stats/dentistas-por-ciudad-lista/:ciudad", (req, res) => {
 
 app.get("/stats/dentistas-por-ciudad-especialidad-lista/:ciudad/:especialidad", (req, res) => {
   db.all(
-    `SELECT s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad,
+    `WITH pub_esp AS (
+       SELECT pe.publicacion_id, pe.especialidad_id FROM publicacion_especialidades pe
+       UNION
+       SELECT p.id as publicacion_id, p.especialidad_id FROM publicaciones p
+       WHERE p.especialidad_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
+     )
+     SELECT s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad,
        GROUP_CONCAT(DISTINCT COALESCE(e2.nombre, e.nombre)) as especialidades
      FROM publicaciones s
      INNER JOIN usuarios u ON s.usuario_id = u.id
@@ -1179,7 +1230,23 @@ app.get("/stats/dentistas-por-ciudad-especialidad-lista/:ciudad/:especialidad", 
      LEFT JOIN especialidades e2 ON pe2.especialidad_id = e2.id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
      AND LOWER(s.ciudad) = LOWER(?)
-     AND (LOWER(e.nombre) = LOWER(?) OR (? = 'Sin especialidad' AND s.especialidad_id IS NULL))
+     AND (
+       EXISTS (
+         SELECT 1 FROM pub_esp pem
+         INNER JOIN especialidades em ON pem.especialidad_id = em.id
+         INNER JOIN publicaciones sm ON sm.id = pem.publicacion_id
+         WHERE sm.usuario_id = s.usuario_id AND sm.tipo = 'solicitud' AND sm.activo = 1
+         AND LOWER(em.nombre) = LOWER(?)
+       )
+       OR (
+         ? = 'Sin especialidad'
+         AND NOT EXISTS (
+           SELECT 1 FROM pub_esp pen
+           INNER JOIN publicaciones sn ON sn.id = pen.publicacion_id
+           WHERE sn.usuario_id = s.usuario_id AND sn.tipo = 'solicitud' AND sn.activo = 1
+         )
+       )
+     )
      GROUP BY s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad`,
     [req.params.ciudad, req.params.especialidad, req.params.especialidad],
     (err, dentistas) => {
@@ -1203,10 +1270,20 @@ app.get("/stats/clinicas-por-especialidad", (req, res) => {
      )
      SELECT e.nombre as especialidad, COUNT(DISTINCT o.usuario_id) as total
      FROM publicaciones o
-     LEFT JOIN pub_esp pe ON pe.publicacion_id = o.id
-     LEFT JOIN especialidades e ON pe.especialidad_id = e.id
+     INNER JOIN pub_esp pe ON pe.publicacion_id = o.id
+     INNER JOIN especialidades e ON pe.especialidad_id = e.id
      WHERE o.tipo = 'oferta' AND o.activo = 1
      GROUP BY e.id, e.nombre
+     UNION ALL
+     SELECT 'Sin especialidad' as especialidad, COUNT(DISTINCT o.usuario_id) as total
+     FROM publicaciones o
+     WHERE o.tipo = 'oferta' AND o.activo = 1
+     AND NOT EXISTS (
+       SELECT 1 FROM pub_esp pe2
+       INNER JOIN publicaciones o2 ON o2.id = pe2.publicacion_id
+       WHERE o2.usuario_id = o.usuario_id AND o2.tipo = 'oferta' AND o2.activo = 1
+     )
+     HAVING COUNT(DISTINCT o.usuario_id) > 0
      ORDER BY total DESC`,
     (err, resultado) => {
       if (err) {
@@ -1246,11 +1323,22 @@ app.get("/stats/clinicas-por-ciudad-especialidad", (req, res) => {
      )
      SELECT o.ciudad, e.nombre as especialidad, COUNT(DISTINCT o.usuario_id) as total
      FROM publicaciones o
-     LEFT JOIN pub_esp pe ON pe.publicacion_id = o.id
-     LEFT JOIN especialidades e ON pe.especialidad_id = e.id
+     INNER JOIN pub_esp pe ON pe.publicacion_id = o.id
+     INNER JOIN especialidades e ON pe.especialidad_id = e.id
      WHERE o.tipo = 'oferta' AND o.activo = 1
      GROUP BY o.ciudad, e.id, e.nombre
-     ORDER BY o.ciudad, e.nombre`,
+     UNION ALL
+     SELECT o.ciudad, 'Sin especialidad' as especialidad, COUNT(DISTINCT o.usuario_id) as total
+     FROM publicaciones o
+     WHERE o.tipo = 'oferta' AND o.activo = 1
+     AND NOT EXISTS (
+       SELECT 1 FROM pub_esp pe2
+       INNER JOIN publicaciones o2 ON o2.id = pe2.publicacion_id
+       WHERE o2.usuario_id = o.usuario_id AND o2.tipo = 'oferta' AND o2.activo = 1
+     )
+     GROUP BY o.ciudad
+     HAVING COUNT(DISTINCT o.usuario_id) > 0
+     ORDER BY ciudad, especialidad`,
     (err, resultado) => {
       if (err) {
         console.error(err);
@@ -1263,17 +1351,38 @@ app.get("/stats/clinicas-por-ciudad-especialidad", (req, res) => {
 
 app.get("/stats/clinicas-por-especialidad-lista/:especialidad", (req, res) => {
   db.all(
-    `SELECT o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad,
+    `WITH pub_esp AS (
+       SELECT pe.publicacion_id, pe.especialidad_id FROM publicacion_especialidades pe
+       UNION
+       SELECT p.id as publicacion_id, p.especialidad_id FROM publicaciones p
+       WHERE p.especialidad_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
+     )
+     SELECT o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad,
        GROUP_CONCAT(DISTINCT COALESCE(e2.nombre, el.nombre)) as especialidades
      FROM publicaciones o
      INNER JOIN usuarios u ON o.usuario_id = u.id
-     LEFT JOIN publicacion_especialidades pe ON o.id = pe.publicacion_id
-     LEFT JOIN especialidades e ON pe.especialidad_id = e.id
      LEFT JOIN publicacion_especialidades pe2 ON pe2.publicacion_id = o.id
      LEFT JOIN especialidades e2 ON pe2.especialidad_id = e2.id
      LEFT JOIN especialidades el ON el.id = o.especialidad_id
      WHERE o.tipo = 'oferta' AND o.activo = 1
-     AND (LOWER(e.nombre) = LOWER(?) OR (? = 'Sin especialidad' AND pe.especialidad_id IS NULL))
+     AND (
+       EXISTS (
+         SELECT 1 FROM pub_esp pem
+         INNER JOIN especialidades em ON pem.especialidad_id = em.id
+         INNER JOIN publicaciones om ON om.id = pem.publicacion_id
+         WHERE om.usuario_id = o.usuario_id AND om.tipo = 'oferta' AND om.activo = 1
+         AND LOWER(em.nombre) = LOWER(?)
+       )
+       OR (
+         ? = 'Sin especialidad'
+         AND NOT EXISTS (
+           SELECT 1 FROM pub_esp pen
+           INNER JOIN publicaciones on2 ON on2.id = pen.publicacion_id
+           WHERE on2.usuario_id = o.usuario_id AND on2.tipo = 'oferta' AND on2.activo = 1
+         )
+       )
+     )
      GROUP BY o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad`,
     [req.params.especialidad, req.params.especialidad],
     (err, clinicas) => {
@@ -1311,18 +1420,39 @@ app.get("/stats/clinicas-por-ciudad-lista/:ciudad", (req, res) => {
 
 app.get("/stats/clinicas-por-ciudad-especialidad-lista/:ciudad/:especialidad", (req, res) => {
   db.all(
-    `SELECT o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad,
+    `WITH pub_esp AS (
+       SELECT pe.publicacion_id, pe.especialidad_id FROM publicacion_especialidades pe
+       UNION
+       SELECT p.id as publicacion_id, p.especialidad_id FROM publicaciones p
+       WHERE p.especialidad_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
+     )
+     SELECT o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad,
        GROUP_CONCAT(DISTINCT COALESCE(e2.nombre, el.nombre)) as especialidades
      FROM publicaciones o
      INNER JOIN usuarios u ON o.usuario_id = u.id
-     LEFT JOIN publicacion_especialidades pe ON o.id = pe.publicacion_id
-     LEFT JOIN especialidades e ON pe.especialidad_id = e.id
      LEFT JOIN publicacion_especialidades pe2 ON pe2.publicacion_id = o.id
      LEFT JOIN especialidades e2 ON pe2.especialidad_id = e2.id
      LEFT JOIN especialidades el ON el.id = o.especialidad_id
      WHERE o.tipo = 'oferta' AND o.activo = 1
      AND LOWER(o.ciudad) = LOWER(?)
-     AND (LOWER(e.nombre) = LOWER(?) OR (? = 'Sin especialidad' AND pe.especialidad_id IS NULL))
+     AND (
+       EXISTS (
+         SELECT 1 FROM pub_esp pem
+         INNER JOIN especialidades em ON pem.especialidad_id = em.id
+         INNER JOIN publicaciones om ON om.id = pem.publicacion_id
+         WHERE om.usuario_id = o.usuario_id AND om.tipo = 'oferta' AND om.activo = 1
+         AND LOWER(em.nombre) = LOWER(?)
+       )
+       OR (
+         ? = 'Sin especialidad'
+         AND NOT EXISTS (
+           SELECT 1 FROM pub_esp pen
+           INNER JOIN publicaciones on2 ON on2.id = pen.publicacion_id
+           WHERE on2.usuario_id = o.usuario_id AND on2.tipo = 'oferta' AND on2.activo = 1
+         )
+       )
+     )
      GROUP BY o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad`,
     [req.params.ciudad, req.params.especialidad, req.params.especialidad],
     (err, clinicas) => {
