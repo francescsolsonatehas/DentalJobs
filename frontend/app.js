@@ -1205,8 +1205,7 @@ const app = {
     async mostrarClinicasPorEspecialidad() {
       try {
         const datos = await utils.request("/stats/clinicas-por-especialidad");
-        let html = `<p style="margin: 0 0 1rem 0; padding: 0.75rem 1rem; background: #f0f9ff; border-left: 3px solid #0ea5e9; border-radius: 4px; font-size: 0.85rem; color: #0c4a6e;">ℹ️ Una clínica puede cubrir varias especialidades a la vez, así que puede aparecer en más de una — la suma de los números no tiene por qué coincidir con el total de clínicas.</p>`;
-        html += "<div class='desglose-list'>";
+        let html = "<div class='desglose-list'>";
 
         if (datos.length === 0) {
           html += "<p>Sin datos</p>";
@@ -1262,8 +1261,7 @@ const app = {
     async mostrarClinicasPorCiudadEspecialidad() {
       try {
         const datos = await utils.request("/stats/clinicas-por-ciudad-especialidad");
-        let html = `<p style="margin: 0 0 1rem 0; padding: 0.75rem 1rem; background: #f0f9ff; border-left: 3px solid #0ea5e9; border-radius: 4px; font-size: 0.85rem; color: #0c4a6e;">ℹ️ Una clínica puede cubrir varias especialidades a la vez, así que puede aparecer en más de una — la suma de los números no tiene por qué coincidir con el total de clínicas.</p>`;
-        html += "<div class='desglose-grupos'>";
+        let html = "<div class='desglose-grupos'>";
 
         if (datos.length === 0) {
           html += "<p>Sin datos</p>";
