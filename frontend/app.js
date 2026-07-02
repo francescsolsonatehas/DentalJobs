@@ -384,8 +384,11 @@ const app = {
         if (orden && orden !== 'recientes') {
           url += `sort=${orden}&`;
           if (orden === 'relevancia' && estadoApp.usuario) url += `paraUsuarioId=${estadoApp.usuario.id}&`;
-        } else if (estadoApp.tipoUsuario === 'clinica' && tipo === 'solicitud') {
-          // Clínicas viendo dentistas: por defecto, ordenar por ciudad
+        } else if (
+          (estadoApp.tipoUsuario === 'clinica' && tipo === 'solicitud') ||
+          (estadoApp.tipoUsuario === 'dentista' && tipo === 'oferta')
+        ) {
+          // Clínicas viendo dentistas, o dentistas viendo clínicas: por defecto, ordenar por ciudad
           url += `sort=ciudad&`;
         }
       }
@@ -3486,7 +3489,7 @@ const app = {
         }
         const generatedTitle = pub.tipo === 'solicitud'
           ? `${pub.ciudad} - ${pub.usuario_nombre || 'Dentista'}`
-          : (especialidadesText ? `${especialidadesText} - ${pub.ciudad}` : `${pub.usuario_nombre || 'Oferta'} - ${pub.ciudad}`);
+          : `${pub.ciudad} - ${pub.usuario_nombre || 'Clínica'}`;
         let tipoBadge, tipoClase;
         if (pub.tipo === "oferta") {
           tipoBadge = "";
