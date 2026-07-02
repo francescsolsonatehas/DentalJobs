@@ -470,6 +470,8 @@ app.get("/publicaciones", (req, res) => {
 
   if (sort === 'salario') {
     query += " ORDER BY p.salario_min DESC, p.creado_en DESC";
+  } else if (sort === 'ciudad') {
+    query += " ORDER BY p.ciudad ASC, p.creado_en DESC";
   } else if (usarRelevancia) {
     query += " ORDER BY relevancia_score DESC, p.creado_en DESC";
   } else {
