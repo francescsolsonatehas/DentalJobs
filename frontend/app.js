@@ -2250,6 +2250,7 @@ const app = {
                 <span style="background: ${estadoColor}; color: white; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.75rem; text-transform: capitalize; white-space: nowrap; margin-left: 1rem;">${p.estado}</span>
               </div>
               <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+                <button onclick="event.stopPropagation(); app.stats.mostrarDetallePostulacion('${p.id}', '${p.nombre.replace(/'/g, "\\'")}', '${p.email.replace(/'/g, "\\'")}', '${(p.ciudad || '').replace(/'/g, "\\'")}', '${(p.direccion || '').replace(/'/g, "\\'")}', '${(p.codigo_postal || '').replace(/'/g, "\\'")}', '${p.estado}', '${(p.mensaje || '').replace(/'/g, "\\'").replace(/"/g, '\\"')}')" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
                 ${p.estado === 'pendiente' ? `
                   <button onclick="event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, 'aceptada')" style="background: #10b981; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">✅ Aceptar</button>
                   <button onclick="event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, 'rechazada')" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">❌ Rechazar</button>
@@ -2455,6 +2456,7 @@ const app = {
               </div>
               ${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; padding: 0.75rem; background: #f0f9ff; border-radius: 4px; border-left: 2px solid #0ea5e9; color: #0c4a6e;"><strong>Mensaje:</strong> ${c.mensaje}</p>` : ''}
               <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+                <button onclick="app.stats.mostrarPerfilDentista(${JSON.stringify(c).replace(/"/g, '&quot;')})" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
                 ${c.estado === 'pendiente' ? `
                   <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'aceptada')" style="background: #10b981; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">✅ Aceptar</button>
                   <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'rechazada')" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">❌ Rechazar</button>
