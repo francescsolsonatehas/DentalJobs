@@ -3472,8 +3472,18 @@ const app = {
       }
 
       const html = await Promise.all(estadoApp.publicaciones.map(async pub => {
-        const especialidad = pub.especialidad_id ? estadoApp.especialidades.find(e => e.id === pub.especialidad_id) : null;
-        const generatedTitle = especialidad ? `${especialidad.nombre} - ${pub.ciudad}` : `Dentista - ${pub.ciudad}`;
+        let especialidadesText = '';
+        try {
+          const data = await utils.request(`/publicaciones/${pub.id}/especialidades`, { method: 'GET' });
+          if (data.especialidades && data.especialidades.length > 0) {
+            especialidadesText = data.especialidades.map(e => e.nombre).join(", ");
+          }
+        } catch (error) {
+          console.error("Error al obtener especialidades:", error);
+        }
+        const generatedTitle = especialidadesText
+          ? `${especialidadesText} - ${pub.ciudad}`
+          : (pub.tipo === 'oferta' ? `${pub.usuario_nombre || 'Oferta'} - ${pub.ciudad}` : `Dentista - ${pub.ciudad}`);
         let tipoBadge, tipoClase;
         if (pub.tipo === "oferta") {
           tipoBadge = "";
@@ -3513,7 +3523,7 @@ const app = {
                 <span class="detail-icon">📍</span>
                 <span>${pub.ciudad}</span>
               </div>
-              ${especialidad ? `<div class="detail"><span class="detail-icon">🦷</span><span>${especialidad.nombre}</span></div>` : ""}
+              ${especialidadesText ? `<div class="detail"><span class="detail-icon">🦷</span><span>${especialidadesText}</span></div>` : ""}
               ${pub.contrato ? `<div class="detail"><span class="detail-icon">📋</span><span>${pub.contrato}</span></div>` : ""}
               ${pub.jornada ? `<div class="detail"><span class="detail-icon">⏰</span><span>${pub.jornada}</span></div>` : ""}
               ${pub.salario ? `<div class="detail"><span class="detail-icon">💰</span><span>${pub.salario}</span></div>` : ""}
