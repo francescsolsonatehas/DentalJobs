@@ -3521,7 +3521,7 @@ const app = {
           <div class="card ${tipoClase}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
               ${tipoBadge ? `<span class="card-type ${tipoClase}">${tipoBadge}</span>` : "<span></span>"}
-              ${estadoApp.usuario ? `<button onclick="app.favoritos.toggle(${pub.id}, this)" data-favorito="${esFavorito}" style="background: none; border: none; cursor: pointer; font-size: 1.3rem; padding: 0;" title="${esFavorito ? 'Quitar de favoritos' : 'Guardar en favoritos'}">${esFavorito ? '⭐' : '☆'}</button>` : ''}
+              ${estadoApp.usuario && ((estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'solicitud') || (estadoApp.tipoUsuario === 'dentista' && pub.tipo === 'oferta')) ? `<button onclick="app.favoritos.toggle(${pub.id}, this)" data-favorito="${esFavorito}" style="background: none; border: none; cursor: pointer; font-size: 1.3rem; padding: 0;" title="${esFavorito ? 'Quitar de favoritos' : 'Guardar en favoritos'}">${esFavorito ? '⭐' : '☆'}</button>` : ''}
             </div>
             <h3>${generatedTitle}</h3>
             <div class="card-details">

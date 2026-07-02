@@ -1987,25 +1987,39 @@ app.delete("/candidaturas/:id", verifyToken, (req, res) => {
 app.post("/favoritos", verifyToken, (req, res) => {
   const { publicacion_id } = req.body;
   const usuario_id = req.usuario.id;
+  const tipoUsuario = req.usuario.tipo;
 
   if (!publicacion_id) {
     return res.status(400).json({ error: "publicacion_id requerido" });
   }
 
-  db.run(
-    "INSERT INTO favoritos (usuario_id, publicacion_id) VALUES (?, ?)",
-    [usuario_id, publicacion_id],
-    function(err) {
-      if (err) {
-        if (err.message.includes("UNIQUE")) {
-          return res.status(400).json({ error: "Ya está en tus favoritos" });
-        }
-        console.error(err);
-        return res.status(500).json({ error: "Error al añadir a favoritos" });
-      }
-      res.json({ mensaje: "Añadido a favoritos", favorito_id: this.lastID });
+  db.get("SELECT tipo FROM publicaciones WHERE id = ?", [publicacion_id], (err, pub) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al añadir a favoritos" });
     }
-  );
+    if (!pub) {
+      return res.status(404).json({ error: "Publicación no encontrada" });
+    }
+    if ((tipoUsuario === 'clinica' && pub.tipo !== 'solicitud') || (tipoUsuario === 'dentista' && pub.tipo !== 'oferta')) {
+      return res.status(403).json({ error: "No puedes guardar este tipo de publicación en favoritos" });
+    }
+
+    db.run(
+      "INSERT INTO favoritos (usuario_id, publicacion_id) VALUES (?, ?)",
+      [usuario_id, publicacion_id],
+      function(err) {
+        if (err) {
+          if (err.message.includes("UNIQUE")) {
+            return res.status(400).json({ error: "Ya está en tus favoritos" });
+          }
+          console.error(err);
+          return res.status(500).json({ error: "Error al añadir a favoritos" });
+        }
+        res.json({ mensaje: "Añadido a favoritos", favorito_id: this.lastID });
+      }
+    );
+  });
 });
 
 app.get("/favoritos", verifyToken, (req, res) => {
