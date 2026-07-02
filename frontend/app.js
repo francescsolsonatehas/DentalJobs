@@ -3526,10 +3526,9 @@ const app = {
             <h3>${generatedTitle}</h3>
             <div class="card-details">
               <div class="detail">
-                <span class="detail-icon">📍</span>
-                <span>${pub.ciudad}</span>
+                <span class="detail-icon">🦷</span>
+                <span>${especialidadesText || 'Sin especialidades'}</span>
               </div>
-              ${especialidadesText ? `<div class="detail"><span class="detail-icon">🦷</span><span>${especialidadesText}</span></div>` : ""}
               ${pub.contrato ? `<div class="detail"><span class="detail-icon">📋</span><span>${pub.contrato}</span></div>` : ""}
               ${pub.jornada ? `<div class="detail"><span class="detail-icon">⏰</span><span>${pub.jornada}</span></div>` : ""}
               ${pub.salario ? `<div class="detail"><span class="detail-icon">💰</span><span>${pub.salario}</span></div>` : ""}
