@@ -996,7 +996,7 @@ const app = {
             </div>
           </div>
           <div class="form-group">
-            <label for="editContrato">Tipo de contrato</label>
+            <label for="editContrato">Contrato</label>
             <select id="editContrato">
               <option value="">Seleccionar...</option>
               <option value="Indefinido" ${pub.contrato === 'Indefinido' ? 'selected' : ''}>Indefinido</option>
@@ -2034,7 +2034,7 @@ const app = {
             <h4>Detalles</h4>
             <p><strong>Ciudad:</strong> ${oferta.ciudad}</p>
             ${esp ? `<p><strong>Especialidades:</strong> ${esp.nombre}</p>` : ''}
-            ${oferta.contrato ? `<p><strong>Tipo de contrato:</strong> ${oferta.contrato}</p>` : ''}
+            ${oferta.contrato ? `<p><strong>Contrato:</strong> ${oferta.contrato}</p>` : ''}
             ${oferta.jornada ? `<p><strong>Jornada:</strong> ${oferta.jornada}</p>` : ''}
             ${oferta.salario ? `<p><strong>Salario:</strong> ${oferta.salario}</p>` : ''}
           </div>
@@ -2084,7 +2084,7 @@ const app = {
               <p><strong>Especialidad:</strong> ${esp?.nombre || 'No especificada'}</p>
               ${solicitud.jornada ? `<p><strong>Disponibilidad:</strong> ${solicitud.jornada}</p>` : ''}
               ${solicitud.salario ? `<p><strong>Salario esperado:</strong> ${solicitud.salario}</p>` : ''}
-              ${solicitud.contrato ? `<p><strong>Tipo de contrato:</strong> ${solicitud.contrato}</p>` : ''}
+              ${solicitud.contrato ? `<p><strong>Contrato:</strong> ${solicitud.contrato}</p>` : ''}
             </div>
 
             <div class="info-section">
