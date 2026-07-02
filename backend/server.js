@@ -979,11 +979,19 @@ app.get("/stats/contactados-lista/:empresa_id", verifyToken, (req, res) => {
 
 app.get("/stats/dentistas-por-especialidad", (req, res) => {
   db.all(
-    `SELECT e.nombre as especialidad, COUNT(DISTINCT s.usuario_id) as total
+    `WITH pub_esp AS (
+       SELECT pe.publicacion_id, pe.especialidad_id FROM publicacion_especialidades pe
+       UNION
+       SELECT p.id as publicacion_id, p.especialidad_id FROM publicaciones p
+       WHERE p.especialidad_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
+     )
+     SELECT e.nombre as especialidad, COUNT(DISTINCT s.usuario_id) as total
      FROM publicaciones s
-     LEFT JOIN especialidades e ON s.especialidad_id = e.id
+     LEFT JOIN pub_esp pe ON pe.publicacion_id = s.id
+     LEFT JOIN especialidades e ON pe.especialidad_id = e.id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
-     GROUP BY s.especialidad_id, e.nombre
+     GROUP BY e.id, e.nombre
      ORDER BY total DESC`,
     (err, resultado) => {
       if (err) {
@@ -1090,11 +1098,19 @@ app.get("/stats/dentistas-por-ciudad", (req, res) => {
 
 app.get("/stats/dentistas-por-ciudad-especialidad", (req, res) => {
   db.all(
-    `SELECT s.ciudad, e.nombre as especialidad, COUNT(DISTINCT s.usuario_id) as total
+    `WITH pub_esp AS (
+       SELECT pe.publicacion_id, pe.especialidad_id FROM publicacion_especialidades pe
+       UNION
+       SELECT p.id as publicacion_id, p.especialidad_id FROM publicaciones p
+       WHERE p.especialidad_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
+     )
+     SELECT s.ciudad, e.nombre as especialidad, COUNT(DISTINCT s.usuario_id) as total
      FROM publicaciones s
-     LEFT JOIN especialidades e ON s.especialidad_id = e.id
+     LEFT JOIN pub_esp pe ON pe.publicacion_id = s.id
+     LEFT JOIN especialidades e ON pe.especialidad_id = e.id
      WHERE s.tipo = 'solicitud' AND s.activo = 1
-     GROUP BY s.ciudad, s.especialidad_id, e.nombre
+     GROUP BY s.ciudad, e.id, e.nombre
      ORDER BY s.ciudad, e.nombre`,
     (err, resultado) => {
       if (err) {
@@ -1178,9 +1194,16 @@ app.get("/stats/dentistas-por-ciudad-especialidad-lista/:ciudad/:especialidad", 
 
 app.get("/stats/clinicas-por-especialidad", (req, res) => {
   db.all(
-    `SELECT e.nombre as especialidad, COUNT(DISTINCT o.usuario_id) as total
+    `WITH pub_esp AS (
+       SELECT pe.publicacion_id, pe.especialidad_id FROM publicacion_especialidades pe
+       UNION
+       SELECT p.id as publicacion_id, p.especialidad_id FROM publicaciones p
+       WHERE p.especialidad_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
+     )
+     SELECT e.nombre as especialidad, COUNT(DISTINCT o.usuario_id) as total
      FROM publicaciones o
-     LEFT JOIN publicacion_especialidades pe ON o.id = pe.publicacion_id
+     LEFT JOIN pub_esp pe ON pe.publicacion_id = o.id
      LEFT JOIN especialidades e ON pe.especialidad_id = e.id
      WHERE o.tipo = 'oferta' AND o.activo = 1
      GROUP BY e.id, e.nombre
@@ -1214,9 +1237,16 @@ app.get("/stats/clinicas-por-ciudad", (req, res) => {
 
 app.get("/stats/clinicas-por-ciudad-especialidad", (req, res) => {
   db.all(
-    `SELECT o.ciudad, e.nombre as especialidad, COUNT(DISTINCT o.usuario_id) as total
+    `WITH pub_esp AS (
+       SELECT pe.publicacion_id, pe.especialidad_id FROM publicacion_especialidades pe
+       UNION
+       SELECT p.id as publicacion_id, p.especialidad_id FROM publicaciones p
+       WHERE p.especialidad_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
+     )
+     SELECT o.ciudad, e.nombre as especialidad, COUNT(DISTINCT o.usuario_id) as total
      FROM publicaciones o
-     LEFT JOIN publicacion_especialidades pe ON o.id = pe.publicacion_id
+     LEFT JOIN pub_esp pe ON pe.publicacion_id = o.id
      LEFT JOIN especialidades e ON pe.especialidad_id = e.id
      WHERE o.tipo = 'oferta' AND o.activo = 1
      GROUP BY o.ciudad, e.id, e.nombre
