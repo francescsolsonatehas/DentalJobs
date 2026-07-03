@@ -3374,6 +3374,31 @@ const app = {
       app.perfil.cargar();
     },
 
+    // Descarga el CV en PDF generado por el backend (fetch con token → blob)
+    async descargarCvPdf() {
+      try {
+        const response = await fetch(`${API}/auth/mi-cv.pdf`, {
+          headers: { Authorization: `Bearer ${estadoApp.token}` }
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || "Error al generar el CV");
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const enlace = document.createElement("a");
+        enlace.href = url;
+        enlace.download = `CV-${(estadoApp.usuario?.nombre || 'dentista').replace(/\s+/g, '-')}.pdf`;
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
     async cargarEspecialidades() {
       // Funciona tanto para candidatos como para empresas
       if (!['dentista', 'clinica'].includes(estadoApp.tipoUsuario)) return;

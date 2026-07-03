@@ -571,6 +571,10 @@
 
             <!-- Tab: CV -->
             <div id="tab-cv" class="tab-content">
+                <div style="background: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                    <p style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: #0c4a6e;">¿No tienes CV a mano? Genera uno automáticamente con los datos de tu perfil (experiencia, especialidades y valoraciones).</p>
+                    <button class="btn-outline" style="width: 100%;" onclick="app.perfil.descargarCvPdf()">⬇️ Descargar mi CV en PDF</button>
+                </div>
                 <div id="cvContainer">
                     <div class="drag-drop-zone" id="cvDropZone" ondrop="event.preventDefault(); app.archivos.manejarDrop(event, 'cv')" ondragover="event.preventDefault(); document.getElementById('cvDropZone').classList.add('dragover')" ondragleave="document.getElementById('cvDropZone').classList.remove('dragover')">
                         <p>📄 Sube tu CV (PDF, máx 5 MB)</p>

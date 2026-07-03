@@ -339,6 +339,123 @@ app.get("/auth/mi-perfil", verifyToken, (req, res) => {
   );
 });
 
+// CV del dentista en PDF, generado a partir de su perfil
+app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
+  if (req.usuario.tipo !== "dentista") {
+    return res.status(403).json({ error: "El CV en PDF solo está disponible para dentistas" });
+  }
+
+  const get = (sql, params) => new Promise((resolve, reject) => db.get(sql, params, (e, r) => e ? reject(e) : resolve(r)));
+  const all = (sql, params) => new Promise((resolve, reject) => db.all(sql, params, (e, r) => e ? reject(e) : resolve(r)));
+
+  try {
+    const usuario = await get(
+      "SELECT nombre, email, telefono, movil, ciudad, direccion, codigo_postal, pais, descripcion, anyos_experiencia FROM usuarios WHERE id = ?",
+      [req.usuario.id]
+    );
+    if (!usuario) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    const especialidades = await all(
+      `SELECT e.nombre FROM especialidades e
+       INNER JOIN usuario_especialidades ue ON e.id = ue.especialidad_id
+       WHERE ue.usuario_id = ? ORDER BY e.nombre`,
+      [req.usuario.id]
+    );
+    const resenyas = await get(
+      "SELECT COUNT(*) as total, AVG(puntuacion) as media FROM resenyas WHERE destinatario_id = ?",
+      [req.usuario.id]
+    );
+    const solicitudes = await all(
+      `SELECT ciudad, descripcion, contrato, jornada, creado_en FROM publicaciones
+       WHERE usuario_id = ? AND tipo = 'solicitud' AND activo = 1 ORDER BY creado_en DESC`,
+      [req.usuario.id]
+    );
+
+    const PDFDocument = require("pdfkit");
+    const doc = new PDFDocument({ margin: 50, size: "A4" });
+
+    const nombreArchivo = (usuario.nombre || "dentista").replace(/[^\wáéíóúüñÁÉÍÓÚÜÑ\s-]/g, "").trim().replace(/\s+/g, "-");
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="CV-${nombreArchivo}.pdf"`);
+    doc.pipe(res);
+
+    const azul = "#0f4c75";
+    const gris = "#4b5563";
+
+    // Cabecera
+    doc.fillColor(azul).fontSize(26).font("Helvetica-Bold").text(usuario.nombre);
+    doc.fillColor(gris).fontSize(12).font("Helvetica").text("Dentista", { paragraphGap: 4 });
+
+    const contacto = [
+      usuario.email,
+      usuario.movil || usuario.telefono,
+      [usuario.ciudad, usuario.pais].filter(Boolean).join(", ")
+    ].filter(Boolean).join("  ·  ");
+    doc.fontSize(10).text(contacto);
+
+    if (resenyas && resenyas.total > 0) {
+      const media = Math.round(resenyas.media * 10) / 10;
+      doc.moveDown(0.3);
+      doc.fillColor("#b45309").fontSize(10)
+        .text(`Valoración media: ${media}/5 (${resenyas.total} reseña${resenyas.total === 1 ? "" : "s"} en DentalJobs)`);
+    }
+
+    doc.moveDown(0.5);
+    doc.strokeColor(azul).lineWidth(1.5)
+      .moveTo(doc.page.margins.left, doc.y)
+      .lineTo(doc.page.width - doc.page.margins.right, doc.y)
+      .stroke();
+    doc.moveDown();
+
+    const seccion = (titulo) => {
+      doc.moveDown(0.5);
+      doc.fillColor(azul).fontSize(14).font("Helvetica-Bold").text(titulo);
+      doc.moveDown(0.3);
+      doc.fillColor("#1f2937").fontSize(11).font("Helvetica");
+    };
+
+    if (usuario.descripcion) {
+      seccion("Perfil");
+      doc.text(usuario.descripcion, { lineGap: 2 });
+    }
+
+    if (usuario.anyos_experiencia !== null && usuario.anyos_experiencia !== undefined) {
+      seccion("Experiencia");
+      doc.text(`${usuario.anyos_experiencia} año${usuario.anyos_experiencia === 1 ? "" : "s"} de experiencia profesional`);
+    }
+
+    if (especialidades.length > 0) {
+      seccion("Especialidades");
+      especialidades.forEach(e => doc.text(`•  ${e.nombre}`));
+    }
+
+    if (solicitudes.length > 0) {
+      seccion("Busco trabajo como");
+      solicitudes.forEach(s => {
+        const detalles = [s.contrato, s.jornada].filter(Boolean).join(" · ");
+        doc.font("Helvetica-Bold").text(`${s.ciudad}${detalles ? ` (${detalles})` : ""}`);
+        if (s.descripcion) {
+          doc.font("Helvetica").fillColor(gris).text(s.descripcion, { lineGap: 1 });
+          doc.fillColor("#1f2937");
+        }
+        doc.moveDown(0.4);
+      });
+    }
+
+    // Pie de página
+    doc.moveDown(1.5);
+    doc.fillColor("#9ca3af").fontSize(8)
+      .text(`CV generado automáticamente por DentalJobs el ${new Date().toLocaleDateString("es-ES")}`, { align: "center" });
+
+    doc.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al generar el CV" });
+  }
+});
+
 // Perfil público de un usuario (datos no sensibles, para mostrar en fichas)
 app.get("/usuarios/:id/publico", (req, res) => {
   db.get(
@@ -1910,30 +2027,38 @@ app.get("/chat/mensajes/:publicacionId/:otroId", verifyToken, (req, res) => {
   const publicacionId = parseInt(req.params.publicacionId);
   const otroId = parseInt(req.params.otroId);
 
-  db.all(
-    `SELECT m.*, ur.nombre as remitente_nombre_usuario
-     FROM mensajes m
-     LEFT JOIN usuarios ur ON m.usuario_id = ur.id
-     WHERE m.publicacion_id = ?
-       AND ((m.usuario_id = ? AND m.destinatario_id = ?) OR (m.usuario_id = ? AND m.destinatario_id = ?))
-     ORDER BY m.creado_en ASC`,
-    [publicacionId, usuarioId, otroId, otroId, usuarioId],
-    (err, mensajes) => {
+  // Primero marcar como leídos los mensajes entrantes y después devolver el hilo,
+  // para no dejar escrituras en vuelo tras responder
+  db.run(
+    "UPDATE mensajes SET leido = 1 WHERE publicacion_id = ? AND usuario_id = ? AND destinatario_id = ? AND leido = 0",
+    [publicacionId, otroId, usuarioId],
+    (err) => {
       if (err) {
         console.error(err);
         return res.status(500).json({ error: "Error al obtener mensajes" });
       }
 
-      db.run(
-        "UPDATE mensajes SET leido = 1 WHERE publicacion_id = ? AND usuario_id = ? AND destinatario_id = ? AND leido = 0",
-        [publicacionId, otroId, usuarioId]
+      db.all(
+        `SELECT m.*, ur.nombre as remitente_nombre_usuario
+         FROM mensajes m
+         LEFT JOIN usuarios ur ON m.usuario_id = ur.id
+         WHERE m.publicacion_id = ?
+           AND ((m.usuario_id = ? AND m.destinatario_id = ?) OR (m.usuario_id = ? AND m.destinatario_id = ?))
+         ORDER BY m.creado_en ASC`,
+        [publicacionId, usuarioId, otroId, otroId, usuarioId],
+        (err, mensajes) => {
+          if (err) {
+            console.error(err);
+            return res.status(500).json({ error: "Error al obtener mensajes" });
+          }
+
+          const claveEscribiendo = `${otroId}:${usuarioId}:${publicacionId}`;
+          const ultimaEscritura = escribiendoStatus.get(claveEscribiendo);
+          const escribiendo = !!ultimaEscritura && (Date.now() - ultimaEscritura) < ESCRIBIENDO_TTL_MS;
+
+          res.json({ mensajes: mensajes || [], escribiendo });
+        }
       );
-
-      const claveEscribiendo = `${otroId}:${usuarioId}:${publicacionId}`;
-      const ultimaEscritura = escribiendoStatus.get(claveEscribiendo);
-      const escribiendo = !!ultimaEscritura && (Date.now() - ultimaEscritura) < ESCRIBIENDO_TTL_MS;
-
-      res.json({ mensajes: mensajes || [], escribiendo });
     }
   );
 });
