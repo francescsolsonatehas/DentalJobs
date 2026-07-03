@@ -1895,3 +1895,28 @@ select:focus {
   border-radius: 8px;
   font-size: 0.95rem;
 }
+
+/* ============================================
+   Recordatorios
+============================================ */
+
+.recordatorios-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: #fffbeb;
+  border: 1px solid #fbbf24;
+  border-left: 4px solid #f59e0b;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  color: #92400e;
+}
+
+.recordatorios-acciones {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}

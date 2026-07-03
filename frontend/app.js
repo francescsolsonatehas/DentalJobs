@@ -3301,6 +3301,7 @@ const app = {
       document.getElementById("btnChat").style.display = "inline-block";
       app.alertas.actualizarContador();
       app.chat.actualizarContador();
+      app.recordatorios.comprobar();
 
       // Actualizar texto del hero según tipo de usuario
       const heroTitle = document.querySelector("#heroPlataforma h1");
@@ -3720,6 +3721,56 @@ const app = {
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
+    }
+  },
+
+  // ============================================
+  // Módulo: Recordatorios
+  // ============================================
+
+  recordatorios: {
+    async comprobar() {
+      if (!estadoApp.usuario) return;
+      if (sessionStorage.getItem("recordatoriosDescartados") === "1") return;
+
+      try {
+        const data = await utils.request("/recordatorios/pendientes");
+        const pendientes = data.pendientes || [];
+        const banner = document.getElementById("recordatoriosBanner");
+        if (!banner) return;
+
+        if (pendientes.length === 0) {
+          banner.style.display = "none";
+          return;
+        }
+
+        const masAntigua = Math.max(...pendientes.map(p => p.dias_esperando));
+        banner.innerHTML = `
+          <span>⏰ Tienes <strong>${pendientes.length}</strong> postulaci${pendientes.length === 1 ? 'ón' : 'ones'} sin responder
+          (la más antigua lleva <strong>${masAntigua} día${masAntigua === 1 ? '' : 's'}</strong> esperando).</span>
+          <div class="recordatorios-acciones">
+            <button class="btn-primary btn-small" onclick="app.recordatorios.revisar()">Revisar</button>
+            <button class="btn-text btn-small" onclick="app.recordatorios.descartar()">Descartar</button>
+          </div>
+        `;
+        banner.style.display = "flex";
+      } catch (error) {
+        console.error("Error al comprobar recordatorios:", error);
+      }
+    },
+
+    revisar() {
+      if (estadoApp.tipoUsuario === 'clinica') {
+        app.stats.mostrarCandidatosInteresados();
+      } else {
+        app.stats.mostrarPostulacionesRecibidas();
+      }
+    },
+
+    descartar() {
+      sessionStorage.setItem("recordatoriosDescartados", "1");
+      const banner = document.getElementById("recordatoriosBanner");
+      if (banner) banner.style.display = "none";
     }
   },
 
