@@ -226,6 +226,26 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS plantillas_publicacion (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      nombre TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      descripcion TEXT,
+      ciudad TEXT,
+      contrato TEXT,
+      jornada TEXT,
+      salario TEXT,
+      experiencia INTEGER,
+      nombre_contacto TEXT,
+      email_contacto TEXT,
+      telefono_contacto TEXT,
+      especialidades TEXT,
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Backfill: calcular salario_min para publicaciones existentes que aún no lo tienen
   db.all("SELECT id, salario FROM publicaciones WHERE salario_min IS NULL AND salario IS NOT NULL", (err, filas) => {
     if (err || !filas) return;

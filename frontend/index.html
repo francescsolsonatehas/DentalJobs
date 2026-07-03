@@ -271,6 +271,16 @@
             <div id="tab-oferta" class="tab-content active" class="tab-oferta-content">
                 <form onsubmit="event.preventDefault(); app.publicaciones.crear('oferta');">
                     <div class="form-group">
+                        <label for="ofertaPlantillas">Plantilla</label>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <select id="ofertaPlantillas" onchange="app.plantillas.aplicar('oferta')" style="flex: 1;">
+                                <option value="">Sin plantilla…</option>
+                            </select>
+                            <button type="button" class="btn-outline btn-small" onclick="app.plantillas.guardar('oferta')" title="Guardar el formulario actual como plantilla">💾 Guardar</button>
+                            <button type="button" class="btn-text btn-small" onclick="app.plantillas.eliminar('oferta')" title="Eliminar la plantilla seleccionada">🗑️</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
                         <label for="ofertaCiudad">Ciudad *</label>
                         <input id="ofertaCiudad" type="text" required>
                     </div>
@@ -334,6 +344,16 @@
             <!-- Tab: Solicitud -->
             <div id="tab-solicitud" class="tab-content">
                 <form onsubmit="event.preventDefault(); app.publicaciones.crear('solicitud');">
+                    <div class="form-group">
+                        <label for="solicitudPlantillas">Plantilla</label>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <select id="solicitudPlantillas" onchange="app.plantillas.aplicar('solicitud')" style="flex: 1;">
+                                <option value="">Sin plantilla…</option>
+                            </select>
+                            <button type="button" class="btn-outline btn-small" onclick="app.plantillas.guardar('solicitud')" title="Guardar el formulario actual como plantilla">💾 Guardar</button>
+                            <button type="button" class="btn-text btn-small" onclick="app.plantillas.eliminar('solicitud')" title="Eliminar la plantilla seleccionada">🗑️</button>
+                        </div>
+                    </div>
                     <div class="form-group">
                         <label for="solicitudCiudad">Ciudad *</label>
                         <input id="solicitudCiudad" type="text" required>

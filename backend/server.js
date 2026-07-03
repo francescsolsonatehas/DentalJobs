@@ -2236,6 +2236,83 @@ app.delete("/candidaturas/:id", verifyToken, (req, res) => {
 });
 
 /* ===========================
+   🔹 PLANTILLAS DE PUBLICACIÓN
+=========================== */
+
+app.post("/plantillas", verifyToken, (req, res) => {
+  const { nombre, tipo, descripcion, ciudad, contrato, jornada, salario, experiencia,
+          nombre_contacto, email_contacto, telefono_contacto, especialidades } = req.body;
+
+  if (!nombre || !nombre.trim()) {
+    return res.status(400).json({ error: "La plantilla necesita un nombre" });
+  }
+  if (!["oferta", "solicitud"].includes(tipo)) {
+    return res.status(400).json({ error: "Tipo de plantilla inválido" });
+  }
+
+  const experienciaNum = experiencia !== undefined && experiencia !== null && experiencia !== ''
+    ? parseInt(experiencia)
+    : null;
+
+  db.run(
+    `INSERT INTO plantillas_publicacion
+     (usuario_id, nombre, tipo, descripcion, ciudad, contrato, jornada, salario, experiencia,
+      nombre_contacto, email_contacto, telefono_contacto, especialidades)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [req.usuario.id, nombre.trim(), tipo, descripcion || null, ciudad || null, contrato || null,
+     jornada || null, salario || null, experienciaNum, nombre_contacto || null,
+     email_contacto || null, telefono_contacto || null,
+     JSON.stringify(Array.isArray(especialidades) ? especialidades : [])],
+    function(err) {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al guardar plantilla" });
+      }
+      res.json({ mensaje: "Plantilla guardada", id: this.lastID });
+    }
+  );
+});
+
+app.get("/plantillas", verifyToken, (req, res) => {
+  db.all(
+    "SELECT * FROM plantillas_publicacion WHERE usuario_id = ? ORDER BY nombre",
+    [req.usuario.id],
+    (err, plantillas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener plantillas" });
+      }
+      const lista = (plantillas || []).map(p => ({
+        ...p,
+        especialidades: (() => {
+          try { return JSON.parse(p.especialidades || "[]"); } catch (e) { return []; }
+        })()
+      }));
+      res.json({ plantillas: lista });
+    }
+  );
+});
+
+app.delete("/plantillas/:id", verifyToken, (req, res) => {
+  db.get("SELECT usuario_id FROM plantillas_publicacion WHERE id = ?", [req.params.id], (err, plantilla) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al eliminar plantilla" });
+    }
+    if (!plantilla || plantilla.usuario_id !== req.usuario.id) {
+      return res.status(403).json({ error: "No tienes permiso para eliminar esta plantilla" });
+    }
+    db.run("DELETE FROM plantillas_publicacion WHERE id = ?", [req.params.id], (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al eliminar plantilla" });
+      }
+      res.json({ mensaje: "Plantilla eliminada" });
+    });
+  });
+});
+
+/* ===========================
    🔹 RESEÑAS
 =========================== */
 

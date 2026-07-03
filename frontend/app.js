@@ -788,6 +788,7 @@ const app = {
         document.getElementById("tab-solicitud").classList.remove("active");
         document.getElementById("tabBtnOferta").classList.add("active");
         app.publicaciones.cargarEspecialidadesPublicar('oferta');
+        app.plantillas.cargar('oferta');
       } else {
         // Candidato solo ve tab de Solicitud
         document.getElementById("tabBtnOferta").style.display = "none";
@@ -796,6 +797,7 @@ const app = {
         document.getElementById("tab-oferta").classList.remove("active");
         document.getElementById("tabBtnSolicitud").classList.add("active");
         app.publicaciones.cargarEspecialidadesPublicar('solicitud');
+        app.plantillas.cargar('solicitud');
       }
 
       document.getElementById("modalPublicar").classList.add("active");
@@ -3881,6 +3883,112 @@ const app = {
 
         // El propio GET /alertas ya las marca como leídas en el backend
         document.getElementById("alertasBadge").style.display = "none";
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    }
+  },
+
+  // ============================================
+  // Módulo: Plantillas de publicación
+  // ============================================
+
+  plantillas: {
+    lista: [],
+
+    // Ids de los campos del formulario según el tipo de publicación
+    camposDe(tipo) {
+      return {
+        ciudad: `${tipo}Ciudad`,
+        contrato: `${tipo}Contrato`,
+        jornada: `${tipo}Jornada`,
+        salario: tipo === 'oferta' ? 'ofertaSalario' : null,
+        experiencia: `${tipo}Experiencia`,
+        descripcion: `${tipo}Descripcion`,
+        nombre_contacto: `${tipo}NombreContacto`,
+        email_contacto: `${tipo}EmailContacto`,
+        telefono_contacto: `${tipo}TelefonoContacto`
+      };
+    },
+
+    async cargar(tipo) {
+      try {
+        const data = await utils.request("/plantillas");
+        this.lista = data.plantillas || [];
+
+        const select = document.getElementById(`${tipo}Plantillas`);
+        if (!select) return;
+
+        const propias = this.lista.filter(p => p.tipo === tipo);
+        select.innerHTML = `<option value="">Sin plantilla…</option>` +
+          propias.map(p => `<option value="${p.id}">${utils.escapeHtml(p.nombre)}</option>`).join('');
+      } catch (error) {
+        console.error("Error al cargar plantillas:", error);
+      }
+    },
+
+    aplicar(tipo) {
+      const select = document.getElementById(`${tipo}Plantillas`);
+      const plantilla = this.lista.find(p => p.id === parseInt(select.value));
+      if (!plantilla) return;
+
+      const campos = this.camposDe(tipo);
+      Object.entries(campos).forEach(([campo, elementId]) => {
+        if (!elementId) return;
+        const el = document.getElementById(elementId);
+        if (el) el.value = plantilla[campo] ?? '';
+      });
+
+      // Marcar especialidades de la plantilla
+      const checkboxes = document.querySelectorAll(`#${tipo}EspecialidadesContainer input[type="checkbox"]`);
+      checkboxes.forEach(cb => {
+        cb.checked = (plantilla.especialidades || []).includes(parseInt(cb.value));
+      });
+
+      utils.mostrarAlerta(`Plantilla "${plantilla.nombre}" aplicada`, "info");
+    },
+
+    async guardar(tipo) {
+      const nombre = prompt("Nombre de la plantilla (ej: 'Oferta ortodoncia Barcelona'):");
+      if (!nombre || !nombre.trim()) return;
+
+      const campos = this.camposDe(tipo);
+      const datos = { nombre: nombre.trim(), tipo };
+      Object.entries(campos).forEach(([campo, elementId]) => {
+        if (!elementId) return;
+        const el = document.getElementById(elementId);
+        datos[campo] = el ? el.value || null : null;
+      });
+
+      datos.especialidades = Array.from(
+        document.querySelectorAll(`#${tipo}EspecialidadesContainer input[type="checkbox"]:checked`)
+      ).map(cb => parseInt(cb.value));
+
+      try {
+        await utils.request("/plantillas", {
+          method: "POST",
+          body: JSON.stringify(datos)
+        });
+        utils.mostrarAlerta("✅ Plantilla guardada", "success");
+        await this.cargar(tipo);
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async eliminar(tipo) {
+      const select = document.getElementById(`${tipo}Plantillas`);
+      const plantilla = this.lista.find(p => p.id === parseInt(select.value));
+      if (!plantilla) {
+        utils.mostrarAlerta("Selecciona primero la plantilla que quieres eliminar", "info");
+        return;
+      }
+      if (!confirm(`¿Eliminar la plantilla "${plantilla.nombre}"?`)) return;
+
+      try {
+        await utils.request(`/plantillas/${plantilla.id}`, { method: "DELETE" });
+        utils.mostrarAlerta("Plantilla eliminada", "success");
+        await this.cargar(tipo);
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
