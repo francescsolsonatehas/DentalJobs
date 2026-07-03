@@ -673,6 +673,19 @@ const app = {
       app.publicaciones.cargarFavoritos();
     },
 
+    mostrarKanban(btn) {
+      estadoApp.filtros.soloMias = false;
+      estadoApp.filtros.contactadas = false;
+      document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
+
+      const filtersTitle = document.getElementById("filtrosTitle");
+      filtersTitle.textContent = "Mis Postulaciones";
+      filtersTitle.style.display = "block";
+
+      app.kanban.render();
+    },
+
     mostrarMisPostulaciones(btn) {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
@@ -3515,6 +3528,7 @@ const app = {
         btnContactadas.style.display = "none";
         document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
+        document.getElementById("btnKanban").style.display = "none";
         btnTodas.textContent = "Dentistas";
       } else {
         // Dentista
@@ -3529,6 +3543,7 @@ const app = {
         btnContactadas.style.display = "none";
         document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
+        document.getElementById("btnKanban").style.display = "inline-block";
         btnTodas.textContent = "Clínicas";
       }
 
@@ -3916,6 +3931,77 @@ const app = {
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
+    }
+  },
+
+  // ============================================
+  // Módulo: Kanban de postulaciones
+  // ============================================
+
+  kanban: {
+    async render() {
+      const container = document.getElementById("publicacionesContainer");
+
+      try {
+        const data = await utils.request("/candidaturas/mis-postulaciones");
+        const candidaturas = data.candidaturas || [];
+
+        if (candidaturas.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <h3>No tienes postulaciones</h3>
+              <p>Cuando te postules a una publicación aparecerá aquí su seguimiento.</p>
+            </div>
+          `;
+          return;
+        }
+
+        const columnas = [
+          { estado: 'pendiente', titulo: '⏳ Pendientes', color: '#f59e0b' },
+          { estado: 'aceptada', titulo: '✅ Aceptadas', color: '#10b981' },
+          { estado: 'rechazada', titulo: '❌ Rechazadas', color: '#ef4444' }
+        ];
+
+        container.innerHTML = `
+          <div class="kanban-board">
+            ${columnas.map(col => {
+              const items = candidaturas.filter(c => c.estado === col.estado);
+              return `
+                <div class="kanban-col">
+                  <div class="kanban-col-header" style="border-top: 4px solid ${col.color};">
+                    <span>${col.titulo}</span>
+                    <span class="kanban-col-contador" style="background: ${col.color};">${items.length}</span>
+                  </div>
+                  <div class="kanban-col-body">
+                    ${items.length === 0
+                      ? `<p class="kanban-vacio">Nada por aquí</p>`
+                      : items.map(c => this.tarjetaHtml(c, col.color)).join('')}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    tarjetaHtml(c, color) {
+      const destinatario = c.publicacion_tipo === 'oferta' ? 'clínica' : 'dentista';
+      return `
+        <div class="kanban-tarjeta" style="border-left: 3px solid ${color};">
+          <strong>${utils.escapeHtml(c.empresa_nombre || 'Publicación')}</strong>
+          <p class="kanban-tarjeta-detalle">📍 ${utils.escapeHtml(c.ciudad || '')}</p>
+          ${c.salario ? `<p class="kanban-tarjeta-detalle">💰 ${utils.escapeHtml(c.salario)}</p>` : ''}
+          ${c.contrato || c.jornada ? `<p class="kanban-tarjeta-detalle">📋 ${utils.escapeHtml([c.contrato, c.jornada].filter(Boolean).join(' · '))}</p>` : ''}
+          <p class="kanban-tarjeta-fecha">Postulada el ${utils.formatearFecha(c.creado_en)}</p>
+          <div class="kanban-tarjeta-acciones">
+            ${c.estado === 'aceptada' ? `<button class="btn-small" style="background: #f59e0b; color: white; border: none; border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;" onclick="app.resenyas.abrirFormulario(${c.id}, '${(c.empresa_nombre || `la ${destinatario}`).replace(/'/g, "\\'")}')">⭐ Valorar</button>` : ''}
+            <button class="btn-small" style="background: #ef4444; color: white; border: none; border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;" onclick="app.candidaturas.retirarPostulacion(${c.id})">🗑️ Retirar</button>
+          </div>
+        </div>
+      `;
     }
   },
 
