@@ -1920,3 +1920,30 @@ select:focus {
   gap: 0.5rem;
   align-items: center;
 }
+
+/* ============================================
+   Reseñas
+============================================ */
+
+.resenya-estrellas {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.resenya-estrella {
+  font-size: 2.2rem;
+  cursor: pointer;
+  color: #d1d5db;
+  transition: transform 0.1s ease, color 0.1s ease;
+  user-select: none;
+}
+
+.resenya-estrella:hover {
+  transform: scale(1.15);
+}
+
+.resenya-estrella.activa {
+  color: #f59e0b;
+}

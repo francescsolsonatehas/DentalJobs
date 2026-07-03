@@ -201,6 +201,19 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS resenyas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      candidatura_id INTEGER NOT NULL REFERENCES candidaturas(id),
+      autor_id INTEGER NOT NULL REFERENCES usuarios(id),
+      destinatario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      puntuacion INTEGER NOT NULL CHECK (puntuacion BETWEEN 1 AND 5),
+      comentario TEXT,
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(candidatura_id, autor_id)
+    )
+  `);
+
   // Backfill: calcular salario_min para publicaciones existentes que aún no lo tienen
   db.all("SELECT id, salario FROM publicaciones WHERE salario_min IS NULL AND salario IS NOT NULL", (err, filas) => {
     if (err || !filas) return;

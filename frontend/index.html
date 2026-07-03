@@ -634,6 +634,27 @@
         </div>
     </div>
 
+    <!-- Modal: Valorar (reseña) -->
+    <div id="modalResenya" class="modal">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h2 id="resenyaTitle">⭐ Valorar</h2>
+                <button class="close-btn" onclick="document.getElementById('modalResenya').classList.remove('active')">✕</button>
+            </div>
+            <form onsubmit="event.preventDefault(); app.resenyas.enviar();">
+                <div class="form-group" style="text-align: center;">
+                    <div id="resenyaEstrellas" class="resenya-estrellas"></div>
+                    <small id="resenyaEstrellasTexto" style="color: var(--gray-600);">Elige una puntuación</small>
+                </div>
+                <div class="form-group">
+                    <label for="resenyaComentario">Comentario (opcional)</label>
+                    <textarea id="resenyaComentario" placeholder="¿Cómo fue la experiencia de trabajar juntos?"></textarea>
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%;">Enviar valoración</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal: Chat / Mensajes -->
     <div id="modalChat" class="modal">
         <div class="modal-content">

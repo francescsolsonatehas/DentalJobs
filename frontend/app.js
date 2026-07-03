@@ -735,6 +735,7 @@ const app = {
       const modales = [
         "modalAuth",
         "modalChat",
+        "modalResenya",
         "modalPublicar",
         "modalDetalle",
         "modalPostulaciones",
@@ -1664,9 +1665,15 @@ const app = {
       document.getElementById("modalInteresados").classList.add("active");
     },
 
-    mostrarPerfilClinica(clinica) {
+    async mostrarPerfilClinica(clinica) {
+      const resumenResenyas = clinica.usuario_id ? await app.resenyas.cargarResumen(clinica.usuario_id) : null;
       let html = `
         <div style="padding: 2rem; background: #f9fafb; border-radius: 12px;">
+
+          ${resumenResenyas ? `<div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">⭐ Valoraciones</h4>
+            ${app.resenyas.resumenHtml(resumenResenyas, clinica.usuario_id, clinica.nombre)}
+          </div>` : ''}
 
           ${clinica.especialidades ? `<div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">🦷 Especialidad</h4>
@@ -1883,6 +1890,7 @@ const app = {
             </div>` : ''}
             <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
               <button class="btn-primary" onclick="app.stats.mostrarDetalleMiPostulacion(${utils.escapeJsonForHtml(postConEspecialidad)})" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">👁️ Ver detalles</button>
+              ${post.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${post.id}, '${(post.empresa_nombre || 'la otra parte').replace(/'/g, "\\'")}')" style="flex: 1; background: #f59e0b; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">⭐ Valorar</button>` : ''}
               <button onclick="app.candidaturas.retirarPostulacion(${post.id})" style="flex: 1; background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">🗑️ Retirar</button>
             </div>
           </div>
@@ -2328,6 +2336,7 @@ const app = {
                   <button onclick="event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, 'rechazada')" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">❌ Rechazar</button>
                 ` : `
                   <button onclick="event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, 'pendiente')" style="background: #f59e0b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">↩️ Deshacer</button>
+                  ${p.estado === 'aceptada' ? `<button onclick="event.stopPropagation(); app.resenyas.abrirFormulario(${p.id}, '${p.nombre.replace(/'/g, "\\'")}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
                 `}
               </div>
             </div>
@@ -2532,6 +2541,7 @@ const app = {
                   <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'rechazada')" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">❌ Rechazar</button>
                 ` : `
                   <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'pendiente')" style="background: #f59e0b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">↩️ Deshacer</button>
+                  ${c.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${c.id}, '${c.nombre.replace(/'/g, "\\'")}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
                 `}
               </div>
             </div>
@@ -2552,6 +2562,8 @@ const app = {
     },
 
     async mostrarPerfilDentistaCompleto(dentista) {
+      const resumenResenyas = dentista.usuario_id ? await app.resenyas.cargarResumen(dentista.usuario_id) : null;
+
       // Obtener especialidades del dentista si existen
       let especialidadesText = "";
       try {
@@ -2568,6 +2580,7 @@ const app = {
       }
 
       let html = `
+        ${resumenResenyas ? `<div style="margin-bottom: 1rem;">${app.resenyas.resumenHtml(resumenResenyas, dentista.usuario_id, dentista.nombre)}</div>` : ''}
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 1.5rem;">
           <tbody>
             <tr style="border-bottom: 1px solid #e5e7eb;">
@@ -3721,6 +3734,126 @@ const app = {
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
+    }
+  },
+
+  // ============================================
+  // Módulo: Reseñas
+  // ============================================
+
+  resenyas: {
+    candidaturaActual: null,
+    puntuacionSeleccionada: 0,
+
+    estrellasHtml(media) {
+      if (media === null || media === undefined) return '';
+      const llenas = Math.round(media);
+      return '★'.repeat(llenas) + '☆'.repeat(5 - llenas);
+    },
+
+    abrirFormulario(candidaturaId, nombreOtro) {
+      this.candidaturaActual = candidaturaId;
+      this.puntuacionSeleccionada = 0;
+      document.getElementById("resenyaTitle").textContent = `⭐ Valorar a ${nombreOtro}`;
+      document.getElementById("resenyaComentario").value = "";
+      document.getElementById("resenyaEstrellasTexto").textContent = "Elige una puntuación";
+      this.renderEstrellas();
+      document.getElementById("modalResenya").classList.add("active");
+    },
+
+    renderEstrellas() {
+      const contenedor = document.getElementById("resenyaEstrellas");
+      contenedor.innerHTML = [1, 2, 3, 4, 5].map(v => `
+        <span class="resenya-estrella ${v <= this.puntuacionSeleccionada ? 'activa' : ''}"
+              onclick="app.resenyas.seleccionar(${v})">${v <= this.puntuacionSeleccionada ? '★' : '☆'}</span>
+      `).join('');
+    },
+
+    seleccionar(valor) {
+      this.puntuacionSeleccionada = valor;
+      const textos = { 1: "Muy mala", 2: "Mala", 3: "Normal", 4: "Buena", 5: "Excelente" };
+      document.getElementById("resenyaEstrellasTexto").textContent = `${valor}/5 — ${textos[valor]}`;
+      this.renderEstrellas();
+    },
+
+    async enviar() {
+      if (!this.candidaturaActual) return;
+      if (!this.puntuacionSeleccionada) {
+        utils.mostrarAlerta("Elige una puntuación de 1 a 5 estrellas", "error");
+        return;
+      }
+
+      try {
+        await utils.request("/resenyas", {
+          method: "POST",
+          body: JSON.stringify({
+            candidatura_id: this.candidaturaActual,
+            puntuacion: this.puntuacionSeleccionada,
+            comentario: document.getElementById("resenyaComentario").value
+          })
+        });
+        document.getElementById("modalResenya").classList.remove("active");
+        utils.mostrarAlerta("✅ ¡Gracias por tu valoración!", "success");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async cargarResumen(usuarioId) {
+      try {
+        return await utils.request(`/resenyas/usuario/${usuarioId}`);
+      } catch (error) {
+        console.error("Error al cargar reseñas:", error);
+        return { media: null, total: 0, resenyas: [] };
+      }
+    },
+
+    // Bloque HTML con la media de reseñas para incrustar en perfiles
+    resumenHtml(resumen, usuarioId, nombre) {
+      if (!resumen || resumen.total === 0) {
+        return `<p style="margin: 0.3rem 0; font-size: 0.95rem; color: #9ca3af;">Sin valoraciones todavía</p>`;
+      }
+      const nombreEscapado = (nombre || '').replace(/'/g, "\\'");
+      return `
+        <p style="margin: 0.3rem 0; font-size: 1.05rem;">
+          <span style="color: #f59e0b; letter-spacing: 2px;">${this.estrellasHtml(resumen.media)}</span>
+          <strong>${resumen.media}</strong> · ${resumen.total} valoraci${resumen.total === 1 ? 'ón' : 'ones'}
+          <button class="btn-text btn-small" onclick="app.resenyas.verDeUsuario(${usuarioId}, '${nombreEscapado}')">Ver reseñas</button>
+        </p>
+      `;
+    },
+
+    async verDeUsuario(usuarioId, nombre) {
+      const resumen = await this.cargarResumen(usuarioId);
+
+      let html = `<div class="candidatos-list">`;
+      if (resumen.total === 0) {
+        html += `<p style="text-align: center; color: #6b7280;">Este usuario aún no tiene reseñas.</p>`;
+      } else {
+        html += `
+          <div style="text-align: center; margin-bottom: 1.5rem;">
+            <span style="color: #f59e0b; font-size: 1.8rem; letter-spacing: 3px;">${this.estrellasHtml(resumen.media)}</span>
+            <p style="margin: 0.3rem 0; color: #6b7280;">${resumen.media} de 5 · ${resumen.total} valoraci${resumen.total === 1 ? 'ón' : 'ones'}</p>
+          </div>
+        `;
+        resumen.resenyas.forEach(r => {
+          html += `
+            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <strong style="color: #0f4c75;">${utils.escapeHtml(r.autor_nombre)} ${r.autor_tipo === 'clinica' ? '🏥' : '👨‍⚕️'}</strong>
+                <span style="color: #f59e0b; letter-spacing: 1px;">${this.estrellasHtml(r.puntuacion)}</span>
+              </div>
+              ${r.comentario ? `<p style="margin: 0.5rem 0; color: #374151; white-space: pre-wrap;">${utils.escapeHtml(r.comentario)}</p>` : ''}
+              <span style="font-size: 0.8rem; color: #9ca3af;">${utils.formatearFecha(r.creado_en)}</span>
+            </div>
+          `;
+        });
+      }
+      html += `</div>`;
+
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = `Reseñas de ${nombre}`;
+      document.getElementById("modalInteresados").classList.add("active");
     }
   },
 

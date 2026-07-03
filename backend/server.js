@@ -2144,6 +2144,87 @@ app.delete("/candidaturas/:id", verifyToken, (req, res) => {
 });
 
 /* ===========================
+   🔹 RESEÑAS
+=========================== */
+
+// Crear reseña sobre la otra parte de una candidatura aceptada
+app.post("/resenyas", verifyToken, (req, res) => {
+  const { candidatura_id, puntuacion, comentario } = req.body;
+  const autorId = req.usuario.id;
+
+  const puntuacionNum = parseInt(puntuacion);
+  if (!candidatura_id || !puntuacionNum || puntuacionNum < 1 || puntuacionNum > 5) {
+    return res.status(400).json({ error: "Puntuación inválida (debe ser de 1 a 5)" });
+  }
+
+  db.get(
+    `SELECT c.id, c.estado, c.usuario_id as candidato_id, p.usuario_id as propietario_id
+     FROM candidaturas c
+     INNER JOIN publicaciones p ON c.publicacion_id = p.id
+     WHERE c.id = ?`,
+    [candidatura_id],
+    (err, candidatura) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al crear reseña" });
+      }
+      if (!candidatura) {
+        return res.status(404).json({ error: "Candidatura no encontrada" });
+      }
+      if (candidatura.estado !== "aceptada") {
+        return res.status(400).json({ error: "Solo puedes valorar colaboraciones aceptadas" });
+      }
+      if (autorId !== candidatura.candidato_id && autorId !== candidatura.propietario_id) {
+        return res.status(403).json({ error: "No formas parte de esta candidatura" });
+      }
+
+      const destinatarioId = autorId === candidatura.candidato_id
+        ? candidatura.propietario_id
+        : candidatura.candidato_id;
+
+      db.run(
+        `INSERT INTO resenyas (candidatura_id, autor_id, destinatario_id, puntuacion, comentario)
+         VALUES (?, ?, ?, ?, ?)`,
+        [candidatura_id, autorId, destinatarioId, puntuacionNum, (comentario || "").trim() || null],
+        function(err) {
+          if (err) {
+            if (err.message.includes("UNIQUE")) {
+              return res.status(400).json({ error: "Ya has valorado esta colaboración" });
+            }
+            console.error(err);
+            return res.status(500).json({ error: "Error al crear reseña" });
+          }
+          res.json({ mensaje: "Reseña creada", id: this.lastID });
+        }
+      );
+    }
+  );
+});
+
+// Reseñas recibidas por un usuario, con media
+app.get("/resenyas/usuario/:id", (req, res) => {
+  db.all(
+    `SELECT r.puntuacion, r.comentario, r.creado_en, u.nombre as autor_nombre, u.tipo as autor_tipo
+     FROM resenyas r
+     INNER JOIN usuarios u ON r.autor_id = u.id
+     WHERE r.destinatario_id = ?
+     ORDER BY r.creado_en DESC`,
+    [req.params.id],
+    (err, resenyas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener reseñas" });
+      }
+      const lista = resenyas || [];
+      const media = lista.length > 0
+        ? Math.round((lista.reduce((suma, r) => suma + r.puntuacion, 0) / lista.length) * 10) / 10
+        : null;
+      res.json({ media, total: lista.length, resenyas: lista });
+    }
+  );
+});
+
+/* ===========================
    🔹 RECORDATORIOS
 =========================== */
 
