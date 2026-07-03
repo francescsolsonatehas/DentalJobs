@@ -140,6 +140,17 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
+  db.run(`ALTER TABLE mensajes ADD COLUMN destinatario_id INTEGER REFERENCES usuarios(id)`, (err) => {
+    // Ignorar error si la columna ya existe
+    // Backfill: los mensajes antiguos iban siempre dirigidos al dueño de la publicación
+    db.run(`
+      UPDATE mensajes SET destinatario_id = (
+        SELECT usuario_id FROM publicaciones WHERE publicaciones.id = mensajes.publicacion_id
+      )
+      WHERE destinatario_id IS NULL
+    `);
+  });
+
   db.run(`
     CREATE TABLE IF NOT EXISTS archivos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -1739,6 +1739,169 @@ app.get("/mensajes/no-leidos/count", verifyToken, (req, res) => {
 });
 
 /* ===========================
+   🔹 CHAT
+=========================== */
+
+// Estado "escribiendo…" en memoria: clave `${remitente}:${destinatario}:${publicacion}` → timestamp
+const escribiendoStatus = new Map();
+const ESCRIBIENDO_TTL_MS = 5000;
+
+// Bandeja de conversaciones del usuario, agrupadas por publicación e interlocutor
+app.get("/chat/conversaciones", verifyToken, (req, res) => {
+  const usuarioId = req.usuario.id;
+
+  db.all(
+    `SELECT m.*, p.ciudad as publicacion_ciudad, p.tipo as publicacion_tipo,
+            ur.nombre as remitente_nombre_usuario, ud.nombre as destinatario_nombre
+     FROM mensajes m
+     LEFT JOIN publicaciones p ON m.publicacion_id = p.id
+     LEFT JOIN usuarios ur ON m.usuario_id = ur.id
+     LEFT JOIN usuarios ud ON m.destinatario_id = ud.id
+     WHERE (m.usuario_id = ? OR m.destinatario_id = ?) AND m.destinatario_id IS NOT NULL
+     ORDER BY m.creado_en ASC`,
+    [usuarioId, usuarioId],
+    (err, mensajes) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener conversaciones" });
+      }
+
+      const conversaciones = {};
+      (mensajes || []).forEach(m => {
+        const otroId = m.usuario_id === usuarioId ? m.destinatario_id : m.usuario_id;
+        const otroNombre = m.usuario_id === usuarioId ? m.destinatario_nombre : (m.remitente_nombre_usuario || m.remitente_nombre);
+        const clave = `${m.publicacion_id}:${otroId}`;
+        if (!conversaciones[clave]) {
+          conversaciones[clave] = {
+            publicacion_id: m.publicacion_id,
+            publicacion_ciudad: m.publicacion_ciudad,
+            publicacion_tipo: m.publicacion_tipo,
+            otro_id: otroId,
+            otro_nombre: otroNombre,
+            ultimo_mensaje: null,
+            ultima_fecha: null,
+            no_leidos: 0
+          };
+        }
+        conversaciones[clave].ultimo_mensaje = m.cuerpo;
+        conversaciones[clave].ultima_fecha = m.creado_en;
+        if (m.destinatario_id === usuarioId && m.leido === 0) {
+          conversaciones[clave].no_leidos++;
+        }
+      });
+
+      const lista = Object.values(conversaciones)
+        .sort((a, b) => (a.ultima_fecha < b.ultima_fecha ? 1 : -1));
+
+      res.json({ conversaciones: lista });
+    }
+  );
+});
+
+// Hilo de una conversación: mensajes en ambos sentidos + estado "escribiendo…" del interlocutor.
+// Marca como leídos los mensajes entrantes.
+app.get("/chat/mensajes/:publicacionId/:otroId", verifyToken, (req, res) => {
+  const usuarioId = req.usuario.id;
+  const publicacionId = parseInt(req.params.publicacionId);
+  const otroId = parseInt(req.params.otroId);
+
+  db.all(
+    `SELECT m.*, ur.nombre as remitente_nombre_usuario
+     FROM mensajes m
+     LEFT JOIN usuarios ur ON m.usuario_id = ur.id
+     WHERE m.publicacion_id = ?
+       AND ((m.usuario_id = ? AND m.destinatario_id = ?) OR (m.usuario_id = ? AND m.destinatario_id = ?))
+     ORDER BY m.creado_en ASC`,
+    [publicacionId, usuarioId, otroId, otroId, usuarioId],
+    (err, mensajes) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener mensajes" });
+      }
+
+      db.run(
+        "UPDATE mensajes SET leido = 1 WHERE publicacion_id = ? AND usuario_id = ? AND destinatario_id = ? AND leido = 0",
+        [publicacionId, otroId, usuarioId]
+      );
+
+      const claveEscribiendo = `${otroId}:${usuarioId}:${publicacionId}`;
+      const ultimaEscritura = escribiendoStatus.get(claveEscribiendo);
+      const escribiendo = !!ultimaEscritura && (Date.now() - ultimaEscritura) < ESCRIBIENDO_TTL_MS;
+
+      res.json({ mensajes: mensajes || [], escribiendo });
+    }
+  );
+});
+
+app.post("/chat/mensajes", verifyToken, (req, res) => {
+  const { publicacion_id, destinatario_id, cuerpo } = req.body;
+  const usuarioId = req.usuario.id;
+
+  if (!publicacion_id || !destinatario_id || !cuerpo || !cuerpo.trim()) {
+    return res.status(400).json({ error: "Faltan datos obligatorios" });
+  }
+
+  if (parseInt(destinatario_id) === usuarioId) {
+    return res.status(400).json({ error: "No puedes enviarte mensajes a ti mismo" });
+  }
+
+  db.get("SELECT id FROM publicaciones WHERE id = ?", [publicacion_id], (err, pub) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al enviar mensaje" });
+    }
+    if (!pub) {
+      return res.status(404).json({ error: "Publicación no encontrada" });
+    }
+
+    db.get("SELECT nombre, email FROM usuarios WHERE id = ?", [usuarioId], (err, remitente) => {
+      if (err || !remitente) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al enviar mensaje" });
+      }
+
+      db.run(
+        `INSERT INTO mensajes (publicacion_id, usuario_id, destinatario_id, remitente_nombre, remitente_email, cuerpo)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [publicacion_id, usuarioId, destinatario_id, remitente.nombre, remitente.email, cuerpo.trim()],
+        function(err) {
+          if (err) {
+            console.error(err);
+            return res.status(500).json({ error: "Error al enviar mensaje" });
+          }
+          escribiendoStatus.delete(`${usuarioId}:${destinatario_id}:${publicacion_id}`);
+          res.json({ mensaje: "Mensaje enviado", id: this.lastID });
+        }
+      );
+    });
+  });
+});
+
+// Señal de "escribiendo…" (se guarda solo en memoria, expira a los pocos segundos)
+app.post("/chat/escribiendo", verifyToken, (req, res) => {
+  const { publicacion_id, destinatario_id } = req.body;
+  if (!publicacion_id || !destinatario_id) {
+    return res.status(400).json({ error: "Faltan datos obligatorios" });
+  }
+  escribiendoStatus.set(`${req.usuario.id}:${destinatario_id}:${publicacion_id}`, Date.now());
+  res.json({ success: true });
+});
+
+app.get("/chat/no-leidos", verifyToken, (req, res) => {
+  db.get(
+    "SELECT COUNT(*) as total FROM mensajes WHERE destinatario_id = ? AND leido = 0",
+    [req.usuario.id],
+    (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al contar mensajes" });
+      }
+      res.json({ total: result.total || 0 });
+    }
+  );
+});
+
+/* ===========================
    🔹 ARCHIVOS
 =========================== */
 

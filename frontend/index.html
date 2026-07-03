@@ -16,6 +16,9 @@
                 <button class="btn-outline btn-small" id="btnAlertas" onclick="app.alertas.mostrar()" style="display: none; position: relative;">
                     🔔 <span id="alertasBadge" style="display: none; background: #ef4444; color: white; border-radius: 50%; padding: 0.1rem 0.4rem; font-size: 0.7rem; position: absolute; top: -4px; right: -4px;">0</span>
                 </button>
+                <button class="btn-outline btn-small" id="btnChat" onclick="app.chat.abrir()" style="display: none; position: relative;">
+                    💬 <span id="chatBadge" style="display: none; background: #ef4444; color: white; border-radius: 50%; padding: 0.1rem 0.4rem; font-size: 0.7rem; position: absolute; top: -4px; right: -4px;">0</span>
+                </button>
                 <button class="btn-outline btn-small" id="btnPerfil" onclick="app.modal.abrirPerfil()" style="display: none;">Mi perfil</button>
                 <button class="btn-text btn-small" id="btnLogout" onclick="app.auth.logout()" style="display: none;">Logout</button>
             </div>
@@ -625,6 +628,17 @@
                 <button class="close-btn" onclick="app.modal.cerrarCandidatos()">✕</button>
             </div>
             <div id="candidatosBody" style="padding: 1.5rem;"></div>
+        </div>
+    </div>
+
+    <!-- Modal: Chat / Mensajes -->
+    <div id="modalChat" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="chatTitle">💬 Mensajes</h2>
+                <button class="close-btn" onclick="app.chat.cerrar()">✕</button>
+            </div>
+            <div id="chatBody"></div>
         </div>
     </div>
 

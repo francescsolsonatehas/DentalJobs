@@ -143,6 +143,16 @@ const utils = {
     return JSON.stringify(obj).replace(/"/g, '&quot;');
   },
 
+  escapeHtml(texto) {
+    if (texto === null || texto === undefined) return '';
+    return String(texto)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  },
+
   ocultarElementos(...ids) {
     ids.forEach(id => {
       const el = document.getElementById(id);
@@ -724,6 +734,7 @@ const app = {
       // Cerrar todos los modales para evitar bloqueos
       const modales = [
         "modalAuth",
+        "modalChat",
         "modalPublicar",
         "modalDetalle",
         "modalPostulaciones",
@@ -932,6 +943,11 @@ const app = {
                 <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
                   <button class="btn-primary" onclick="app.modal.activarEdicionConManejo()">Editar</button>
                   <button class="btn-text" onclick="app.modal.cerrarDetalle()">Cerrar</button>
+                </div>`;
+      } else if (estadoApp.usuario && publicacion.usuario_id) {
+        const nombreOtro = (publicacion.usuario_nombre || publicacion.nombre_contacto || 'Usuario').replace(/'/g, "\\'");
+        html += `<div style="margin-top: 1.5rem;">
+                  <button class="btn-primary" onclick="app.chat.abrirConDestinatario(${publicacion.id}, ${publicacion.usuario_id}, '${nombreOtro}')">💬 Enviar mensaje</button>
                 </div>`;
       }
 
@@ -3236,6 +3252,7 @@ const app = {
         try {
           await app.ui.actualizarStats();
           await app.alertas.actualizarContador();
+          await app.chat.actualizarContador();
         } catch (error) {
           console.error("Error al actualizar stats:", error);
         }
@@ -3281,7 +3298,9 @@ const app = {
       document.getElementById("btnGuardarBusqueda").style.display = "inline-block";
       document.getElementById("btnFavoritos").style.display = "inline-block";
       document.getElementById("btnAlertas").style.display = "inline-block";
+      document.getElementById("btnChat").style.display = "inline-block";
       app.alertas.actualizarContador();
+      app.chat.actualizarContador();
 
       // Actualizar texto del hero según tipo de usuario
       const heroTitle = document.querySelector("#heroPlataforma h1");
@@ -3700,6 +3719,236 @@ const app = {
         document.getElementById("alertasBadge").style.display = "none";
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
+      }
+    }
+  },
+
+  // ============================================
+  // Módulo: Chat
+  // ============================================
+
+  chat: {
+    pollingInterval: null,
+    conversacionActual: null,
+    ultimaSenalEscribiendo: 0,
+
+    async abrir() {
+      if (!estadoApp.usuario) {
+        utils.mostrarAlerta("Debes iniciar sesión", "error");
+        return;
+      }
+      this.conversacionActual = null;
+      document.getElementById("modalChat").classList.add("active");
+      await this.renderConversaciones();
+      this.iniciarPolling();
+    },
+
+    cerrar() {
+      this.detenerPolling();
+      this.conversacionActual = null;
+      document.getElementById("modalChat").classList.remove("active");
+      app.chat.actualizarContador();
+    },
+
+    // Abre el chat directamente en la conversación con un usuario sobre una publicación
+    async abrirConDestinatario(publicacionId, otroId, otroNombre) {
+      if (!estadoApp.usuario) {
+        utils.mostrarAlerta("Debes iniciar sesión", "error");
+        return;
+      }
+      app.modal.cerrarTodosModales();
+      document.getElementById("modalChat").classList.add("active");
+      await this.abrirConversacion(publicacionId, otroId, otroNombre);
+      this.iniciarPolling();
+    },
+
+    async actualizarContador() {
+      if (!estadoApp.usuario) return;
+      try {
+        const data = await utils.request("/chat/no-leidos");
+        const badge = document.getElementById("chatBadge");
+        if (data.total > 0) {
+          badge.textContent = data.total;
+          badge.style.display = "inline-block";
+        } else {
+          badge.style.display = "none";
+        }
+      } catch (error) {
+        console.error("Error al contar mensajes no leídos:", error);
+      }
+    },
+
+    async renderConversaciones() {
+      try {
+        const data = await utils.request("/chat/conversaciones");
+        const conversaciones = data.conversaciones || [];
+
+        document.getElementById("chatTitle").textContent = "💬 Mensajes";
+
+        if (conversaciones.length === 0) {
+          document.getElementById("chatBody").innerHTML = `
+            <div style="padding: 2rem; text-align: center; color: #6b7280;">
+              <p>No tienes conversaciones todavía.</p>
+              <p style="font-size: 0.9rem;">Abre una publicación y pulsa "💬 Enviar mensaje" para empezar a hablar.</p>
+            </div>
+          `;
+          return;
+        }
+
+        let html = `<div class="chat-conversaciones">`;
+        conversaciones.forEach(c => {
+          const etiquetaPub = `${c.publicacion_tipo === 'oferta' ? 'Oferta' : 'Solicitud'} · ${utils.escapeHtml(c.publicacion_ciudad || '')}`;
+          html += `
+            <div class="chat-conversacion-item" onclick="app.chat.abrirConversacion(${c.publicacion_id}, ${c.otro_id}, '${utils.escapeHtml(c.otro_nombre).replace(/'/g, "\\'")}')">
+              <div class="chat-conversacion-info">
+                <strong>${utils.escapeHtml(c.otro_nombre || 'Usuario')}</strong>
+                <span class="chat-conversacion-pub">${etiquetaPub}</span>
+                <p class="chat-conversacion-ultimo">${utils.escapeHtml((c.ultimo_mensaje || '').slice(0, 60))}${(c.ultimo_mensaje || '').length > 60 ? '…' : ''}</p>
+              </div>
+              <div class="chat-conversacion-meta">
+                <span class="chat-conversacion-fecha">${utils.formatearFecha(c.ultima_fecha)}</span>
+                ${c.no_leidos > 0 ? `<span class="chat-no-leidos">${c.no_leidos}</span>` : ''}
+              </div>
+            </div>
+          `;
+        });
+        html += `</div>`;
+        document.getElementById("chatBody").innerHTML = html;
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async abrirConversacion(publicacionId, otroId, otroNombre) {
+      this.conversacionActual = { publicacion_id: publicacionId, otro_id: otroId, otro_nombre: otroNombre };
+
+      document.getElementById("chatTitle").textContent = `💬 ${otroNombre}`;
+      document.getElementById("chatBody").innerHTML = `
+        <div class="chat-hilo">
+          <button class="btn-text btn-small" onclick="app.chat.volverALista()" style="margin-bottom: 0.5rem;">← Todas las conversaciones</button>
+          <div id="chatEscribiendo" class="chat-escribiendo" style="visibility: hidden;">escribiendo…</div>
+          <div id="chatMensajes" class="chat-mensajes"><p style="color: #9ca3af; text-align: center;">Cargando…</p></div>
+          <form class="chat-input-row" onsubmit="event.preventDefault(); app.chat.enviar();">
+            <input id="chatInput" type="text" placeholder="Escribe un mensaje…" autocomplete="off" oninput="app.chat.notificarEscribiendo()">
+            <button type="submit" class="btn-primary">Enviar</button>
+          </form>
+        </div>
+      `;
+      await this.refrescarHilo(true);
+      const input = document.getElementById("chatInput");
+      if (input) input.focus();
+    },
+
+    async volverALista() {
+      this.conversacionActual = null;
+      await this.renderConversaciones();
+    },
+
+    async refrescarHilo(forzarScroll = false) {
+      const conv = this.conversacionActual;
+      if (!conv) return;
+
+      try {
+        const data = await utils.request(`/chat/mensajes/${conv.publicacion_id}/${conv.otro_id}`);
+        const mensajes = data.mensajes || [];
+        const contenedor = document.getElementById("chatMensajes");
+        if (!contenedor) return;
+
+        const estabaAbajo = forzarScroll ||
+          (contenedor.scrollHeight - contenedor.scrollTop - contenedor.clientHeight < 60);
+
+        if (mensajes.length === 0) {
+          contenedor.innerHTML = `<p style="color: #9ca3af; text-align: center;">Todavía no hay mensajes. ¡Escribe el primero!</p>`;
+        } else {
+          contenedor.innerHTML = mensajes.map(m => {
+            const esMio = m.usuario_id === estadoApp.usuario.id;
+            const ticks = esMio
+              ? `<span class="chat-ticks ${m.leido ? 'chat-ticks-leido' : ''}">${m.leido ? '✓✓' : '✓'}</span>`
+              : '';
+            const hora = new Date(m.creado_en).toLocaleTimeString("es-ES", { hour: '2-digit', minute: '2-digit' });
+            return `
+              <div class="chat-burbuja ${esMio ? 'chat-burbuja-mia' : 'chat-burbuja-otro'}">
+                <p>${utils.escapeHtml(m.cuerpo)}</p>
+                <span class="chat-burbuja-meta">${utils.formatearFecha(m.creado_en)} ${hora} ${ticks}</span>
+              </div>
+            `;
+          }).join('');
+        }
+
+        const escribiendoEl = document.getElementById("chatEscribiendo");
+        if (escribiendoEl) {
+          escribiendoEl.style.visibility = data.escribiendo ? "visible" : "hidden";
+        }
+
+        if (estabaAbajo) {
+          contenedor.scrollTop = contenedor.scrollHeight;
+        }
+      } catch (error) {
+        console.error("Error al refrescar chat:", error);
+      }
+    },
+
+    async enviar() {
+      const conv = this.conversacionActual;
+      const input = document.getElementById("chatInput");
+      if (!conv || !input || !input.value.trim()) return;
+
+      const cuerpo = input.value.trim();
+      input.value = "";
+
+      try {
+        await utils.request("/chat/mensajes", {
+          method: "POST",
+          body: JSON.stringify({
+            publicacion_id: conv.publicacion_id,
+            destinatario_id: conv.otro_id,
+            cuerpo
+          })
+        });
+        await this.refrescarHilo(true);
+      } catch (error) {
+        input.value = cuerpo;
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    notificarEscribiendo() {
+      const conv = this.conversacionActual;
+      if (!conv) return;
+      // Throttle: como mucho una señal cada 2 segundos
+      const ahora = Date.now();
+      if (ahora - this.ultimaSenalEscribiendo < 2000) return;
+      this.ultimaSenalEscribiendo = ahora;
+
+      utils.request("/chat/escribiendo", {
+        method: "POST",
+        body: JSON.stringify({
+          publicacion_id: conv.publicacion_id,
+          destinatario_id: conv.otro_id
+        })
+      }).catch(err => console.error("Error señal escribiendo:", err));
+    },
+
+    iniciarPolling() {
+      this.detenerPolling();
+      this.pollingInterval = setInterval(async () => {
+        const modal = document.getElementById("modalChat");
+        if (!modal || !modal.classList.contains("active")) {
+          this.detenerPolling();
+          return;
+        }
+        if (this.conversacionActual) {
+          await this.refrescarHilo();
+        } else {
+          await this.renderConversaciones();
+        }
+      }, 3000);
+    },
+
+    detenerPolling() {
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+        this.pollingInterval = null;
       }
     }
   },
