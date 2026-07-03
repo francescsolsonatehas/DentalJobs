@@ -1991,3 +1991,22 @@ select:focus {
 .foto-eliminar:hover {
   background: #ef4444;
 }
+
+/* ============================================
+   Estadísticas por publicación
+============================================ */
+
+.pub-stat-card {
+  background: #f8faff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.pub-stat-chip {
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}

@@ -669,6 +669,72 @@ app.post("/publicaciones", verifyToken, (req, res) => {
   );
 });
 
+// Registrar una vista de la publicación (lo llama el frontend cuando alguien que no es el dueño abre el detalle)
+app.post("/publicaciones/:id/vista", (req, res) => {
+  db.run(
+    "UPDATE publicaciones SET vistas = COALESCE(vistas, 0) + 1 WHERE id = ? AND activo = 1",
+    [req.params.id],
+    function(err) {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al registrar vista" });
+      }
+      res.json({ success: true });
+    }
+  );
+});
+
+// Panel de estadísticas de una publicación (solo el dueño): vistas, postulantes y tiempo medio de respuesta
+app.get("/publicaciones/:id/estadisticas", verifyToken, (req, res) => {
+  const publicacionId = req.params.id;
+
+  db.get("SELECT usuario_id, vistas FROM publicaciones WHERE id = ?", [publicacionId], (err, pub) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al obtener estadísticas" });
+    }
+    if (!pub) {
+      return res.status(404).json({ error: "Publicación no encontrada" });
+    }
+    if (pub.usuario_id !== req.usuario.id) {
+      return res.status(403).json({ error: "Solo el dueño puede ver las estadísticas" });
+    }
+
+    db.get(
+      `SELECT COUNT(*) as total,
+              SUM(CASE WHEN estado = 'pendiente' THEN 1 ELSE 0 END) as pendientes,
+              SUM(CASE WHEN estado = 'aceptada' THEN 1 ELSE 0 END) as aceptadas,
+              SUM(CASE WHEN estado = 'rechazada' THEN 1 ELSE 0 END) as rechazadas,
+              SUM(CASE WHEN estado = 'retirada' THEN 1 ELSE 0 END) as retiradas,
+              AVG(CASE WHEN estado != 'pendiente' AND actualizado_en > creado_en
+                  THEN julianday(actualizado_en) - julianday(creado_en) END) as tiempo_medio_respuesta_dias
+       FROM candidaturas
+       WHERE publicacion_id = ?`,
+      [publicacionId],
+      (err, stats) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al obtener estadísticas" });
+        }
+
+        res.json({
+          vistas: pub.vistas || 0,
+          postulantes: {
+            total: stats.total || 0,
+            pendientes: stats.pendientes || 0,
+            aceptadas: stats.aceptadas || 0,
+            rechazadas: stats.rechazadas || 0,
+            retiradas: stats.retiradas || 0
+          },
+          tiempo_medio_respuesta_dias: stats.tiempo_medio_respuesta_dias !== null && stats.tiempo_medio_respuesta_dias !== undefined
+            ? Math.round(stats.tiempo_medio_respuesta_dias * 10) / 10
+            : null
+        });
+      }
+    );
+  });
+});
+
 app.get("/publicaciones/:id/especialidades", (req, res) => {
   const publicacionId = req.params.id;
 

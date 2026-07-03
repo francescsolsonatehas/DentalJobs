@@ -848,6 +848,12 @@ const app = {
     async abrirDetalle(publicacion) {
       estadoApp.publicacionActual = publicacion;
 
+      // Registrar vista si quien mira no es el dueño
+      if (publicacion.usuario_id !== estadoApp.usuario?.id) {
+        utils.request(`/publicaciones/${publicacion.id}/vista`, { method: 'POST' })
+          .catch(err => console.error("Error al registrar vista:", err));
+      }
+
       // Cargar especialidades de la publicación
       let especialidadesText = "";
       try {
@@ -2212,6 +2218,57 @@ const app = {
       try {
         const postulaciones = await utils.request(`/stats/postulaciones-recibidas-aceptadas-dentista-lista/${estadoApp.usuario.id}`);
         app.stats.mostrarListaPostulacionesRecibidas(postulaciones, "Postulaciones Recibidas Aceptadas");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async mostrarEstadisticasPublicacion(publicacionId, titulo) {
+      try {
+        const stats = await utils.request(`/publicaciones/${publicacionId}/estadisticas`);
+        const p = stats.postulantes;
+
+        const tiempoMedio = stats.tiempo_medio_respuesta_dias !== null
+          ? (stats.tiempo_medio_respuesta_dias < 1
+              ? "menos de 1 día"
+              : `${stats.tiempo_medio_respuesta_dias} días`)
+          : "—";
+
+        const html = `
+          <div style="padding: 1rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+              <div class="pub-stat-card">
+                <span style="font-size: 1.6rem;">👁️</span>
+                <h3 style="margin: 0.3rem 0; font-size: 1.8rem; color: #0f4c75;">${stats.vistas}</h3>
+                <p style="margin: 0; color: #6b7280; font-size: 0.85rem;">Vistas</p>
+              </div>
+              <div class="pub-stat-card">
+                <span style="font-size: 1.6rem;">📬</span>
+                <h3 style="margin: 0.3rem 0; font-size: 1.8rem; color: #0f4c75;">${p.total}</h3>
+                <p style="margin: 0; color: #6b7280; font-size: 0.85rem;">Postulantes</p>
+              </div>
+              <div class="pub-stat-card">
+                <span style="font-size: 1.6rem;">⏱️</span>
+                <h3 style="margin: 0.3rem 0; font-size: 1.4rem; color: #0f4c75;">${tiempoMedio}</h3>
+                <p style="margin: 0; color: #6b7280; font-size: 0.85rem;">Tiempo medio de respuesta</p>
+              </div>
+            </div>
+
+            <h4 style="color: #0f4c75; margin: 0 0 0.75rem 0;">Postulantes por estado</h4>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <span class="pub-stat-chip" style="background: #fef3c7; color: #92400e;">⏳ Pendientes: ${p.pendientes}</span>
+              <span class="pub-stat-chip" style="background: #d1fae5; color: #065f46;">✅ Aceptadas: ${p.aceptadas}</span>
+              <span class="pub-stat-chip" style="background: #fee2e2; color: #991b1b;">❌ Rechazadas: ${p.rechazadas}</span>
+              <span class="pub-stat-chip" style="background: #f3f4f6; color: #4b5563;">↩️ Retiradas: ${p.retiradas}</span>
+            </div>
+
+            ${p.total === 0 ? '<p style="color: #9ca3af; margin-top: 1.5rem; text-align: center;">Todavía nadie se ha postulado a esta publicación.</p>' : ''}
+          </div>
+        `;
+
+        document.getElementById("interesadosBody").innerHTML = html;
+        document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = `📊 ${titulo}`;
+        document.getElementById("modalInteresados").classList.add("active");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -3667,7 +3724,8 @@ const app = {
               <button class="btn-primary" onclick="app.modal.abrirDetalleConManejo(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
               ${(() => {
                 if (estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id)) {
-                  return `<button class="btn-danger" onclick="app.publicaciones.retirarPublicacion(${pub.id})" style="flex: 1;">🗑️ Retirar</button>`;
+                  return `<button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${generatedTitle.replace(/'/g, "\\'")}')" style="flex: 1;">📊 Estadísticas</button>
+                          <button class="btn-danger" onclick="app.publicaciones.retirarPublicacion(${pub.id})" style="flex: 1;">🗑️ Retirar</button>`;
                 }
                 return '';
               })()}

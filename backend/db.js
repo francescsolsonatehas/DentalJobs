@@ -140,6 +140,10 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
+  db.run(`ALTER TABLE publicaciones ADD COLUMN vistas INTEGER DEFAULT 0`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
   db.run(`ALTER TABLE usuarios ADD COLUMN anyos_experiencia INTEGER`, (err) => {
     // Ignorar error si la columna ya existe
   });
