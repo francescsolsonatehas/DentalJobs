@@ -227,6 +227,23 @@ db.serialize(() => {
   `);
 
   db.run(`
+    CREATE TABLE IF NOT EXISTS sedes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      nombre TEXT NOT NULL,
+      ciudad TEXT NOT NULL,
+      direccion TEXT,
+      codigo_postal TEXT,
+      telefono TEXT,
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.run(`ALTER TABLE publicaciones ADD COLUMN sede_id INTEGER REFERENCES sedes(id)`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
+  db.run(`
     CREATE TABLE IF NOT EXISTS plantillas_publicacion (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       usuario_id INTEGER NOT NULL REFERENCES usuarios(id),

@@ -280,6 +280,12 @@
                             <button type="button" class="btn-text btn-small" onclick="app.plantillas.eliminar('oferta')" title="Eliminar la plantilla seleccionada">🗑️</button>
                         </div>
                     </div>
+                    <div class="form-group" id="ofertaSedeGroup" style="display: none;">
+                        <label for="ofertaSede">Sede</label>
+                        <select id="ofertaSede" onchange="app.sedes.aplicarAPublicacion()">
+                            <option value="">Sin sede específica…</option>
+                        </select>
+                    </div>
                     <div class="form-group">
                         <label for="ofertaCiudad">Ciudad *</label>
                         <input id="ofertaCiudad" type="text" required>
@@ -553,6 +559,7 @@
                 <button class="tab-btn" id="tabCv" onclick="app.perfil.switchTab('cv')">Mi CV</button>
                 <button class="tab-btn" id="tabPortfolio" onclick="app.perfil.switchTab('portfolio')">Portfolio</button>
                 <button class="tab-btn" id="tabFotos" onclick="app.perfil.switchTab('fotos')">Fotos</button>
+                <button class="tab-btn" id="tabSedes" onclick="app.perfil.switchTab('sedes')">Sedes</button>
             </div>
 
             <!-- Tab: Mis datos -->
@@ -598,6 +605,37 @@
                     <button class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('fotoInput').click()">Añadir foto</button>
                     <div id="fotosGallery" class="fotos-gallery" style="margin-top: 1.5rem;"></div>
                 </div>
+            </div>
+
+            <!-- Tab: Sedes -->
+            <div id="tab-sedes" class="tab-content">
+                <div id="sedesLista" style="margin-bottom: 1.5rem;"></div>
+                <h4 style="color: #0f4c75; margin: 0 0 1rem 0;">➕ Añadir sede</h4>
+                <form onsubmit="event.preventDefault(); app.sedes.crear();">
+                    <div class="form-group">
+                        <label for="sedeNombre">Nombre de la sede *</label>
+                        <input id="sedeNombre" type="text" placeholder="Ej: Clínica Centro" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="sedeCiudad">Ciudad *</label>
+                        <input id="sedeCiudad" type="text" placeholder="Ej: Barcelona" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="sedeDireccion">Dirección</label>
+                        <input id="sedeDireccion" type="text" placeholder="Calle, número">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label for="sedeCodigoPostal">Código Postal</label>
+                            <input id="sedeCodigoPostal" type="text" placeholder="08001">
+                        </div>
+                        <div class="form-group">
+                            <label for="sedeTelefono">Teléfono</label>
+                            <input id="sedeTelefono" type="tel" placeholder="+34 93 000 00 00">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%;">Añadir sede</button>
+                </form>
             </div>
         </div>
     </div>

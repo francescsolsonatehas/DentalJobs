@@ -472,7 +472,8 @@ const app = {
           experiencia: document.getElementById("ofertaExperiencia").value || null,
           nombre_contacto: document.getElementById("ofertaNombreContacto").value,
           email_contacto: document.getElementById("ofertaEmailContacto").value,
-          telefono_contacto: document.getElementById("ofertaTelefonoContacto").value || null
+          telefono_contacto: document.getElementById("ofertaTelefonoContacto").value || null,
+          sede_id: document.getElementById("ofertaSede")?.value || null
         };
       } else {
         // Obtener especialidades seleccionadas
@@ -789,6 +790,7 @@ const app = {
         document.getElementById("tabBtnOferta").classList.add("active");
         app.publicaciones.cargarEspecialidadesPublicar('oferta');
         app.plantillas.cargar('oferta');
+        app.sedes.cargarEnSelector();
       } else {
         // Candidato solo ve tab de Solicitud
         document.getElementById("tabBtnOferta").style.display = "none";
@@ -2941,12 +2943,15 @@ const app = {
         document.getElementById("tabCv").style.display = "none";
         document.getElementById("tabPortfolio").style.display = "none";
         document.getElementById("tabFotos").style.display = "inline-block";
+        document.getElementById("tabSedes").style.display = "inline-block";
         document.getElementById("perfilTitle").textContent = "Datos de la Empresa";
+        app.sedes.cargar();
       } else {
         document.getElementById("tabDatos").style.display = "inline-block";
         document.getElementById("tabCv").style.display = "inline-block";
         document.getElementById("tabPortfolio").style.display = "inline-block";
         document.getElementById("tabFotos").style.display = "none";
+        document.getElementById("tabSedes").style.display = "none";
         document.getElementById("perfilTitle").textContent = "Mi perfil";
       }
 
@@ -3885,6 +3890,115 @@ const app = {
         document.getElementById("alertasBadge").style.display = "none";
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
+      }
+    }
+  },
+
+  // ============================================
+  // Módulo: Sedes
+  // ============================================
+
+  sedes: {
+    lista: [],
+
+    async cargar() {
+      try {
+        const data = await utils.request("/sedes");
+        this.lista = data.sedes || [];
+        this.renderLista();
+      } catch (error) {
+        console.error("Error al cargar sedes:", error);
+      }
+    },
+
+    renderLista() {
+      const contenedor = document.getElementById("sedesLista");
+      if (!contenedor) return;
+
+      if (this.lista.length === 0) {
+        contenedor.innerHTML = `<p style="color: #9ca3af; text-align: center;">Aún no has añadido ninguna sede.</p>`;
+        return;
+      }
+
+      contenedor.innerHTML = this.lista.map(s => `
+        <div style="background: #f8faff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+          <div>
+            <strong style="color: #0f4c75;">🏥 ${utils.escapeHtml(s.nombre)}</strong>
+            <p style="margin: 0.2rem 0 0 0; font-size: 0.9rem; color: #6b7280;">
+              📍 ${utils.escapeHtml(s.ciudad)}${s.direccion ? ` · ${utils.escapeHtml(s.direccion)}` : ''}${s.codigo_postal ? ` (${utils.escapeHtml(s.codigo_postal)})` : ''}
+            </p>
+            ${s.telefono ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.9rem; color: #6b7280;">📞 ${utils.escapeHtml(s.telefono)}</p>` : ''}
+          </div>
+          <button class="btn-outline btn-small" onclick="app.sedes.eliminar(${s.id})">Eliminar</button>
+        </div>
+      `).join('');
+    },
+
+    async crear() {
+      const datos = {
+        nombre: document.getElementById("sedeNombre").value,
+        ciudad: document.getElementById("sedeCiudad").value,
+        direccion: document.getElementById("sedeDireccion").value || null,
+        codigo_postal: document.getElementById("sedeCodigoPostal").value || null,
+        telefono: document.getElementById("sedeTelefono").value || null
+      };
+
+      try {
+        await utils.request("/sedes", {
+          method: "POST",
+          body: JSON.stringify(datos)
+        });
+        utils.mostrarAlerta("✅ Sede añadida", "success");
+        ["sedeNombre", "sedeCiudad", "sedeDireccion", "sedeCodigoPostal", "sedeTelefono"].forEach(id => {
+          document.getElementById(id).value = "";
+        });
+        await this.cargar();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async eliminar(id) {
+      if (!confirm("¿Eliminar esta sede? Sus publicaciones seguirán activas, pero sin sede asociada.")) return;
+      try {
+        await utils.request(`/sedes/${id}`, { method: "DELETE" });
+        utils.mostrarAlerta("Sede eliminada", "success");
+        await this.cargar();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    // Rellena el selector de sedes del formulario de oferta
+    async cargarEnSelector() {
+      const grupo = document.getElementById("ofertaSedeGroup");
+      const select = document.getElementById("ofertaSede");
+      if (!grupo || !select) return;
+
+      try {
+        const data = await utils.request("/sedes");
+        this.lista = data.sedes || [];
+
+        if (this.lista.length === 0) {
+          grupo.style.display = "none";
+          return;
+        }
+
+        select.innerHTML = `<option value="">Sin sede específica…</option>` +
+          this.lista.map(s => `<option value="${s.id}" data-ciudad="${utils.escapeHtml(s.ciudad)}">${utils.escapeHtml(s.nombre)} (${utils.escapeHtml(s.ciudad)})</option>`).join('');
+        grupo.style.display = "block";
+      } catch (error) {
+        console.error("Error al cargar sedes:", error);
+        grupo.style.display = "none";
+      }
+    },
+
+    // Al elegir sede, rellenar la ciudad de la oferta automáticamente
+    aplicarAPublicacion() {
+      const select = document.getElementById("ofertaSede");
+      const opcion = select.options[select.selectedIndex];
+      if (opcion && opcion.dataset.ciudad) {
+        document.getElementById("ofertaCiudad").value = opcion.dataset.ciudad;
       }
     }
   },
