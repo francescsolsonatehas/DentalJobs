@@ -2244,6 +2244,68 @@ app.delete("/archivos/:id", verifyToken, (req, res) => {
    🔹 CANDIDATURAS
 =========================== */
 
+// Exportar postulaciones a CSV: 'recibidas' (sobre mis publicaciones) o 'enviadas' (las mías).
+// Separador ';' y BOM UTF-8 para que Excel en español lo abra directamente.
+app.get("/candidaturas/export.csv", verifyToken, (req, res) => {
+  const tipoExport = req.query.tipo || (req.usuario.tipo === "clinica" ? "recibidas" : "enviadas");
+  if (!["recibidas", "enviadas"].includes(tipoExport)) {
+    return res.status(400).json({ error: "Tipo de exportación inválido" });
+  }
+
+  const esRecibidas = tipoExport === "recibidas";
+  const sql = esRecibidas
+    ? `SELECT c.creado_en, c.actualizado_en, c.estado, c.mensaje,
+              p.tipo as publicacion_tipo, p.ciudad as publicacion_ciudad,
+              u.nombre as contraparte_nombre, u.email as contraparte_email, u.ciudad as contraparte_ciudad
+       FROM candidaturas c
+       INNER JOIN publicaciones p ON c.publicacion_id = p.id
+       INNER JOIN usuarios u ON c.usuario_id = u.id
+       WHERE p.usuario_id = ?
+       ORDER BY c.creado_en DESC`
+    : `SELECT c.creado_en, c.actualizado_en, c.estado, c.mensaje,
+              p.tipo as publicacion_tipo, p.ciudad as publicacion_ciudad,
+              u.nombre as contraparte_nombre, u.email as contraparte_email, u.ciudad as contraparte_ciudad
+       FROM candidaturas c
+       INNER JOIN publicaciones p ON c.publicacion_id = p.id
+       INNER JOIN usuarios u ON p.usuario_id = u.id
+       WHERE c.usuario_id = ?
+       ORDER BY c.creado_en DESC`;
+
+  db.all(sql, [req.usuario.id], (err, filas) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al exportar postulaciones" });
+    }
+
+    const etiquetaContraparte = esRecibidas ? "Candidato" : "Publicado por";
+    const columnas = ["Fecha postulación", "Estado", "Fecha última actualización",
+                      "Publicación", "Ciudad publicación",
+                      etiquetaContraparte, "Email", "Ciudad", "Mensaje"];
+
+    const escapar = (valor) => `"${String(valor ?? "").replace(/"/g, '""')}"`;
+    const lineas = [columnas.map(escapar).join(";")];
+
+    (filas || []).forEach(f => {
+      lineas.push([
+        f.creado_en,
+        f.estado,
+        f.actualizado_en,
+        f.publicacion_tipo === "oferta" ? "Oferta" : "Solicitud",
+        f.publicacion_ciudad,
+        f.contraparte_nombre,
+        f.contraparte_email,
+        f.contraparte_ciudad,
+        f.mensaje
+      ].map(escapar).join(";"));
+    });
+
+    const fecha = new Date().toISOString().slice(0, 10);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="postulaciones-${tipoExport}-${fecha}.csv"`);
+    res.send("\uFEFF" + lineas.join("\n"));
+  });
+});
+
 // Crear candidatura (dentista postulándose a oferta)
 app.post("/candidaturas", verifyToken, (req, res) => {
   const { publicacion_id, mensaje } = req.body;

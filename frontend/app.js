@@ -3503,6 +3503,7 @@ const app = {
       document.getElementById("btnPerfil").style.display = "inline-block";
       document.getElementById("btnLogout").style.display = "inline-block";
       document.getElementById("btnGuardarBusqueda").style.display = "inline-block";
+      document.getElementById("btnExportarCsv").style.display = "inline-block";
       document.getElementById("btnFavoritos").style.display = "inline-block";
       document.getElementById("btnAlertas").style.display = "inline-block";
       document.getElementById("btnChat").style.display = "inline-block";
@@ -3928,6 +3929,38 @@ const app = {
 
         // El propio GET /alertas ya las marca como leídas en el backend
         document.getElementById("alertasBadge").style.display = "none";
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    }
+  },
+
+  // ============================================
+  // Módulo: Exportar datos
+  // ============================================
+
+  exportar: {
+    // Descarga el CSV de postulaciones (recibidas para clínicas, enviadas para dentistas)
+    async postulacionesCsv() {
+      try {
+        const response = await fetch(`${API}/candidaturas/export.csv`, {
+          headers: { Authorization: `Bearer ${estadoApp.token}` }
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || "Error al exportar");
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const enlace = document.createElement("a");
+        enlace.href = url;
+        enlace.download = `postulaciones-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        URL.revokeObjectURL(url);
+        utils.mostrarAlerta("✅ CSV descargado", "success");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
