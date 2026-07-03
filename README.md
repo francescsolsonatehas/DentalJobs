@@ -80,15 +80,45 @@ Luego accede a `http://localhost:8000` (o el puerto que configure)
 ### Mensajes
 - `POST /mensajes` — Enviar mensaje de contacto sobre una publicación
 
+### Chat
+- `GET /chat/conversaciones` — Bandeja de conversaciones (requiere JWT)
+- `GET /chat/mensajes/:publicacionId/:otroId` — Hilo de conversación; marca los entrantes como leídos y devuelve si el otro está escribiendo
+- `POST /chat/mensajes` — Enviar mensaje (publicacion_id, destinatario_id, cuerpo)
+- `POST /chat/escribiendo` — Señal de "escribiendo…" (expira a los 5 s)
+- `GET /chat/no-leidos` — Contador de mensajes sin leer
+
+### Reseñas
+- `POST /resenyas` — Valorar a la otra parte de una candidatura aceptada (1-5 + comentario)
+- `GET /resenyas/usuario/:id` — Reseñas recibidas y media de un usuario
+
+### Recordatorios
+- `GET /recordatorios/pendientes` — Postulaciones sin responder desde hace N días (`?dias=3` por defecto)
+
+### Perfil
+- `GET /usuarios/:id/publico` — Perfil público (descripción, años de experiencia)
+- `GET /auth/mi-cv.pdf` — CV del dentista en PDF generado automáticamente
+- `POST /archivos/upload` — Además de `cv` y `portfolio`, admite `foto` (fotos de la clínica)
+
+### Estadísticas de publicación
+- `POST /publicaciones/:id/vista` — Registrar una vista
+- `GET /publicaciones/:id/estadisticas` — Vistas, postulantes por estado y tiempo medio de respuesta (solo dueño)
+
+### Plantillas
+- `POST /plantillas` / `GET /plantillas` / `DELETE /plantillas/:id` — Plantillas de publicación reutilizables
+
+### Sedes
+- `POST /sedes` / `GET /sedes` / `PUT /sedes/:id` / `DELETE /sedes/:id` — Sedes de una clínica; las ofertas pueden asociarse con `sede_id`
+
+### Exportación
+- `GET /candidaturas/export.csv` — Exportar postulaciones recibidas o enviadas (`?tipo=recibidas|enviadas`)
+
 ## Desarrollo futuro
 
 - [ ] Búsqueda fulltext (nombre de clínica, especialista)
-- [ ] Panel de usuario (editar perfil, ver mis publicaciones)
-- [ ] Historial de mensajes
 - [ ] Recomendaciones basadas en perfil
 - [ ] Notificaciones por email
 - [ ] Verificación de email
-- [ ] Sistema de reseñas y valoraciones
+- [ ] Publicaciones destacadas / planes de suscripción
 
 ## Licencia
 
