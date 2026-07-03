@@ -970,9 +970,21 @@ const app = {
                 </div>`;
       } else if (estadoApp.usuario && publicacion.usuario_id) {
         const nombreOtro = (publicacion.usuario_nombre || publicacion.nombre_contacto || 'Usuario').replace(/'/g, "\\'");
-        html += `<div style="margin-top: 1.5rem;">
-                  <button class="btn-primary" onclick="app.chat.abrirConDestinatario(${publicacion.id}, ${publicacion.usuario_id}, '${nombreOtro}')">💬 Enviar mensaje</button>
-                </div>`;
+        let candidaturaAceptada = false;
+        try {
+          const misPostulaciones = await utils.request('/candidaturas/mis-postulaciones');
+          candidaturaAceptada = (misPostulaciones.candidaturas || []).some(
+            c => c.publicacion_id === publicacion.id && c.estado === 'aceptada'
+          );
+        } catch (error) {
+          console.error("Error al comprobar postulación:", error);
+        }
+
+        if (candidaturaAceptada) {
+          html += `<div style="margin-top: 1.5rem;">
+                    <button class="btn-primary" onclick="app.chat.abrirConDestinatario(${publicacion.id}, ${publicacion.usuario_id}, '${nombreOtro}')">💬 Enviar mensaje</button>
+                  </div>`;
+        }
       }
 
       document.getElementById("detalleBody").innerHTML = html;

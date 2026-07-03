@@ -23,7 +23,26 @@ test("chat", async (t) => {
     .send({ tipo: "oferta", ciudad: "Girona", descripcion: "Oferta con chat" });
   const ofertaId = oferta.body.id;
 
-  await t.test("un dentista puede enviar un mensaje al dueño de la publicación", async () => {
+  await t.test("no se puede chatear sin una postulación aceptada", async () => {
+    const res = await request(app)
+      .post("/chat/mensajes")
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .send({ publicacion_id: ofertaId, destinatario_id: clinica.usuario.id, cuerpo: "Hola, me interesa la oferta" });
+
+    assert.equal(res.status, 403);
+  });
+
+  const candidatura = await request(app)
+    .post("/candidaturas")
+    .set("Authorization", `Bearer ${dentista.token}`)
+    .send({ publicacion_id: ofertaId });
+
+  await request(app)
+    .put(`/candidaturas/${candidatura.body.candidatura_id}`)
+    .set("Authorization", `Bearer ${clinica.token}`)
+    .send({ estado: "aceptada" });
+
+  await t.test("un dentista puede enviar un mensaje al dueño de la publicación tras ser aceptado", async () => {
     const res = await request(app)
       .post("/chat/mensajes")
       .set("Authorization", `Bearer ${dentista.token}`)

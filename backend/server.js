@@ -2066,16 +2066,17 @@ app.get("/chat/mensajes/:publicacionId/:otroId", verifyToken, (req, res) => {
 app.post("/chat/mensajes", verifyToken, (req, res) => {
   const { publicacion_id, destinatario_id, cuerpo } = req.body;
   const usuarioId = req.usuario.id;
+  const destinatarioId = parseInt(destinatario_id);
 
   if (!publicacion_id || !destinatario_id || !cuerpo || !cuerpo.trim()) {
     return res.status(400).json({ error: "Faltan datos obligatorios" });
   }
 
-  if (parseInt(destinatario_id) === usuarioId) {
+  if (destinatarioId === usuarioId) {
     return res.status(400).json({ error: "No puedes enviarte mensajes a ti mismo" });
   }
 
-  db.get("SELECT id FROM publicaciones WHERE id = ?", [publicacion_id], (err, pub) => {
+  db.get("SELECT id, usuario_id FROM publicaciones WHERE id = ?", [publicacion_id], (err, pub) => {
     if (err) {
       console.error(err);
       return res.status(500).json({ error: "Error al enviar mensaje" });
@@ -2083,27 +2084,47 @@ app.post("/chat/mensajes", verifyToken, (req, res) => {
     if (!pub) {
       return res.status(404).json({ error: "Publicación no encontrada" });
     }
+    if (pub.usuario_id !== usuarioId && pub.usuario_id !== destinatarioId) {
+      return res.status(403).json({ error: "No puedes enviar mensajes para esta publicación" });
+    }
 
-    db.get("SELECT nombre, email FROM usuarios WHERE id = ?", [usuarioId], (err, remitente) => {
-      if (err || !remitente) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al enviar mensaje" });
-      }
+    // El chat solo se habilita cuando la postulación del interesado a esta publicación fue aceptada
+    const postulanteId = pub.usuario_id === usuarioId ? destinatarioId : usuarioId;
 
-      db.run(
-        `INSERT INTO mensajes (publicacion_id, usuario_id, destinatario_id, remitente_nombre, remitente_email, cuerpo)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [publicacion_id, usuarioId, destinatario_id, remitente.nombre, remitente.email, cuerpo.trim()],
-        function(err) {
-          if (err) {
+    db.get(
+      "SELECT id FROM candidaturas WHERE publicacion_id = ? AND usuario_id = ? AND estado = 'aceptada'",
+      [publicacion_id, postulanteId],
+      (err, candidatura) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al enviar mensaje" });
+        }
+        if (!candidatura) {
+          return res.status(403).json({ error: "Solo puedes chatear tras una postulación aceptada" });
+        }
+
+        db.get("SELECT nombre, email FROM usuarios WHERE id = ?", [usuarioId], (err, remitente) => {
+          if (err || !remitente) {
             console.error(err);
             return res.status(500).json({ error: "Error al enviar mensaje" });
           }
-          escribiendoStatus.delete(`${usuarioId}:${destinatario_id}:${publicacion_id}`);
-          res.json({ mensaje: "Mensaje enviado", id: this.lastID });
-        }
-      );
-    });
+
+          db.run(
+            `INSERT INTO mensajes (publicacion_id, usuario_id, destinatario_id, remitente_nombre, remitente_email, cuerpo)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [publicacion_id, usuarioId, destinatario_id, remitente.nombre, remitente.email, cuerpo.trim()],
+            function(err) {
+              if (err) {
+                console.error(err);
+                return res.status(500).json({ error: "Error al enviar mensaje" });
+              }
+              escribiendoStatus.delete(`${usuarioId}:${destinatario_id}:${publicacion_id}`);
+              res.json({ mensaje: "Mensaje enviado", id: this.lastID });
+            }
+          );
+        });
+      }
+    );
   });
 });
 
