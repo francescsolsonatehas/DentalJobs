@@ -105,16 +105,20 @@ app.post("/auth/login", (req, res) => {
 });
 
 app.put("/auth/actualizar-perfil", verifyToken, (req, res) => {
-  const { nombre, telefono, movil, direccion, codigo_postal, pais, ciudad } = req.body;
+  const { nombre, telefono, movil, direccion, codigo_postal, pais, ciudad, descripcion, anyos_experiencia } = req.body;
   const usuarioId = req.usuario.id;
 
   if (!nombre) {
     return res.status(400).json({ error: "El nombre es obligatorio" });
   }
 
+  const experiencia = anyos_experiencia !== undefined && anyos_experiencia !== null && anyos_experiencia !== ''
+    ? parseInt(anyos_experiencia)
+    : null;
+
   db.run(
-    "UPDATE usuarios SET nombre = ?, telefono = ?, movil = ?, direccion = ?, codigo_postal = ?, pais = ?, ciudad = ? WHERE id = ?",
-    [nombre, telefono || null, movil || null, direccion || null, codigo_postal || null, pais || null, ciudad || null, usuarioId],
+    "UPDATE usuarios SET nombre = ?, telefono = ?, movil = ?, direccion = ?, codigo_postal = ?, pais = ?, ciudad = ?, descripcion = ?, anyos_experiencia = ? WHERE id = ?",
+    [nombre, telefono || null, movil || null, direccion || null, codigo_postal || null, pais || null, ciudad || null, (descripcion || "").trim() || null, experiencia, usuarioId],
     function(err) {
       if (err) {
         console.error(err);
@@ -318,7 +322,7 @@ app.get("/auth/mi-perfil", verifyToken, (req, res) => {
   const usuarioId = req.usuario.id;
 
   db.get(
-    "SELECT id, nombre, email, tipo, telefono, movil, direccion, codigo_postal, pais, ciudad, creado_en FROM usuarios WHERE id = ?",
+    "SELECT id, nombre, email, tipo, telefono, movil, direccion, codigo_postal, pais, ciudad, descripcion, anyos_experiencia, creado_en FROM usuarios WHERE id = ?",
     [usuarioId],
     (err, usuario) => {
       if (err) {
@@ -330,6 +334,24 @@ app.get("/auth/mi-perfil", verifyToken, (req, res) => {
         return res.status(404).json({ error: "Usuario no encontrado" });
       }
 
+      res.json(usuario);
+    }
+  );
+});
+
+// Perfil público de un usuario (datos no sensibles, para mostrar en fichas)
+app.get("/usuarios/:id/publico", (req, res) => {
+  db.get(
+    "SELECT id, nombre, tipo, ciudad, pais, descripcion, anyos_experiencia, creado_en FROM usuarios WHERE id = ?",
+    [req.params.id],
+    (err, usuario) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener perfil" });
+      }
+      if (!usuario) {
+        return res.status(404).json({ error: "Usuario no encontrado" });
+      }
       res.json(usuario);
     }
   );
@@ -1911,8 +1933,12 @@ app.post("/archivos/upload", verifyToken, upload.single("archivo"), (req, res) =
   }
 
   const { tipo } = req.body;
-  if (!tipo || !["cv", "portfolio"].includes(tipo)) {
+  if (!tipo || !["cv", "portfolio", "foto"].includes(tipo)) {
     return res.status(400).json({ error: "Tipo de archivo inválido" });
+  }
+
+  if (tipo === "foto" && !(req.file.mimetype || "").startsWith("image/")) {
+    return res.status(400).json({ error: "Las fotos deben ser imágenes" });
   }
 
   const maxSize = tipo === "cv" ? 5 * 1024 * 1024 : 10 * 1024 * 1024;

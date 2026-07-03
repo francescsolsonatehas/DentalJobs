@@ -1667,6 +1667,19 @@ const app = {
 
     async mostrarPerfilClinica(clinica) {
       const resumenResenyas = clinica.usuario_id ? await app.resenyas.cargarResumen(clinica.usuario_id) : null;
+
+      // Datos públicos (descripción) y fotos de la clínica
+      let publico = null;
+      let fotos = [];
+      if (clinica.usuario_id) {
+        try { publico = await utils.request(`/usuarios/${clinica.usuario_id}/publico`); } catch (e) { /* opcional */ }
+        try {
+          const archivos = await utils.request(`/archivos/usuario/${clinica.usuario_id}`);
+          fotos = (archivos || []).filter(a => a.tipo === 'foto');
+        } catch (e) { /* opcional */ }
+      }
+      const descripcion = (publico && publico.descripcion) || clinica.descripcion;
+
       let html = `
         <div style="padding: 2rem; background: #f9fafb; border-radius: 12px;">
 
@@ -1695,9 +1708,16 @@ const app = {
             ${clinica.pais ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>🌍 País:</strong> ${clinica.pais}</p>` : ''}
           </div>
 
-          ${clinica.descripcion ? `<div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+          ${descripcion ? `<div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📋 Descripción</h4>
-            <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap;">${clinica.descripcion}</p>
+            <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap;">${utils.escapeHtml(descripcion)}</p>
+          </div>` : ''}
+
+          ${fotos.length > 0 ? `<div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+            <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📷 Fotos de la clínica</h4>
+            <div class="fotos-gallery">
+              ${fotos.map(f => `<div class="foto-item"><img src="${API}/archivos/${f.id}/download" alt="Foto de la clínica" loading="lazy"></div>`).join('')}
+            </div>
           </div>` : ''}
 
           ${clinica.web ? `<div style="background: white; border-radius: 8px; padding: 1.5rem;">
@@ -2564,6 +2584,12 @@ const app = {
     async mostrarPerfilDentistaCompleto(dentista) {
       const resumenResenyas = dentista.usuario_id ? await app.resenyas.cargarResumen(dentista.usuario_id) : null;
 
+      // Datos públicos (años de experiencia, descripción)
+      let publico = null;
+      if (dentista.usuario_id) {
+        try { publico = await utils.request(`/usuarios/${dentista.usuario_id}/publico`); } catch (e) { /* opcional */ }
+      }
+
       // Obtener especialidades del dentista si existen
       let especialidadesText = "";
       try {
@@ -2625,8 +2651,20 @@ const app = {
               <td style="padding: 0.8rem;">${especialidadesText}</td>
             </tr>
             ` : ''}
+            ${publico && publico.anyos_experiencia !== null && publico.anyos_experiencia !== undefined ? `
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🎓 Experiencia:</td>
+              <td style="padding: 0.8rem;">${publico.anyos_experiencia} año${publico.anyos_experiencia === 1 ? '' : 's'}</td>
+            </tr>
+            ` : ''}
           </tbody>
         </table>
+        ${publico && publico.descripcion ? `
+        <div style="background: #F8FAFF; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+          <h4 style="margin: 0 0 0.75rem 0; color: #0F4C75; font-weight: 700;">👤 Sobre mí</h4>
+          <p style="margin: 0; line-height: 1.6; white-space: pre-wrap;">${utils.escapeHtml(publico.descripcion)}</p>
+        </div>
+        ` : ''}
       `;
 
       document.getElementById("interesadosBody").innerHTML = html;
@@ -2702,6 +2740,24 @@ const app = {
       }
     },
 
+    async subirFoto() {
+      const input = document.getElementById("fotoInput");
+      if (input.files.length === 0) return;
+
+      const formData = new FormData();
+      formData.append("archivo", input.files[0]);
+      formData.append("tipo", "foto");
+
+      try {
+        await utils.requestForm("/archivos/upload", formData);
+        utils.mostrarAlerta("Foto subida exitosamente", "success");
+        input.value = '';
+        app.archivos.cargarArchivosUsuario();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
     manejarDrop(event, tipo) {
       event.preventDefault();
       const zone = event.currentTarget;
@@ -2709,15 +2765,18 @@ const app = {
 
       const files = event.dataTransfer.files;
       if (files.length > 0) {
-        const input = tipo === 'cv' ? document.getElementById("cvInput") : document.getElementById("portfolioInput");
+        const inputIds = { cv: "cvInput", portfolio: "portfolioInput", foto: "fotoInput" };
+        const input = document.getElementById(inputIds[tipo]);
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(files[0]);
         input.files = dataTransfer.files;
 
         if (tipo === 'cv') {
           app.archivos.subirCV();
-        } else {
+        } else if (tipo === 'portfolio') {
           app.archivos.subirPortfolio();
+        } else {
+          app.archivos.subirFoto();
         }
       }
     },
@@ -2760,6 +2819,22 @@ const app = {
           </div>
           <button class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('cvInput').click()">Seleccionar archivo</button>
         `;
+      }
+
+      // Renderizar galería de fotos (clínicas)
+      const fotos = estadoApp.archivosUsuario.filter(a => a.tipo === 'foto');
+      const fotosGallery = document.getElementById("fotosGallery");
+      if (fotosGallery) {
+        if (fotos.length > 0) {
+          fotosGallery.innerHTML = fotos.map(f => `
+            <div class="foto-item">
+              <img src="${API}/archivos/${f.id}/download" alt="Foto de la clínica" loading="lazy">
+              <button class="foto-eliminar" title="Eliminar foto" onclick="app.archivos.eliminar(${f.id})">✕</button>
+            </div>
+          `).join('');
+        } else {
+          fotosGallery.innerHTML = `<p style="color: #9ca3af; text-align: center;">Aún no has subido fotos de tu clínica.</p>`;
+        }
       }
 
       // Renderizar Portfolio
@@ -2806,20 +2881,20 @@ const app = {
         document.getElementById("tabDatos").style.display = "inline-block";
         document.getElementById("tabCv").style.display = "none";
         document.getElementById("tabPortfolio").style.display = "none";
+        document.getElementById("tabFotos").style.display = "inline-block";
         document.getElementById("perfilTitle").textContent = "Datos de la Empresa";
       } else {
         document.getElementById("tabDatos").style.display = "inline-block";
         document.getElementById("tabCv").style.display = "inline-block";
         document.getElementById("tabPortfolio").style.display = "inline-block";
+        document.getElementById("tabFotos").style.display = "none";
         document.getElementById("perfilTitle").textContent = "Mi perfil";
       }
 
       app.perfil.mostrarFormularioEdicion();
 
-      // Cargar archivos solo para candidatos
-      if (estadoApp.tipoUsuario === 'dentista') {
-        app.archivos.cargarArchivosUsuario();
-      }
+      // Archivos: CV/portfolio para dentistas, fotos para clínicas
+      app.archivos.cargarArchivosUsuario();
     },
 
     async cargarDatos() {
@@ -2889,6 +2964,11 @@ const app = {
             <div class="form-group">
               <label>País</label>
               <input type="text" id="perfilPais" value="${u.pais || ''}">
+            </div>
+
+            <div class="form-group">
+              <label>Descripción de la clínica</label>
+              <textarea id="perfilDescripcion" placeholder="Cuenta cómo es tu clínica: equipo, instalaciones, filosofía de trabajo...">${utils.escapeHtml(u.descripcion || '')}</textarea>
             </div>
 
             <div class="form-group">
@@ -2966,6 +3046,16 @@ const app = {
             </div>
 
             <div class="form-group">
+              <label>Años de experiencia</label>
+              <input type="number" id="perfilAnyosExperiencia" min="0" value="${u.anyos_experiencia ?? ''}" placeholder="Ej: 5">
+            </div>
+
+            <div class="form-group">
+              <label>Sobre mí</label>
+              <textarea id="perfilDescripcion" placeholder="Cuenta tu trayectoria, formación y qué tipo de trabajo buscas...">${utils.escapeHtml(u.descripcion || '')}</textarea>
+            </div>
+
+            <div class="form-group">
               <label>Especialidades</label>
               <div id="especialidadesContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
                 <!-- Se llenarán dinámicamente -->
@@ -3023,7 +3113,9 @@ const app = {
         ciudad: document.getElementById("perfilCiudad").value || null,
         direccion: document.getElementById("perfilDireccion").value || null,
         codigo_postal: document.getElementById("perfilCodigoPostal").value || null,
-        pais: document.getElementById("perfilPais").value || null
+        pais: document.getElementById("perfilPais").value || null,
+        descripcion: document.getElementById("perfilDescripcion")?.value || null,
+        anyos_experiencia: document.getElementById("perfilAnyosExperiencia")?.value || null
       };
 
       try {

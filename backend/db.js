@@ -140,6 +140,14 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
+  db.run(`ALTER TABLE usuarios ADD COLUMN anyos_experiencia INTEGER`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
+  db.run(`ALTER TABLE usuarios ADD COLUMN descripcion TEXT`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
   db.run(`ALTER TABLE mensajes ADD COLUMN destinatario_id INTEGER REFERENCES usuarios(id)`, (err) => {
     // Ignorar error si la columna ya existe
     // Backfill: los mensajes antiguos iban siempre dirigidos al dueño de la publicación
