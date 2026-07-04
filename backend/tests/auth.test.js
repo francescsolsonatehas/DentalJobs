@@ -15,7 +15,8 @@ test("auth", async (t) => {
         nombre: "Clínica Uno",
         email: "clinica1@test.com",
         password: "secreto123",
-        tipo: "clinica"
+        tipo: "clinica",
+        aceptaTerminos: true
       });
 
     assert.equal(res.status, 200);
@@ -26,11 +27,11 @@ test("auth", async (t) => {
   await t.test("rechaza email duplicado", async () => {
     await request(app)
       .post("/auth/registro")
-      .send({ nombre: "Otra Clínica", email: "duplicado@test.com", password: "secreto123", tipo: "clinica" });
+      .send({ nombre: "Otra Clínica", email: "duplicado@test.com", password: "secreto123", tipo: "clinica", aceptaTerminos: true });
 
     const res = await request(app)
       .post("/auth/registro")
-      .send({ nombre: "Otra Clínica 2", email: "duplicado@test.com", password: "secreto123", tipo: "clinica" });
+      .send({ nombre: "Otra Clínica 2", email: "duplicado@test.com", password: "secreto123", tipo: "clinica", aceptaTerminos: true });
 
     assert.equal(res.status, 400);
   });
@@ -38,7 +39,7 @@ test("auth", async (t) => {
   await t.test("rechaza contraseñas de menos de 8 caracteres o vacías", async () => {
     const corta = await request(app)
       .post("/auth/registro")
-      .send({ nombre: "Clínica Corta", email: "corta@test.com", password: "corta12", tipo: "clinica" });
+      .send({ nombre: "Clínica Corta", email: "corta@test.com", password: "corta12", tipo: "clinica", aceptaTerminos: true });
     assert.equal(corta.status, 400);
 
     const vacia = await request(app)
@@ -50,7 +51,7 @@ test("auth", async (t) => {
   await t.test("la nueva contraseña también exige 8 caracteres al cambiarla", async () => {
     const reg = await request(app)
       .post("/auth/registro")
-      .send({ nombre: "Dentista Cambio", email: "cambio@test.com", password: "original123", tipo: "dentista" });
+      .send({ nombre: "Dentista Cambio", email: "cambio@test.com", password: "original123", tipo: "dentista", aceptaTerminos: true });
 
     const res = await request(app)
       .put("/auth/cambiar-password")
@@ -62,7 +63,7 @@ test("auth", async (t) => {
   await t.test("login correcto devuelve token", async () => {
     await request(app)
       .post("/auth/registro")
-      .send({ nombre: "Dentista Uno", email: "dentista1@test.com", password: "mipassword", tipo: "dentista" });
+      .send({ nombre: "Dentista Uno", email: "dentista1@test.com", password: "mipassword", tipo: "dentista", aceptaTerminos: true });
 
     const res = await request(app)
       .post("/auth/login")
@@ -75,7 +76,7 @@ test("auth", async (t) => {
   await t.test("login con contraseña incorrecta falla", async () => {
     await request(app)
       .post("/auth/registro")
-      .send({ nombre: "Dentista Dos", email: "dentista2@test.com", password: "correcta", tipo: "dentista" });
+      .send({ nombre: "Dentista Dos", email: "dentista2@test.com", password: "correcta", tipo: "dentista", aceptaTerminos: true });
 
     const res = await request(app)
       .post("/auth/login")

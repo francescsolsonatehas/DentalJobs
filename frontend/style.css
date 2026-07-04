@@ -2100,3 +2100,97 @@ select:focus {
   gap: 0.5rem;
   margin-top: 0.6rem;
 }
+
+/* ============================================
+   Páginas legales y footer
+============================================ */
+
+.pagina-legal {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+  color: #1f2937;
+  line-height: 1.7;
+}
+
+.pagina-legal h1 {
+  color: #0f4c75;
+  margin-bottom: 0.25rem;
+}
+
+.pagina-legal h2 {
+  color: #0f4c75;
+  font-size: 1.15rem;
+  margin: 2rem 0 0.5rem;
+}
+
+.pagina-legal ul {
+  padding-left: 1.25rem;
+}
+
+.pagina-legal a {
+  color: #0ea5e9;
+}
+
+.legal-volver {
+  display: inline-block;
+  margin-bottom: 1.5rem;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.legal-actualizado {
+  color: #9ca3af;
+  font-size: 0.85rem;
+}
+
+.footer-legal {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #9ca3af;
+  font-size: 0.85rem;
+  border-top: 1px solid #e5e7eb;
+  margin-top: 3rem;
+}
+
+.footer-legal a {
+  color: #6b7280;
+  text-decoration: none;
+  margin: 0 0.6rem;
+}
+
+.footer-legal a:hover {
+  text-decoration: underline;
+}
+
+.consentimiento-registro {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  font-size: 0.85rem;
+  color: #4b5563;
+  margin-bottom: 1rem;
+}
+
+.consentimiento-registro input {
+  margin-top: 0.2rem;
+}
+
+.zona-peligro {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-top: 2rem;
+}
+
+.zona-peligro h4 {
+  color: #991b1b;
+  margin: 0 0 0.5rem 0;
+}
+
+.zona-peligro p {
+  color: #7f1d1d;
+  font-size: 0.85rem;
+  margin: 0 0 1rem 0;
+}

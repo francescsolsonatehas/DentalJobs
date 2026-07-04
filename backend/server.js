@@ -73,10 +73,14 @@ const upload = multer({
 =========================== */
 
 app.post("/auth/registro", (req, res) => {
-  const { nombre, email, password, tipo, telefono, direccion, codigo_postal, pais } = req.body;
+  const { nombre, email, password, tipo, telefono, direccion, codigo_postal, pais, aceptaTerminos } = req.body;
 
   if (!nombre || !email || !tipo) {
     return res.status(400).json({ error: "Faltan datos obligatorios" });
+  }
+
+  if (aceptaTerminos !== true) {
+    return res.status(400).json({ error: "Debes aceptar la política de privacidad y los términos de uso" });
   }
 
   if (!["clinica", "dentista"].includes(tipo)) {
@@ -90,7 +94,7 @@ app.post("/auth/registro", (req, res) => {
   try {
     const hashedPassword = bcrypt.hashSync(password, 10);
     db.run(
-      "INSERT INTO usuarios (nombre, email, password, tipo, telefono, direccion, codigo_postal, pais) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO usuarios (nombre, email, password, tipo, telefono, direccion, codigo_postal, pais, acepto_terminos_en) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
       [nombre, email, hashedPassword, tipo, telefono || null, direccion || null, codigo_postal || null, pais || null],
       function(err) {
         if (err) {
@@ -177,6 +181,65 @@ app.post("/auth/login", (req, res) => {
       token,
       usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, tipo: usuario.tipo }
     });
+  });
+});
+
+// Derecho de supresión (RGPD): borra los datos personales y anonimiza lo que
+// forma parte del historial de otros usuarios (mensajes, reseñas).
+app.delete("/auth/mi-cuenta", verifyToken, (req, res) => {
+  const usuarioId = req.usuario.id;
+  const { password } = req.body || {};
+
+  db.get("SELECT password FROM usuarios WHERE id = ?", [usuarioId], (err, usuario) => {
+    if (err || !usuario) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al eliminar la cuenta" });
+    }
+
+    // Confirmación con contraseña (las cuentas antiguas sin contraseña pasan solo con el token)
+    if (usuario.password !== "" && !bcrypt.compareSync(password || "", usuario.password)) {
+      return res.status(403).json({ error: "Contraseña incorrecta" });
+    }
+
+    // Cascada: se ejecuta en orden por la cola secuencial del adaptador
+    const pasos = [
+      // Publicaciones propias: desactivar y vaciar datos de contacto (las candidaturas ajenas quedan 'retiradas')
+      ["UPDATE candidaturas SET estado = 'retirada', actualizado_en = CURRENT_TIMESTAMP WHERE estado != 'retirada' AND publicacion_id IN (SELECT id FROM publicaciones WHERE usuario_id = ?)", [usuarioId]],
+      ["UPDATE publicaciones SET activo = 0, sede_id = NULL, descripcion = '[Publicación eliminada]', nombre_contacto = 'Usuario eliminado', email_contacto = '', telefono_contacto = NULL WHERE usuario_id = ?", [usuarioId]],
+      // Actividad propia. Las candidaturas con reseñas asociadas no se pueden
+      // borrar (las referencian): se conservan sin el mensaje personal.
+      ["UPDATE candidaturas SET mensaje = NULL WHERE usuario_id = ?", [usuarioId]],
+      ["DELETE FROM candidaturas WHERE usuario_id = ? AND id NOT IN (SELECT candidatura_id FROM resenyas)", [usuarioId]],
+      ["DELETE FROM archivos WHERE usuario_id = ?", [usuarioId]],
+      ["DELETE FROM favoritos WHERE usuario_id = ?", [usuarioId]],
+      ["DELETE FROM alertas WHERE usuario_id = ?", [usuarioId]],
+      ["DELETE FROM busquedas_guardadas WHERE usuario_id = ?", [usuarioId]],
+      ["DELETE FROM tokens_verificacion WHERE usuario_id = ?", [usuarioId]],
+      ["DELETE FROM confirmacion_email WHERE usuario_id = ?", [usuarioId]],
+      ["DELETE FROM plantillas_publicacion WHERE usuario_id = ?", [usuarioId]],
+      ["DELETE FROM sedes WHERE usuario_id = ?", [usuarioId]],
+      // Historial compartido: anonimizar, no borrar
+      ["UPDATE mensajes SET remitente_nombre = 'Usuario eliminado', remitente_email = '' WHERE usuario_id = ?", [usuarioId]],
+      // La fila de usuario se anonimiza para mantener íntegras las referencias (reseñas, mensajes)
+      [`UPDATE usuarios SET nombre = 'Usuario eliminado', email = 'eliminado-' || id || '@dentaljobs.invalid',
+        password = '!cuenta-eliminada!', telefono = NULL, movil = NULL, direccion = NULL, codigo_postal = NULL,
+        pais = NULL, ciudad = NULL, descripcion = NULL, anyos_experiencia = NULL, email_verificado = 0,
+        acepto_terminos_en = NULL WHERE id = ?`, [usuarioId]]
+    ];
+
+    const ejecutar = (i) => {
+      if (i >= pasos.length) {
+        return res.json({ success: true, mensaje: "Cuenta eliminada. Tus datos personales han sido borrados." });
+      }
+      db.run(pasos[i][0], pasos[i][1], (err) => {
+        if (err) {
+          console.error("Error en el borrado de cuenta (paso " + i + "):", err);
+          return res.status(500).json({ error: "Error al eliminar la cuenta" });
+        }
+        ejecutar(i + 1);
+      });
+    };
+    ejecutar(0);
   });
 });
 

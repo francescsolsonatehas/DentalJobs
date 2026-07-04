@@ -33,7 +33,7 @@ async function seed() {
   const ids = {};
   for (const u of usuarios) {
     const r = await run(
-      "INSERT INTO usuarios (nombre, email, password, tipo, ciudad, anyos_experiencia, descripcion) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO usuarios (nombre, email, password, tipo, ciudad, anyos_experiencia, descripcion, acepto_terminos_en) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))",
       [u.nombre, u.email, hash, u.tipo, u.ciudad, u.anyos || null, u.descripcion]
     );
     ids[u.email] = r.lastID;

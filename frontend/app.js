@@ -248,10 +248,15 @@ const app = {
         return;
       }
 
+      if (!document.getElementById("regTerminosEmp").checked) {
+        utils.mostrarAlerta("Debes aceptar la política de privacidad y los términos de uso", "error");
+        return;
+      }
+
       try {
         const response = await utils.request("/auth/registro", {
           method: "POST",
-          body: JSON.stringify({ nombre, email, password, tipo: 'clinica', telefono, direccion, codigo_postal, pais })
+          body: JSON.stringify({ nombre, email, password, tipo: 'clinica', telefono, direccion, codigo_postal, pais, aceptaTerminos: true })
         });
 
         estadoApp.token = response.token;
@@ -322,10 +327,15 @@ const app = {
         return;
       }
 
+      if (!document.getElementById("regTerminosCand").checked) {
+        utils.mostrarAlerta("Debes aceptar la política de privacidad y los términos de uso", "error");
+        return;
+      }
+
       try {
         const response = await utils.request("/auth/registro", {
           method: "POST",
-          body: JSON.stringify({ nombre, email, password, tipo: 'dentista', telefono })
+          body: JSON.stringify({ nombre, email, password, tipo: 'dentista', telefono, aceptaTerminos: true })
         });
 
         estadoApp.token = response.token;
@@ -3198,6 +3208,11 @@ const app = {
               <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
             </div>
           </form>
+          <div class="zona-peligro">
+            <h4>⚠️ Zona de peligro</h4>
+            <p>Eliminar tu cuenta borra tus datos personales, archivos y publicaciones de forma irreversible. Los mensajes y reseñas que compartiste con otros usuarios quedarán anonimizados.</p>
+            <button type="button" class="btn-outline btn-small" style="border-color: #dc2626; color: #dc2626;" onclick="app.perfil.eliminarCuenta()">Eliminar mi cuenta</button>
+          </div>
         `;
 
         // Cargar especialidades para empresa
@@ -3287,6 +3302,11 @@ const app = {
               <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
             </div>
           </form>
+          <div class="zona-peligro">
+            <h4>⚠️ Zona de peligro</h4>
+            <p>Eliminar tu cuenta borra tus datos personales, archivos y publicaciones de forma irreversible. Los mensajes y reseñas que compartiste con otros usuarios quedarán anonimizados.</p>
+            <button type="button" class="btn-outline btn-small" style="border-color: #dc2626; color: #dc2626;" onclick="app.perfil.eliminarCuenta()">Eliminar mi cuenta</button>
+          </div>
         `;
 
         // Cargar especialidades para candidatos
@@ -3514,6 +3534,27 @@ const app = {
 
     cancelarEdicion() {
       app.perfil.cargar();
+    },
+
+    // Derecho de supresión: borra la cuenta previa doble confirmación
+    async eliminarCuenta() {
+      const seguro = confirm("⚠️ Vas a eliminar tu cuenta de forma IRREVERSIBLE.\n\nSe borrarán tus datos, archivos y publicaciones. ¿Quieres continuar?");
+      if (!seguro) return;
+
+      const password = prompt("Para confirmar, escribe tu contraseña:");
+      if (password === null) return;
+
+      try {
+        const res = await utils.request("/auth/mi-cuenta", {
+          method: "DELETE",
+          body: JSON.stringify({ password })
+        });
+        app.modal.cerrarTodosModales();
+        utils.mostrarAlerta(res.mensaje || "Cuenta eliminada", "info");
+        app.auth.logout();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
     },
 
     // Descarga el CV en PDF generado por el backend (fetch con token → blob)

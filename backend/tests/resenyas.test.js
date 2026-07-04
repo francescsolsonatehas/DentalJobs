@@ -6,7 +6,7 @@ const { createTestApp, cleanupTestApp } = require("./helpers/testApp");
 async function registrarYLoguear(app, { nombre, email, tipo }) {
   const res = await request(app)
     .post("/auth/registro")
-    .send({ nombre, email, password: "secreto123", tipo });
+    .send({ nombre, email, password: "secreto123", tipo, aceptaTerminos: true });
   return { token: res.body.token, usuario: res.body.usuario };
 }
 
