@@ -2406,21 +2406,42 @@ app.get("/publicaciones/:id/candidatos", verifyToken, (req, res) => {
 app.put("/candidaturas/:id", verifyToken, (req, res) => {
   const { estado } = req.body;
   const candidatura_id = req.params.id;
+  const usuarioId = req.usuario.id;
 
   if (!["pendiente", "aceptada", "rechazada"].includes(estado)) {
     return res.status(400).json({ error: "Estado inválido" });
   }
 
-  db.run(
-    "UPDATE candidaturas SET estado = ?, actualizado_en = CURRENT_TIMESTAMP WHERE id = ?",
-    [estado, candidatura_id],
-    function(err) {
+  db.get(
+    `SELECT p.usuario_id
+     FROM candidaturas c
+     JOIN publicaciones p ON p.id = c.publicacion_id
+     WHERE c.id = ?`,
+    [candidatura_id],
+    (err, row) => {
       if (err) {
         console.error(err);
         return res.status(500).json({ error: "Error al actualizar candidatura" });
       }
+      if (!row) {
+        return res.status(404).json({ error: "Candidatura no encontrada" });
+      }
+      if (row.usuario_id !== usuarioId) {
+        return res.status(403).json({ error: "No puedes modificar esta candidatura" });
+      }
 
-      res.json({ mensaje: "Candidatura actualizada" });
+      db.run(
+        "UPDATE candidaturas SET estado = ?, actualizado_en = CURRENT_TIMESTAMP WHERE id = ?",
+        [estado, candidatura_id],
+        function(err) {
+          if (err) {
+            console.error(err);
+            return res.status(500).json({ error: "Error al actualizar candidatura" });
+          }
+
+          res.json({ mensaje: "Candidatura actualizada" });
+        }
+      );
     }
   );
 });

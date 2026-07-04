@@ -52,6 +52,21 @@ test("candidaturas", async (t) => {
     assert.equal(postulacion.publicacion_tipo, "oferta");
   });
 
+  await t.test("un tercero ajeno a la publicación no puede cambiar el estado de la candidatura", async () => {
+    const candidatos = await request(app)
+      .get(`/publicaciones/${ofertaId}/candidatos`)
+      .set("Authorization", `Bearer ${clinica.token}`);
+    const candidaturaId = candidatos.body.candidatos[0].id;
+
+    const otraClinica = await registrarYLoguear(app, { nombre: "Otra Clínica", email: "otra-clinica@test.com", tipo: "clinica" });
+
+    const res = await request(app)
+      .put(`/candidaturas/${candidaturaId}`)
+      .set("Authorization", `Bearer ${otraClinica.token}`)
+      .send({ estado: "aceptada" });
+    assert.equal(res.status, 403);
+  });
+
   await t.test("la clínica puede aceptar y luego deshacer (poner pendiente) la candidatura", async () => {
     const candidatos = await request(app)
       .get(`/publicaciones/${ofertaId}/candidatos`)
