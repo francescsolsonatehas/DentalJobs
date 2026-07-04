@@ -1,5 +1,11 @@
 const jwt = require("jsonwebtoken");
 
+// En producción el secreto es obligatorio: nunca arrancar con el valor de desarrollo
+if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
+  console.error("❌ Falta JWT_SECRET. Genera uno con `openssl rand -hex 32` y defínelo como variable de entorno.");
+  process.exit(1);
+}
+
 const SECRET = process.env.JWT_SECRET || "dental_jobs_secret_key_2024";
 
 function verifyToken(req, res, next) {

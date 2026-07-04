@@ -231,6 +231,11 @@ const app = {
         return;
       }
 
+      if (!password || password.length < 8) {
+        utils.mostrarAlerta("La contraseña debe tener al menos 8 caracteres", "error");
+        return;
+      }
+
       try {
         const response = await utils.request("/auth/registro", {
           method: "POST",
@@ -297,6 +302,11 @@ const app = {
 
       if (!nombre || !email) {
         utils.mostrarAlerta("Por favor completa todos los campos obligatorios", "error");
+        return;
+      }
+
+      if (!password || password.length < 8) {
+        utils.mostrarAlerta("La contraseña debe tener al menos 8 caracteres", "error");
         return;
       }
 
@@ -896,12 +906,12 @@ const app = {
             ${publicacion.usuario_nombre ? `
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">Publicado por:</td>
-              <td style="padding: 0.8rem;">${publicacion.usuario_nombre} (${publicacion.usuario_tipo === 'clinica' ? '🏥 Clínica' : '👨‍⚕️ Dentista'})</td>
+              <td style="padding: 0.8rem;">${utils.escapeHtml(publicacion.usuario_nombre)} (${publicacion.usuario_tipo === 'clinica' ? '🏥 Clínica' : '👨‍⚕️ Dentista'})</td>
             </tr>
             ` : ''}
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📍 Ciudad:</td>
-              <td style="padding: 0.8rem;">${publicacion.ciudad}</td>
+              <td style="padding: 0.8rem;">${utils.escapeHtml(publicacion.ciudad)}</td>
             </tr>
             ${especialidadesText ? `
             <tr style="border-bottom: 1px solid #e5e7eb;">
@@ -912,19 +922,19 @@ const app = {
             ${publicacion.contrato ? `
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📋 Contrato:</td>
-              <td style="padding: 0.8rem;">${publicacion.contrato}</td>
+              <td style="padding: 0.8rem;">${utils.escapeHtml(publicacion.contrato)}</td>
             </tr>
             ` : ''}
             ${publicacion.jornada ? `
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">⏰ Jornada:</td>
-              <td style="padding: 0.8rem;">${publicacion.jornada}</td>
+              <td style="padding: 0.8rem;">${utils.escapeHtml(publicacion.jornada)}</td>
             </tr>
             ` : ''}
             ${publicacion.salario ? `
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">💰 Salario:</td>
-              <td style="padding: 0.8rem;">${publicacion.salario}</td>
+              <td style="padding: 0.8rem;">${utils.escapeHtml(publicacion.salario)}</td>
             </tr>
             ` : ''}
             ${publicacion.experiencia_minima !== null && publicacion.experiencia_minima !== undefined ? `
@@ -939,23 +949,23 @@ const app = {
             </tr>
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">👤 Contacto - Nombre:</td>
-              <td style="padding: 0.8rem;">${publicacion.nombre_contacto}</td>
+              <td style="padding: 0.8rem;">${utils.escapeHtml(publicacion.nombre_contacto)}</td>
             </tr>
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📧 Contacto - Email:</td>
-              <td style="padding: 0.8rem;"><a href="mailto:${publicacion.email_contacto}" style="color: #0F4C75; text-decoration: none;">${publicacion.email_contacto}</a></td>
+              <td style="padding: 0.8rem;"><a href="mailto:${utils.escapeHtml(publicacion.email_contacto)}" style="color: #0F4C75; text-decoration: none;">${utils.escapeHtml(publicacion.email_contacto)}</a></td>
             </tr>
             ${publicacion.telefono_contacto ? `
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📞 Contacto - Teléfono:</td>
-              <td style="padding: 0.8rem;"><a href="tel:${publicacion.telefono_contacto}" style="color: #0F4C75; text-decoration: none;">${publicacion.telefono_contacto}</a></td>
+              <td style="padding: 0.8rem;"><a href="tel:${utils.escapeHtml(publicacion.telefono_contacto)}" style="color: #0F4C75; text-decoration: none;">${utils.escapeHtml(publicacion.telefono_contacto)}</a></td>
             </tr>
             ` : ''}
           </tbody>
         </table>
 
         <h4 style="margin: 1rem 0 0.5rem; color: #0F4C75; font-weight: 700;">Descripción</h4>
-        <p style="white-space: pre-wrap; line-height: 1.6; background: #fff; padding: 1rem; border-radius: 8px; border: 1px solid #e5e7eb;">${publicacion.descripcion}</p>
+        <p style="white-space: pre-wrap; line-height: 1.6; background: #fff; padding: 1rem; border-radius: 8px; border: 1px solid #e5e7eb;">${utils.escapeHtml(publicacion.descripcion)}</p>
 
         <div id="detalleContacto" style="display: none;"></div>
       `;
@@ -982,7 +992,7 @@ const app = {
 
         if (candidaturaAceptada) {
           html += `<div style="margin-top: 1.5rem;">
-                    <button class="btn-primary" onclick="app.chat.abrirConDestinatario(${publicacion.id}, ${publicacion.usuario_id}, '${nombreOtro}')">💬 Enviar mensaje</button>
+                    <button class="btn-primary" onclick="app.chat.abrirConDestinatario(${publicacion.id}, ${publicacion.usuario_id}, '${utils.escapeHtml(nombreOtro)}')">💬 Enviar mensaje</button>
                   </div>`;
         }
       }
@@ -1026,11 +1036,11 @@ const app = {
         <form id="formEdicion" onsubmit="event.preventDefault(); app.modal.guardarEdicion();">
           <div class="form-group">
             <label for="editDescripcion">Descripción *</label>
-            <textarea id="editDescripcion" required>${pub.descripcion}</textarea>
+            <textarea id="editDescripcion" required>${utils.escapeHtml(pub.descripcion)}</textarea>
           </div>
           <div class="form-group">
             <label for="editCiudad">Ciudad *</label>
-            <input id="editCiudad" type="text" value="${pub.ciudad}" required>
+            <input id="editCiudad" type="text" value="${utils.escapeHtml(pub.ciudad)}" required>
           </div>
           <div class="form-group">
             <label>Especialidades</label>
@@ -1068,7 +1078,7 @@ const app = {
           </div>
           <div class="form-group">
             <label for="editSalario">Salario</label>
-            <input id="editSalario" type="text" value="${pub.salario || ''}">
+            <input id="editSalario" type="text" value="${utils.escapeHtml(pub.salario || '')}">
           </div>
           <div class="form-group">
             <label for="editExperiencia">Años de experiencia</label>
@@ -1076,15 +1086,15 @@ const app = {
           </div>
           <div class="form-group">
             <label for="editNombreContacto">Nombre de contacto *</label>
-            <input id="editNombreContacto" type="text" value="${pub.nombre_contacto}" required>
+            <input id="editNombreContacto" type="text" value="${utils.escapeHtml(pub.nombre_contacto)}" required>
           </div>
           <div class="form-group">
             <label for="editEmailContacto">Email de contacto *</label>
-            <input id="editEmailContacto" type="email" value="${pub.email_contacto}" required>
+            <input id="editEmailContacto" type="email" value="${utils.escapeHtml(pub.email_contacto)}" required>
           </div>
           <div class="form-group">
             <label for="editTelefonoContacto">Teléfono de contacto</label>
-            <input id="editTelefonoContacto" type="text" value="${pub.telefono_contacto || ''}">
+            <input id="editTelefonoContacto" type="text" value="${utils.escapeHtml(pub.telefono_contacto || '')}">
           </div>
           <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
             <button type="submit" class="btn-primary">Guardar</button>
@@ -1226,10 +1236,10 @@ const app = {
               html += `
                 <div class="interesado-item">
                   <div class="interesado-header">
-                    <strong>${m.remitente_nombre}</strong>
-                    <span class="interesado-email">${m.remitente_email}</span>
+                    <strong>${utils.escapeHtml(m.remitente_nombre)}</strong>
+                    <span class="interesado-email">${utils.escapeHtml(m.remitente_email)}</span>
                   </div>
-                  <p class="interesado-mensaje">${m.cuerpo}</p>
+                  <p class="interesado-mensaje">${utils.escapeHtml(m.cuerpo)}</p>
                   <span class="interesado-fecha">${utils.formatearFecha(m.creado_en)}</span>
                 </div>
               `;
@@ -1320,8 +1330,8 @@ const app = {
         } else {
           datos.forEach(d => {
             html += `
-              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarClinicasEspecialidad('${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
-                <strong>${d.especialidad || "Sin especialidad"}</strong>
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarClinicasEspecialidad('${utils.escapeHtml((d.especialidad || "Sin especialidad").replace(/'/g, "\\'"))}')">
+                <strong>${utils.escapeHtml(d.especialidad || "Sin especialidad")}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
             `;
@@ -1348,8 +1358,8 @@ const app = {
         } else {
           datos.forEach(d => {
             html += `
-              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarClinicasCiudad('${d.ciudad.replace(/'/g, "\\'")}')">
-                <strong>${d.ciudad}</strong>
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarClinicasCiudad('${utils.escapeHtml(d.ciudad.replace(/'/g, "\\'"))}')">
+                <strong>${utils.escapeHtml(d.ciudad)}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
             `;
@@ -1382,11 +1392,11 @@ const app = {
                 html += "</div>";
               }
               ciudadActual = d.ciudad;
-              html += `<div class='desglose-grupo'><h4>${ciudadActual}</h4>`;
+              html += `<div class='desglose-grupo'><h4>${utils.escapeHtml(ciudadActual)}</h4>`;
             }
             html += `
-              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarClinicasCiudadEspecialidad('${d.ciudad.replace(/'/g, "\\'")}', '${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
-                <strong>${d.especialidad || "Sin especialidad"}</strong>
+              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarClinicasCiudadEspecialidad('${utils.escapeHtml(d.ciudad.replace(/'/g, "\\'"))}', '${utils.escapeHtml((d.especialidad || "Sin especialidad").replace(/'/g, "\\'"))}')">
+                <strong>${utils.escapeHtml(d.especialidad || "Sin especialidad")}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
             `;
@@ -1415,8 +1425,8 @@ const app = {
         } else {
           datos.forEach(d => {
             html += `
-              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarDentistasEspecialidad('${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
-                <strong>${d.especialidad || "Sin especialidad"}</strong>
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarDentistasEspecialidad('${utils.escapeHtml((d.especialidad || "Sin especialidad").replace(/'/g, "\\'"))}')">
+                <strong>${utils.escapeHtml(d.especialidad || "Sin especialidad")}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
             `;
@@ -1443,8 +1453,8 @@ const app = {
         } else {
           datos.forEach(d => {
             html += `
-              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarDentistasCiudad('${d.ciudad.replace(/'/g, "\\'")}')">
-                <strong>${d.ciudad}</strong>
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarDentistasCiudad('${utils.escapeHtml(d.ciudad.replace(/'/g, "\\'"))}')">
+                <strong>${utils.escapeHtml(d.ciudad)}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
             `;
@@ -1477,11 +1487,11 @@ const app = {
                 html += "</div>";
               }
               ciudadActual = d.ciudad;
-              html += `<div class='desglose-grupo'><h4>${ciudadActual}</h4>`;
+              html += `<div class='desglose-grupo'><h4>${utils.escapeHtml(ciudadActual)}</h4>`;
             }
             html += `
-              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarDentistasCiudadEspecialidad('${d.ciudad.replace(/'/g, "\\'")}', '${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
-                <strong>${d.especialidad || "Sin especialidad"}</strong>
+              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarDentistasCiudadEspecialidad('${utils.escapeHtml(d.ciudad.replace(/'/g, "\\'"))}', '${utils.escapeHtml((d.especialidad || "Sin especialidad").replace(/'/g, "\\'"))}')">
+                <strong>${utils.escapeHtml(d.especialidad || "Sin especialidad")}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
             `;
@@ -1511,7 +1521,7 @@ const app = {
     async mostrarDentistasCiudad(ciudad) {
       try {
         const dentistas = await utils.request(`/stats/dentistas-por-ciudad-lista/${encodeURIComponent(ciudad)}`);
-        app.stats.mostrarListaDentistas(dentistas, `Dentistas - ${ciudad}`);
+        app.stats.mostrarListaDentistas(dentistas, `Dentistas - ${utils.escapeHtml(ciudad)}`);
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -1520,7 +1530,7 @@ const app = {
     async mostrarDentistasCiudadEspecialidad(ciudad, especialidad) {
       try {
         const dentistas = await utils.request(`/stats/dentistas-por-ciudad-especialidad-lista/${encodeURIComponent(ciudad)}/${encodeURIComponent(especialidad)}`);
-        app.stats.mostrarListaDentistas(dentistas, `Dentistas - ${ciudad} - ${especialidad}`);
+        app.stats.mostrarListaDentistas(dentistas, `Dentistas - ${utils.escapeHtml(ciudad)} - ${especialidad}`);
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -1538,7 +1548,7 @@ const app = {
     async mostrarClinicasCiudad(ciudad) {
       try {
         const clinicas = await utils.request(`/stats/clinicas-por-ciudad-lista/${encodeURIComponent(ciudad)}`);
-        app.stats.mostrarListaClinicas(clinicas, `Clínicas - ${ciudad}`);
+        app.stats.mostrarListaClinicas(clinicas, `Clínicas - ${utils.escapeHtml(ciudad)}`);
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -1547,7 +1557,7 @@ const app = {
     async mostrarClinicasCiudadEspecialidad(ciudad, especialidad) {
       try {
         const clinicas = await utils.request(`/stats/clinicas-por-ciudad-especialidad-lista/${encodeURIComponent(ciudad)}/${encodeURIComponent(especialidad)}`);
-        app.stats.mostrarListaClinicas(clinicas, `Clínicas - ${ciudad} - ${especialidad}`);
+        app.stats.mostrarListaClinicas(clinicas, `Clínicas - ${utils.escapeHtml(ciudad)} - ${especialidad}`);
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -1582,7 +1592,7 @@ const app = {
           const data = await utils.request(`/publicaciones/${pubId}/especialidades`, { method: 'GET' });
           const especialidades = data.especialidades ? data.especialidades.map(e => e.nombre).join(", ") : 'Sin especialidades';
           const ciudad = porPublicacionId[pubId].ciudad;
-          const clave = `${especialidades}-${ciudad}`;
+          const clave = `${especialidades}-${utils.escapeHtml(ciudad)}`;
 
           porPublicacion[clave] = {
             especialidades: especialidades,
@@ -1608,7 +1618,7 @@ const app = {
         html += `
           <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">
-              🦷 ${pub.especialidades} - 📍 ${pub.ciudad}
+              🦷 ${utils.escapeHtml(pub.especialidades)} - 📍 ${utils.escapeHtml(pub.ciudad)}
             </h4>
             <p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Clínicas coincidentes: ${clinicasList.length}</strong></p>
 
@@ -1620,9 +1630,9 @@ const app = {
           html += `
             <div style="background: white; border-left: 3px solid #0F4C75; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
               <div>
-                <strong style="color: #0f4c75; display: block; margin-bottom: 0.3rem;">${c.nombre}</strong>
-                <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${c.email}</p>
-                ${c.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${c.ciudad}</p>` : ''}
+                <strong style="color: #0f4c75; display: block; margin-bottom: 0.3rem;">${utils.escapeHtml(c.nombre)}</strong>
+                <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${utils.escapeHtml(c.email)}</p>
+                ${c.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${utils.escapeHtml(c.ciudad)}</p>` : ''}
               </div>
               <button class="btn-primary" onclick="app.stats.mostrarPerfilClinica(${JSON.stringify(clinicaConEspecialidad).replace(/"/g, '&quot;')})" style="white-space: nowrap; margin-left: 1rem;">Ver detalles</button>
             </div>
@@ -1653,13 +1663,13 @@ const app = {
       dentistas.forEach(d => {
         html += `
           <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
-            <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">${d.nombre}</h4>
-            <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>🦷 Especialidades:</strong> ${d.especialidades || 'Sin especialidad'}</p>
-            <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📧 Email:</strong> ${d.email}</p>
-            ${d.telefono ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📞 Teléfono:</strong> ${d.telefono}</p>` : ''}
-            ${d.movil ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📱 Móvil:</strong> ${d.movil}</p>` : ''}
-            <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📍 Ciudad:</strong> ${d.ciudad}</p>
-            ${d.direccion ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>🏠 Dirección:</strong> ${d.direccion}</p>` : ''}
+            <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">${utils.escapeHtml(d.nombre)}</h4>
+            <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>🦷 Especialidades:</strong> ${utils.escapeHtml(d.especialidades || 'Sin especialidad')}</p>
+            <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📧 Email:</strong> ${utils.escapeHtml(d.email)}</p>
+            ${d.telefono ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📞 Teléfono:</strong> ${utils.escapeHtml(d.telefono)}</p>` : ''}
+            ${d.movil ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📱 Móvil:</strong> ${utils.escapeHtml(d.movil)}</p>` : ''}
+            <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📍 Ciudad:</strong> ${utils.escapeHtml(d.ciudad)}</p>
+            ${d.direccion ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>🏠 Dirección:</strong> ${utils.escapeHtml(d.direccion)}</p>` : ''}
           </div>
         `;
       });
@@ -1682,13 +1692,13 @@ const app = {
       clinicas.forEach(c => {
         html += `
           <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
-            <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">${c.nombre}</h4>
-            <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>🦷 Especialidades:</strong> ${c.especialidades || 'Sin especialidad'}</p>
-            <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📧 Email:</strong> ${c.email}</p>
-            ${c.telefono ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📞 Teléfono:</strong> ${c.telefono}</p>` : ''}
-            ${c.movil ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📱 Móvil:</strong> ${c.movil}</p>` : ''}
-            <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📍 Ciudad:</strong> ${c.ciudad}</p>
-            ${c.direccion ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>🏠 Dirección:</strong> ${c.direccion}</p>` : ''}
+            <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">${utils.escapeHtml(c.nombre)}</h4>
+            <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>🦷 Especialidades:</strong> ${utils.escapeHtml(c.especialidades || 'Sin especialidad')}</p>
+            <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📧 Email:</strong> ${utils.escapeHtml(c.email)}</p>
+            ${c.telefono ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📞 Teléfono:</strong> ${utils.escapeHtml(c.telefono)}</p>` : ''}
+            ${c.movil ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📱 Móvil:</strong> ${utils.escapeHtml(c.movil)}</p>` : ''}
+            <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📍 Ciudad:</strong> ${utils.escapeHtml(c.ciudad)}</p>
+            ${c.direccion ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>🏠 Dirección:</strong> ${utils.escapeHtml(c.direccion)}</p>` : ''}
           </div>
         `;
       });
@@ -1725,22 +1735,22 @@ const app = {
 
           ${clinica.especialidades ? `<div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">🦷 Especialidad</h4>
-            <p style="margin: 0; font-size: 0.95rem;">${clinica.especialidades}</p>
+            <p style="margin: 0; font-size: 0.95rem;">${utils.escapeHtml(clinica.especialidades)}</p>
           </div>` : ''}
 
           <div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📞 Contacto</h4>
-            <p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📧 Email:</strong> ${clinica.email}</p>
-            ${clinica.telefono ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📞 Teléfono:</strong> ${clinica.telefono}</p>` : ''}
-            ${clinica.movil ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📱 Móvil:</strong> ${clinica.movil}</p>` : ''}
+            <p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📧 Email:</strong> ${utils.escapeHtml(clinica.email)}</p>
+            ${clinica.telefono ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📞 Teléfono:</strong> ${utils.escapeHtml(clinica.telefono)}</p>` : ''}
+            ${clinica.movil ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📱 Móvil:</strong> ${utils.escapeHtml(clinica.movil)}</p>` : ''}
           </div>
 
           <div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📍 Ubicación</h4>
-            <p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>🌆 Ciudad:</strong> ${clinica.ciudad}</p>
-            ${clinica.direccion ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>🏠 Dirección:</strong> ${clinica.direccion}</p>` : ''}
-            ${clinica.codigo_postal ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📮 Código Postal:</strong> ${clinica.codigo_postal}</p>` : ''}
-            ${clinica.pais ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>🌍 País:</strong> ${clinica.pais}</p>` : ''}
+            <p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>🌆 Ciudad:</strong> ${utils.escapeHtml(clinica.ciudad)}</p>
+            ${clinica.direccion ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>🏠 Dirección:</strong> ${utils.escapeHtml(clinica.direccion)}</p>` : ''}
+            ${clinica.codigo_postal ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📮 Código Postal:</strong> ${utils.escapeHtml(clinica.codigo_postal)}</p>` : ''}
+            ${clinica.pais ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>🌍 País:</strong> ${utils.escapeHtml(clinica.pais)}</p>` : ''}
           </div>
 
           ${descripcion ? `<div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
@@ -1757,7 +1767,7 @@ const app = {
 
           ${clinica.web ? `<div style="background: white; border-radius: 8px; padding: 1.5rem;">
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">🌐 Web</h4>
-            <p style="margin: 0; font-size: 0.95rem;"><a href="${clinica.web}" target="_blank" style="color: #0ea5e9; text-decoration: none;">${clinica.web}</a></p>
+            <p style="margin: 0; font-size: 0.95rem;"><a href="${utils.escapeHtml(clinica.web)}" target="_blank" style="color: #0ea5e9; text-decoration: none;">${utils.escapeHtml(clinica.web)}</a></p>
           </div>` : ''}
         </div>
       `;
@@ -1795,7 +1805,7 @@ const app = {
         let html = `<h3>${ofertas.length} Ofertas Activas</h3><div class="desglose-grupos">`;
 
         Object.keys(agrupadoPorCiudad).sort().forEach(ciudad => {
-          html += `<div class="desglose-grupo"><h4>${ciudad}</h4>`;
+          html += `<div class="desglose-grupo"><h4>${utils.escapeHtml(ciudad)}</h4>`;
 
           agrupadoPorCiudad[ciudad].forEach((o, idx) => {
             const esp = estadoApp.especialidades.find(e => e.id === o.especialidad_id);
@@ -1923,29 +1933,29 @@ const app = {
           <div style="background: white; border: 2px solid ${estadoColor}; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
               <div>
-                <h4 style="margin: 0 0 0.3rem 0; color: #0f4c75; font-size: 1.2rem; font-weight: 700;">${tituloPublicacion}</h4>
-                ${post.empresa_nombre ? `<p style="margin: 0; color: #6b7280; font-size: 0.95rem;">🏢 ${post.empresa_nombre}</p>` : ''}
+                <h4 style="margin: 0 0 0.3rem 0; color: #0f4c75; font-size: 1.2rem; font-weight: 700;">${utils.escapeHtml(tituloPublicacion)}</h4>
+                ${post.empresa_nombre ? `<p style="margin: 0; color: #6b7280; font-size: 0.95rem;">🏢 ${utils.escapeHtml(post.empresa_nombre)}</p>` : ''}
               </div>
               <span style="background: ${estadoColor}; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize; white-space: nowrap;">${post.estado}</span>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; font-size: 0.9rem; color: #6b7280;">
-              <p style="margin: 0;"><strong>📍 Ciudad:</strong> ${post.ciudad}</p>
+              <p style="margin: 0;"><strong>📍 Ciudad:</strong> ${utils.escapeHtml(post.ciudad)}</p>
               <p style="margin: 0;"><strong>📅 Fecha:</strong> ${fecha}</p>
               <p style="margin: 0;"><strong>🦷 Especialidad:</strong> ${especialidad}</p>
-              ${post.salario ? `<p style="margin: 0;"><strong>💰 Salario:</strong> ${post.salario}</p>` : ''}
-              ${post.contrato ? `<p style="margin: 0;"><strong>📋 Contrato:</strong> ${post.contrato}</p>` : ''}
-              ${post.jornada ? `<p style="margin: 0;"><strong>⏰ Jornada:</strong> ${post.jornada}</p>` : ''}
+              ${post.salario ? `<p style="margin: 0;"><strong>💰 Salario:</strong> ${utils.escapeHtml(post.salario)}</p>` : ''}
+              ${post.contrato ? `<p style="margin: 0;"><strong>📋 Contrato:</strong> ${utils.escapeHtml(post.contrato)}</p>` : ''}
+              ${post.jornada ? `<p style="margin: 0;"><strong>⏰ Jornada:</strong> ${utils.escapeHtml(post.jornada)}</p>` : ''}
             </div>
             <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem; margin-top: 1rem;">
-              <p style="margin: 0; color: #6b7280; white-space: pre-wrap; line-height: 1.6; font-size: 0.9rem;">${post.descripcion || 'Sin descripción'}</p>
+              <p style="margin: 0; color: #6b7280; white-space: pre-wrap; line-height: 1.6; font-size: 0.9rem;">${utils.escapeHtml(post.descripcion || 'Sin descripción')}</p>
             </div>
             ${post.mensaje ? `<div style="margin-top: 1rem; padding: 1rem; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
               <p style="margin: 0; font-size: 0.85rem; color: #0c4a6e; font-weight: 600;">💬 Tu mensaje:</p>
-              <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #0c4a6e; white-space: pre-wrap;">${post.mensaje}</p>
+              <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #0c4a6e; white-space: pre-wrap;">${utils.escapeHtml(post.mensaje)}</p>
             </div>` : ''}
             <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
               <button class="btn-primary" onclick="app.stats.mostrarDetalleMiPostulacion(${utils.escapeJsonForHtml(postConEspecialidad)})" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">👁️ Ver detalles</button>
-              ${post.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${post.id}, '${(post.empresa_nombre || 'la otra parte').replace(/'/g, "\\'")}')" style="flex: 1; background: #f59e0b; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">⭐ Valorar</button>` : ''}
+              ${post.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${post.id}, '${utils.escapeHtml((post.empresa_nombre || 'la otra parte').replace(/'/g, "\\'"))}')" style="flex: 1; background: #f59e0b; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">⭐ Valorar</button>` : ''}
               <button onclick="app.candidaturas.retirarPostulacion(${post.id})" style="flex: 1; background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">🗑️ Retirar</button>
             </div>
           </div>
@@ -1969,29 +1979,29 @@ const app = {
       let html = `
         <div style="padding: 2rem; background: #f9fafb; border-radius: 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-            <h3 style="margin: 0; color: #0f4c75; font-size: 1.5rem; font-weight: 700;">${post.empresa_nombre || post.ciudad}</h3>
+            <h3 style="margin: 0; color: #0f4c75; font-size: 1.5rem; font-weight: 700;">${utils.escapeHtml(post.empresa_nombre || post.ciudad)}</h3>
             <span style="background: ${estadoColor}; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize;">${post.estado}</span>
           </div>
 
           <div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📋 Detalles</h4>
-            <p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📍 Ciudad:</strong> ${post.ciudad}</p>
+            <p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📍 Ciudad:</strong> ${utils.escapeHtml(post.ciudad)}</p>
             <p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📅 Fecha:</strong> ${fecha}</p>
             <p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>🦷 Especialidad:</strong> ${especialidad}</p>
-            ${post.salario ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>💰 Salario:</strong> ${post.salario}</p>` : ''}
-            ${post.contrato ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📋 Contrato:</strong> ${post.contrato}</p>` : ''}
-            ${post.jornada ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>⏰ Jornada:</strong> ${post.jornada}</p>` : ''}
-            ${post.empresa_email ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📧 Email:</strong> ${post.empresa_email}</p>` : ''}
+            ${post.salario ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>💰 Salario:</strong> ${utils.escapeHtml(post.salario)}</p>` : ''}
+            ${post.contrato ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📋 Contrato:</strong> ${utils.escapeHtml(post.contrato)}</p>` : ''}
+            ${post.jornada ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>⏰ Jornada:</strong> ${utils.escapeHtml(post.jornada)}</p>` : ''}
+            ${post.empresa_email ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📧 Email:</strong> ${utils.escapeHtml(post.empresa_email)}</p>` : ''}
           </div>
 
           ${post.descripcion ? `<div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📝 Descripción</h4>
-            <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap;">${post.descripcion}</p>
+            <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap;">${utils.escapeHtml(post.descripcion)}</p>
           </div>` : ''}
 
           ${post.mensaje ? `<div style="background: white; border-radius: 8px; padding: 1.5rem;">
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">💬 Tu mensaje</h4>
-            <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap;">${post.mensaje}</p>
+            <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap;">${utils.escapeHtml(post.mensaje)}</p>
           </div>` : ''}
         </div>
       `;
@@ -2072,7 +2082,7 @@ const app = {
         let html = `<h3>${misSolicitudes.length} Mis solicitudes</h3><div class="desglose-grupos">`;
 
         Object.keys(agrupadoPorCiudad).sort().forEach(ciudad => {
-          html += `<div class="desglose-grupo"><h4>${ciudad}</h4>`;
+          html += `<div class="desglose-grupo"><h4>${utils.escapeHtml(ciudad)}</h4>`;
 
           agrupadoPorCiudad[ciudad].forEach(s => {
             const esp = estadoApp.especialidades.find(e => e.id === s.especialidad_id);
@@ -2103,7 +2113,7 @@ const app = {
 
     mostrarOfertaCompleta(oferta) {
       const esp = estadoApp.especialidades.find(e => e.id === oferta.especialidad_id);
-      const titulo = esp ? `${esp.nombre} - ${oferta.ciudad}` : oferta.ciudad;
+      const titulo = esp ? `${esp.nombre} - ${utils.escapeHtml(oferta.ciudad)}` : oferta.ciudad;
 
       let html = `
         <div class="perfil-dentista">
@@ -2111,26 +2121,26 @@ const app = {
 
           <div class="info-section">
             <h4>Detalles</h4>
-            <p><strong>Ciudad:</strong> ${oferta.ciudad}</p>
+            <p><strong>Ciudad:</strong> ${utils.escapeHtml(oferta.ciudad)}</p>
             ${esp ? `<p><strong>Especialidades:</strong> ${esp.nombre}</p>` : ''}
-            ${oferta.contrato ? `<p><strong>Contrato:</strong> ${oferta.contrato}</p>` : ''}
-            ${oferta.jornada ? `<p><strong>Jornada:</strong> ${oferta.jornada}</p>` : ''}
-            ${oferta.salario ? `<p><strong>Salario:</strong> ${oferta.salario}</p>` : ''}
+            ${oferta.contrato ? `<p><strong>Contrato:</strong> ${utils.escapeHtml(oferta.contrato)}</p>` : ''}
+            ${oferta.jornada ? `<p><strong>Jornada:</strong> ${utils.escapeHtml(oferta.jornada)}</p>` : ''}
+            ${oferta.salario ? `<p><strong>Salario:</strong> ${utils.escapeHtml(oferta.salario)}</p>` : ''}
           </div>
 
           ${oferta.descripcion ? `
           <div class="info-section">
             <h4>Descripción</h4>
-            <p style="white-space: pre-wrap;">${oferta.descripcion}</p>
+            <p style="white-space: pre-wrap;">${utils.escapeHtml(oferta.descripcion)}</p>
           </div>
           ` : ''}
 
           ${oferta.nombre_contacto ? `
           <div class="info-section">
             <h4>Contacto</h4>
-            <p><strong>Nombre:</strong> ${oferta.nombre_contacto}</p>
-            ${oferta.email_contacto ? `<p><strong>Email:</strong> <a href="mailto:${oferta.email_contacto}">${oferta.email_contacto}</a></p>` : ''}
-            ${oferta.telefono_contacto ? `<p><strong>Teléfono:</strong> <a href="tel:${oferta.telefono_contacto}">${oferta.telefono_contacto}</a></p>` : ''}
+            <p><strong>Nombre:</strong> ${utils.escapeHtml(oferta.nombre_contacto)}</p>
+            ${oferta.email_contacto ? `<p><strong>Email:</strong> <a href="mailto:${utils.escapeHtml(oferta.email_contacto)}">${utils.escapeHtml(oferta.email_contacto)}</a></p>` : ''}
+            ${oferta.telefono_contacto ? `<p><strong>Teléfono:</strong> <a href="tel:${utils.escapeHtml(oferta.telefono_contacto)}">${utils.escapeHtml(oferta.telefono_contacto)}</a></p>` : ''}
           </div>
           ` : ''}
         </div>
@@ -2151,7 +2161,7 @@ const app = {
         // Obtener mensajes
         const mensajes = await utils.request(`/mensajes/${solicitudId}`);
 
-        const tituloSolicitud = esp ? `${esp.nombre} - ${solicitud.ciudad}` : solicitud.ciudad;
+        const tituloSolicitud = esp ? `${esp.nombre} - ${utils.escapeHtml(solicitud.ciudad)}` : solicitud.ciudad;
 
         let html = `
           <div class="perfil-dentista">
@@ -2159,23 +2169,23 @@ const app = {
 
             <div class="info-section">
               <h4>Detalles</h4>
-              <p><strong>Ciudad:</strong> ${solicitud.ciudad}</p>
+              <p><strong>Ciudad:</strong> ${utils.escapeHtml(solicitud.ciudad)}</p>
               <p><strong>Especialidad:</strong> ${esp?.nombre || 'No especificada'}</p>
-              ${solicitud.jornada ? `<p><strong>Disponibilidad:</strong> ${solicitud.jornada}</p>` : ''}
-              ${solicitud.salario ? `<p><strong>Salario esperado:</strong> ${solicitud.salario}</p>` : ''}
-              ${solicitud.contrato ? `<p><strong>Contrato:</strong> ${solicitud.contrato}</p>` : ''}
+              ${solicitud.jornada ? `<p><strong>Disponibilidad:</strong> ${utils.escapeHtml(solicitud.jornada)}</p>` : ''}
+              ${solicitud.salario ? `<p><strong>Salario esperado:</strong> ${utils.escapeHtml(solicitud.salario)}</p>` : ''}
+              ${solicitud.contrato ? `<p><strong>Contrato:</strong> ${utils.escapeHtml(solicitud.contrato)}</p>` : ''}
             </div>
 
             <div class="info-section">
               <h4>Descripción</h4>
-              <p style="white-space: pre-wrap;">${solicitud.descripcion}</p>
+              <p style="white-space: pre-wrap;">${utils.escapeHtml(solicitud.descripcion)}</p>
             </div>
 
             <div class="info-section">
               <h4>Mi Contacto</h4>
-              ${solicitud.nombre_contacto ? `<p><strong>Nombre:</strong> ${solicitud.nombre_contacto}</p>` : ''}
-              ${solicitud.email_contacto ? `<p><strong>Email:</strong> <a href="mailto:${solicitud.email_contacto}">${solicitud.email_contacto}</a></p>` : ''}
-              ${solicitud.telefono_contacto ? `<p><strong>Teléfono:</strong> <a href="tel:${solicitud.telefono_contacto}">${solicitud.telefono_contacto}</a></p>` : ''}
+              ${solicitud.nombre_contacto ? `<p><strong>Nombre:</strong> ${utils.escapeHtml(solicitud.nombre_contacto)}</p>` : ''}
+              ${solicitud.email_contacto ? `<p><strong>Email:</strong> <a href="mailto:${utils.escapeHtml(solicitud.email_contacto)}">${utils.escapeHtml(solicitud.email_contacto)}</a></p>` : ''}
+              ${solicitud.telefono_contacto ? `<p><strong>Teléfono:</strong> <a href="tel:${utils.escapeHtml(solicitud.telefono_contacto)}">${utils.escapeHtml(solicitud.telefono_contacto)}</a></p>` : ''}
             </div>
         `;
 
@@ -2189,9 +2199,9 @@ const app = {
           mensajes.forEach(m => {
             html += `
               <div style="background: #F8FAFF; padding: 1rem; border-radius: 8px; border-left: 4px solid #2ec4b6; margin-bottom: 1rem;">
-                <p><strong>De:</strong> ${m.remitente_nombre}</p>
-                <p><strong>Email:</strong> <a href="mailto:${m.remitente_email}">${m.remitente_email}</a></p>
-                <p style="white-space: pre-wrap; margin-top: 1rem; font-style: italic;">💬 "${m.cuerpo}"</p>
+                <p><strong>De:</strong> ${utils.escapeHtml(m.remitente_nombre)}</p>
+                <p><strong>Email:</strong> <a href="mailto:${utils.escapeHtml(m.remitente_email)}">${utils.escapeHtml(m.remitente_email)}</a></p>
+                <p style="white-space: pre-wrap; margin-top: 1rem; font-style: italic;">💬 "${utils.escapeHtml(m.cuerpo)}"</p>
                 <p style="font-size: 0.85rem; color: var(--gray-600); margin-top: 0.5rem;">📅 ${utils.formatearFecha(m.creado_en)}</p>
               </div>
             `;
@@ -2372,7 +2382,7 @@ const app = {
           const data = await utils.request(`/publicaciones/${pubId}/especialidades`, { method: 'GET' });
           const especialidades = data.especialidades ? data.especialidades.map(e => e.nombre).join(", ") : 'Sin especialidades';
           const ciudad = porPublicacionId[pubId].ciudad;
-          const clave = `${especialidades}-${ciudad}`;
+          const clave = `${especialidades}-${utils.escapeHtml(ciudad)}`;
 
           porPublicacion[clave] = {
             especialidades: especialidades,
@@ -2417,7 +2427,7 @@ const app = {
         html += `
           <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">
-              🦷 ${pub.especialidades} - 📍 ${pub.ciudad}
+              🦷 ${utils.escapeHtml(pub.especialidades)} - 📍 ${utils.escapeHtml(pub.ciudad)}
             </h4>
 
             <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem;">
@@ -2428,21 +2438,21 @@ const app = {
           html += `
             <div style="background: white; border-left: 3px solid ${estadoColor}; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem;">
               <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div style="flex: 1; cursor: pointer;" onclick="app.stats.mostrarDetallePostulacion('${p.id}', '${p.nombre.replace(/'/g, "\\'")}', '${p.email.replace(/'/g, "\\'")}', '${(p.ciudad || '').replace(/'/g, "\\'")}', '${(p.direccion || '').replace(/'/g, "\\'")}', '${(p.codigo_postal || '').replace(/'/g, "\\'")}', '${p.estado}', '${(p.mensaje || '').replace(/'/g, "\\'").replace(/"/g, '\\"')}')">
-                  <strong style="color: #0f4c75; display: block; margin-bottom: 0.3rem;">${p.nombre}</strong>
-                  <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${p.email}</p>
-                  ${p.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${p.ciudad}</p>` : ''}
+                <div style="flex: 1; cursor: pointer;" onclick="app.stats.mostrarDetallePostulacion('${p.id}', '${utils.escapeHtml(p.nombre.replace(/'/g, "\\'"))}', '${utils.escapeHtml(p.email.replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.ciudad || '').replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.direccion || '').replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.codigo_postal || '').replace(/'/g, "\\'"))}', '${p.estado}', '${utils.escapeHtml((p.mensaje || '').replace(/'/g, "\\'").replace(/"/g, '\\"'))}')">
+                  <strong style="color: #0f4c75; display: block; margin-bottom: 0.3rem;">${utils.escapeHtml(p.nombre)}</strong>
+                  <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${utils.escapeHtml(p.email)}</p>
+                  ${p.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${utils.escapeHtml(p.ciudad)}</p>` : ''}
                 </div>
                 <span style="background: ${estadoColor}; color: white; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.75rem; text-transform: capitalize; white-space: nowrap; margin-left: 1rem;">${p.estado}</span>
               </div>
               <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
-                <button onclick="event.stopPropagation(); app.stats.mostrarDetallePostulacion('${p.id}', '${p.nombre.replace(/'/g, "\\'")}', '${p.email.replace(/'/g, "\\'")}', '${(p.ciudad || '').replace(/'/g, "\\'")}', '${(p.direccion || '').replace(/'/g, "\\'")}', '${(p.codigo_postal || '').replace(/'/g, "\\'")}', '${p.estado}', '${(p.mensaje || '').replace(/'/g, "\\'").replace(/"/g, '\\"')}')" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
+                <button onclick="event.stopPropagation(); app.stats.mostrarDetallePostulacion('${p.id}', '${utils.escapeHtml(p.nombre.replace(/'/g, "\\'"))}', '${utils.escapeHtml(p.email.replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.ciudad || '').replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.direccion || '').replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.codigo_postal || '').replace(/'/g, "\\'"))}', '${p.estado}', '${utils.escapeHtml((p.mensaje || '').replace(/'/g, "\\'").replace(/"/g, '\\"'))}')" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
                 ${p.estado === 'pendiente' ? `
                   <button onclick="event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, 'aceptada')" style="background: #10b981; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">✅ Aceptar</button>
                   <button onclick="event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, 'rechazada')" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">❌ Rechazar</button>
                 ` : `
                   <button onclick="event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, 'pendiente')" style="background: #f59e0b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">↩️ Deshacer</button>
-                  ${p.estado === 'aceptada' ? `<button onclick="event.stopPropagation(); app.resenyas.abrirFormulario(${p.id}, '${p.nombre.replace(/'/g, "\\'")}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
+                  ${p.estado === 'aceptada' ? `<button onclick="event.stopPropagation(); app.resenyas.abrirFormulario(${p.id}, '${utils.escapeHtml(p.nombre.replace(/'/g, "\\'"))}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
                 `}
               </div>
             </div>
@@ -2465,24 +2475,24 @@ const app = {
     mostrarDetallePostulacion(id, nombre, email, ciudad, direccion, codigoPostal, estado, mensaje) {
       let html = `
         <div style="padding: 1.5rem;">
-          <h3 style="margin-top: 0; color: var(--primary);">${nombre}</h3>
+          <h3 style="margin-top: 0; color: var(--primary);">${utils.escapeHtml(nombre)}</h3>
 
           <div class="info-section">
             <h4>Contacto</h4>
-            <p><strong>📧 Email:</strong> ${email}</p>
+            <p><strong>📧 Email:</strong> ${utils.escapeHtml(email)}</p>
           </div>
 
           <div class="info-section">
             <h4>Ubicación</h4>
-            ${ciudad ? `<p><strong>📍 Ciudad:</strong> ${ciudad}</p>` : ''}
-            ${direccion ? `<p><strong>🏠 Dirección:</strong> ${direccion}</p>` : ''}
-            ${codigoPostal ? `<p><strong>📮 Código Postal:</strong> ${codigoPostal}</p>` : ''}
+            ${ciudad ? `<p><strong>📍 Ciudad:</strong> ${utils.escapeHtml(ciudad)}</p>` : ''}
+            ${direccion ? `<p><strong>🏠 Dirección:</strong> ${utils.escapeHtml(direccion)}</p>` : ''}
+            ${codigoPostal ? `<p><strong>📮 Código Postal:</strong> ${utils.escapeHtml(codigoPostal)}</p>` : ''}
           </div>
 
           <div class="info-section">
             <h4>Estado de la Postulación</h4>
             <p><strong>Estado:</strong> ${estado}</p>
-            ${mensaje ? `<p><strong>Mensaje:</strong> ${mensaje}</p>` : ''}
+            ${mensaje ? `<p><strong>Mensaje:</strong> ${utils.escapeHtml(mensaje)}</p>` : ''}
           </div>
         </div>
       `;
@@ -2530,7 +2540,7 @@ const app = {
           const data = await utils.request(`/publicaciones/${pubId}/especialidades`, { method: 'GET' });
           const especialidades = data.especialidades ? data.especialidades.map(e => e.nombre).join(", ") : 'Sin especialidades';
           const ciudad = porPublicacionId[pubId].ciudad;
-          const clave = `${especialidades}-${ciudad}`;
+          const clave = `${especialidades}-${utils.escapeHtml(ciudad)}`;
 
           porPublicacion[clave] = {
             especialidades: especialidades,
@@ -2552,7 +2562,7 @@ const app = {
         html += `
           <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
             <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">
-              🦷 ${pub.especialidades} - 📍 ${pub.ciudad}
+              🦷 ${utils.escapeHtml(pub.especialidades)} - 📍 ${utils.escapeHtml(pub.ciudad)}
             </h4>
             <p style="margin: 0 0 1rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Dentistas coincidentes: ${dentistas.length}</strong></p>
 
@@ -2563,9 +2573,9 @@ const app = {
           html += `
             <div style="background: white; border-left: 3px solid #0F4C75; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
               <div>
-                <strong style="color: #0f4c75; display: block; margin-bottom: 0.3rem;">${d.nombre}</strong>
-                <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${d.email}</p>
-                ${d.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${d.ciudad}</p>` : ''}
+                <strong style="color: #0f4c75; display: block; margin-bottom: 0.3rem;">${utils.escapeHtml(d.nombre)}</strong>
+                <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${utils.escapeHtml(d.email)}</p>
+                ${d.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${utils.escapeHtml(d.ciudad)}</p>` : ''}
               </div>
               <button class="btn-primary" onclick="app.stats.mostrarPerfilDentistaCompleto(${JSON.stringify(d).replace(/"/g, '&quot;')})" style="white-space: nowrap; margin-left: 1rem;">Ver detalles</button>
             </div>
@@ -2633,13 +2643,13 @@ const app = {
             <div style="background: white; padding: 1rem; border-radius: 6px; margin-bottom: 0.75rem; border-left: 3px solid ${estadoColor};">
               <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div style="flex: 1; cursor: pointer;" onclick="app.stats.mostrarPerfilDentista(${JSON.stringify(c).replace(/"/g, '&quot;')})">
-                  <strong>${c.nombre}</strong>
-                  <p style="margin: 0.3rem 0 0 0; font-size: 0.85rem; color: #6b7280;">${c.email}</p>
-                  ${c.ciudad ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: #6b7280;">📍 ${c.ciudad}</p>` : ''}
+                  <strong>${utils.escapeHtml(c.nombre)}</strong>
+                  <p style="margin: 0.3rem 0 0 0; font-size: 0.85rem; color: #6b7280;">${utils.escapeHtml(c.email)}</p>
+                  ${c.ciudad ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: #6b7280;">📍 ${utils.escapeHtml(c.ciudad)}</p>` : ''}
                 </div>
                 <span style="background: ${estadoColor}; color: white; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.8rem; text-transform: capitalize; white-space: nowrap; margin-left: 1rem;">${c.estado}</span>
               </div>
-              ${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; padding: 0.75rem; background: #f0f9ff; border-radius: 4px; border-left: 2px solid #0ea5e9; color: #0c4a6e;"><strong>Mensaje:</strong> ${c.mensaje}</p>` : ''}
+              ${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; padding: 0.75rem; background: #f0f9ff; border-radius: 4px; border-left: 2px solid #0ea5e9; color: #0c4a6e;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}
               <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
                 <button onclick="app.stats.mostrarPerfilDentista(${JSON.stringify(c).replace(/"/g, '&quot;')})" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
                 ${c.estado === 'pendiente' ? `
@@ -2647,7 +2657,7 @@ const app = {
                   <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'rechazada')" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">❌ Rechazar</button>
                 ` : `
                   <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'pendiente')" style="background: #f59e0b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">↩️ Deshacer</button>
-                  ${c.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${c.id}, '${c.nombre.replace(/'/g, "\\'")}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
+                  ${c.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${c.id}, '${utils.escapeHtml(c.nombre.replace(/'/g, "\\'"))}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
                 `}
               </div>
             </div>
@@ -2697,38 +2707,38 @@ const app = {
           <tbody>
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; width: 30%; color: #0F4C75;">Nombre:</td>
-              <td style="padding: 0.8rem;">${dentista.nombre || '-'}</td>
+              <td style="padding: 0.8rem;">${utils.escapeHtml(dentista.nombre || '-')}</td>
             </tr>
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📧 Email:</td>
-              <td style="padding: 0.8rem;"><a href="mailto:${dentista.email}" style="color: #0F4C75; text-decoration: none;">${dentista.email || '-'}</a></td>
+              <td style="padding: 0.8rem;"><a href="mailto:${utils.escapeHtml(dentista.email)}" style="color: #0F4C75; text-decoration: none;">${utils.escapeHtml(dentista.email || '-')}</a></td>
             </tr>
             ${(dentista.telefono || dentista.movil) ? `
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📞 Teléfono:</td>
-              <td style="padding: 0.8rem;"><a href="tel:${dentista.telefono || dentista.movil}" style="color: #0F4C75; text-decoration: none;">${dentista.telefono || dentista.movil}</a></td>
+              <td style="padding: 0.8rem;"><a href="tel:${utils.escapeHtml(dentista.telefono || dentista.movil)}" style="color: #0F4C75; text-decoration: none;">${utils.escapeHtml(dentista.telefono || dentista.movil)}</a></td>
             </tr>
             ` : ''}
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📍 Ciudad:</td>
-              <td style="padding: 0.8rem;">${dentista.ciudad || '-'}</td>
+              <td style="padding: 0.8rem;">${utils.escapeHtml(dentista.ciudad || '-')}</td>
             </tr>
             ${dentista.direccion ? `
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🏠 Dirección:</td>
-              <td style="padding: 0.8rem;">${dentista.direccion}</td>
+              <td style="padding: 0.8rem;">${utils.escapeHtml(dentista.direccion)}</td>
             </tr>
             ` : ''}
             ${dentista.codigo_postal ? `
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📮 Código Postal:</td>
-              <td style="padding: 0.8rem;">${dentista.codigo_postal}</td>
+              <td style="padding: 0.8rem;">${utils.escapeHtml(dentista.codigo_postal)}</td>
             </tr>
             ` : ''}
             ${dentista.pais ? `
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🌍 País:</td>
-              <td style="padding: 0.8rem;">${dentista.pais}</td>
+              <td style="padding: 0.8rem;">${utils.escapeHtml(dentista.pais)}</td>
             </tr>
             ` : ''}
             ${especialidadesText ? `
@@ -2761,20 +2771,20 @@ const app = {
     mostrarPerfilDentista(dentista) {
       let html = `
         <div class="perfil-dentista">
-          <h3 style="margin-top: 0;">${dentista.nombre}</h3>
+          <h3 style="margin-top: 0;">${utils.escapeHtml(dentista.nombre)}</h3>
 
           <div class="info-section">
             <h4>Contacto</h4>
-            <p><strong>Email:</strong> <a href="mailto:${dentista.email}">${dentista.email}</a></p>
-            ${(dentista.telefono || dentista.movil) ? `<p><strong>Teléfono:</strong> <a href="tel:${dentista.telefono || dentista.movil}">${dentista.telefono || dentista.movil}</a></p>` : ''}
+            <p><strong>Email:</strong> <a href="mailto:${utils.escapeHtml(dentista.email)}">${utils.escapeHtml(dentista.email)}</a></p>
+            ${(dentista.telefono || dentista.movil) ? `<p><strong>Teléfono:</strong> <a href="tel:${utils.escapeHtml(dentista.telefono || dentista.movil)}">${utils.escapeHtml(dentista.telefono || dentista.movil)}</a></p>` : ''}
           </div>
 
           <div class="info-section">
             <h4>Ubicación</h4>
-            ${dentista.ciudad ? `<p><strong>Ciudad:</strong> ${dentista.ciudad}</p>` : ''}
-            ${dentista.direccion ? `<p><strong>Dirección:</strong> ${dentista.direccion}</p>` : ''}
-            ${dentista.codigo_postal ? `<p><strong>Código Postal:</strong> ${dentista.codigo_postal}</p>` : ''}
-            ${dentista.pais ? `<p><strong>País:</strong> ${dentista.pais}</p>` : ''}
+            ${dentista.ciudad ? `<p><strong>Ciudad:</strong> ${utils.escapeHtml(dentista.ciudad)}</p>` : ''}
+            ${dentista.direccion ? `<p><strong>Dirección:</strong> ${utils.escapeHtml(dentista.direccion)}</p>` : ''}
+            ${dentista.codigo_postal ? `<p><strong>Código Postal:</strong> ${utils.escapeHtml(dentista.codigo_postal)}</p>` : ''}
+            ${dentista.pais ? `<p><strong>País:</strong> ${utils.escapeHtml(dentista.pais)}</p>` : ''}
           </div>
         </div>
       `;
@@ -2888,7 +2898,7 @@ const app = {
       if (cv) {
         cvContainer.innerHTML = `
           <div style="background: #F8FAFF; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #0F4C75;">
-            <p style="font-weight: 700; color: #0F4C75; margin-bottom: 0.5rem;">📄 ${cv.nombre_archivo}</p>
+            <p style="font-weight: 700; color: #0F4C75; margin-bottom: 0.5rem;">📄 ${utils.escapeHtml(cv.nombre_archivo)}</p>
             <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">Subido el ${utils.formatearFecha(cv.creado_en)} · ${utils.formatearTamanyo(cv.tamanyo)}</p>
             <div style="display: flex; gap: 0.8rem;">
               <a href="${API}/archivos/${cv.id}/download" class="btn-primary btn-small" style="text-decoration: none; display: inline-block;">Descargar</a>
@@ -2929,7 +2939,7 @@ const app = {
         portfolioList.innerHTML = portfolios.map(p => `
           <div style="background: #F8FAFF; padding: 1rem; border-radius: 8px; border-left: 4px solid #2ec4b6; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <p style="font-weight: 700; color: #2ec4b6; margin-bottom: 0.3rem;">🎨 ${p.nombre_archivo}</p>
+              <p style="font-weight: 700; color: #2ec4b6; margin-bottom: 0.3rem;">🎨 ${utils.escapeHtml(p.nombre_archivo)}</p>
               <p style="font-size: 0.9rem; color: #666;">${utils.formatearFecha(p.creado_en)} · ${utils.formatearTamanyo(p.tamanyo)}</p>
             </div>
             <div style="display: flex; gap: 0.5rem;">
@@ -3016,43 +3026,43 @@ const app = {
           <form id="formPerfilEmpresa" onsubmit="app.perfil.guardar(event)">
             <div class="form-group">
               <label>Nombre de la Empresa</label>
-              <input type="text" id="perfilNombre" value="${u.nombre}" required>
+              <input type="text" id="perfilNombre" value="${utils.escapeHtml(u.nombre)}" required>
             </div>
 
             <div class="form-group">
               <label>Email</label>
-              <input type="email" id="perfilEmail" value="${u.email}" required>
+              <input type="email" id="perfilEmail" value="${utils.escapeHtml(u.email)}" required>
               <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Se enviará un email de confirmación al cambiar</small>
             </div>
 
             <div class="form-group">
               <label>Fijo</label>
-              <input type="tel" id="perfilTelefono" value="${u.telefono || ''}">
+              <input type="tel" id="perfilTelefono" value="${utils.escapeHtml(u.telefono || '')}">
             </div>
 
             <div class="form-group">
               <label>Móbil</label>
-              <input type="tel" id="perfilMovil" value="${u.movil || ''}">
+              <input type="tel" id="perfilMovil" value="${utils.escapeHtml(u.movil || '')}">
             </div>
 
             <div class="form-group">
               <label>Dirección</label>
-              <input type="text" id="perfilDireccion" value="${u.direccion || ''}">
+              <input type="text" id="perfilDireccion" value="${utils.escapeHtml(u.direccion || '')}">
             </div>
 
             <div class="form-group">
               <label>Código Postal</label>
-              <input type="text" id="perfilCodigoPostal" value="${u.codigo_postal || ''}">
+              <input type="text" id="perfilCodigoPostal" value="${utils.escapeHtml(u.codigo_postal || '')}">
             </div>
 
             <div class="form-group">
               <label>Ciudad</label>
-              <input type="text" id="perfilCiudad" value="${u.ciudad || ''}">
+              <input type="text" id="perfilCiudad" value="${utils.escapeHtml(u.ciudad || '')}">
             </div>
 
             <div class="form-group">
               <label>País</label>
-              <input type="text" id="perfilPais" value="${u.pais || ''}">
+              <input type="text" id="perfilPais" value="${utils.escapeHtml(u.pais || '')}">
             </div>
 
             <div class="form-group">
@@ -3095,43 +3105,43 @@ const app = {
           <form id="formPerfilCandidato" onsubmit="app.perfil.guardar(event)">
             <div class="form-group">
               <label>Nombre Completo</label>
-              <input type="text" id="perfilNombre" value="${u.nombre}" required>
+              <input type="text" id="perfilNombre" value="${utils.escapeHtml(u.nombre)}" required>
             </div>
 
             <div class="form-group">
               <label>Email</label>
-              <input type="email" id="perfilEmail" value="${u.email}" required>
+              <input type="email" id="perfilEmail" value="${utils.escapeHtml(u.email)}" required>
               <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Se enviará un email de confirmación al cambiar</small>
             </div>
 
             <div class="form-group">
               <label>Fijo</label>
-              <input type="tel" id="perfilTelefono" value="${u.telefono || ''}">
+              <input type="tel" id="perfilTelefono" value="${utils.escapeHtml(u.telefono || '')}">
             </div>
 
             <div class="form-group">
               <label>Móbil</label>
-              <input type="tel" id="perfilMovil" value="${u.movil || ''}">
+              <input type="tel" id="perfilMovil" value="${utils.escapeHtml(u.movil || '')}">
             </div>
 
             <div class="form-group">
               <label>Dirección</label>
-              <input type="text" id="perfilDireccion" value="${u.direccion || ''}">
+              <input type="text" id="perfilDireccion" value="${utils.escapeHtml(u.direccion || '')}">
             </div>
 
             <div class="form-group">
               <label>Código Postal</label>
-              <input type="text" id="perfilCodigoPostal" value="${u.codigo_postal || ''}">
+              <input type="text" id="perfilCodigoPostal" value="${utils.escapeHtml(u.codigo_postal || '')}">
             </div>
 
             <div class="form-group">
               <label>Ciudad</label>
-              <input type="text" id="perfilCiudad" value="${u.ciudad || ''}">
+              <input type="text" id="perfilCiudad" value="${utils.escapeHtml(u.ciudad || '')}">
             </div>
 
             <div class="form-group">
               <label>País</label>
-              <input type="text" id="perfilPais" value="${u.pais || ''}">
+              <input type="text" id="perfilPais" value="${utils.escapeHtml(u.pais || '')}">
             </div>
 
             <div class="form-group">
@@ -3730,8 +3740,8 @@ const app = {
           console.error("Error al obtener especialidades:", error);
         }
         const generatedTitle = pub.tipo === 'solicitud'
-          ? `${pub.ciudad} - ${pub.usuario_nombre || 'Dentista'}`
-          : `${pub.ciudad} - ${pub.usuario_nombre || 'Clínica'}`;
+          ? `${utils.escapeHtml(pub.ciudad)} - ${pub.usuario_nombre || 'Dentista'}`
+          : `${utils.escapeHtml(pub.ciudad)} - ${pub.usuario_nombre || 'Clínica'}`;
         let tipoBadge, tipoClase;
         if (pub.tipo === "oferta") {
           tipoBadge = "";
@@ -3765,26 +3775,26 @@ const app = {
               ${tipoBadge ? `<span class="card-type ${tipoClase}">${tipoBadge}</span>` : "<span></span>"}
               ${estadoApp.usuario && ((estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'solicitud') || (estadoApp.tipoUsuario === 'dentista' && pub.tipo === 'oferta')) ? `<button onclick="app.favoritos.toggle(${pub.id}, this)" data-favorito="${esFavorito}" style="background: none; border: none; cursor: pointer; font-size: 1.3rem; padding: 0;" title="${esFavorito ? 'Quitar de favoritos' : 'Guardar en favoritos'}">${esFavorito ? '⭐' : '☆'}</button>` : ''}
             </div>
-            <h3>${generatedTitle}</h3>
+            <h3>${utils.escapeHtml(generatedTitle)}</h3>
             <div class="card-details">
               <div class="detail">
                 <span class="detail-icon">🦷</span>
                 <span>${especialidadesText || 'Sin especialidades'}</span>
               </div>
-              ${pub.contrato ? `<div class="detail"><span class="detail-icon">📋</span><span>${pub.contrato}</span></div>` : ""}
-              ${pub.jornada ? `<div class="detail"><span class="detail-icon">⏰</span><span>${pub.jornada}</span></div>` : ""}
-              ${pub.salario ? `<div class="detail"><span class="detail-icon">💰</span><span>${pub.salario}</span></div>` : ""}
+              ${pub.contrato ? `<div class="detail"><span class="detail-icon">📋</span><span>${utils.escapeHtml(pub.contrato)}</span></div>` : ""}
+              ${pub.jornada ? `<div class="detail"><span class="detail-icon">⏰</span><span>${utils.escapeHtml(pub.jornada)}</span></div>` : ""}
+              ${pub.salario ? `<div class="detail"><span class="detail-icon">💰</span><span>${utils.escapeHtml(pub.salario)}</span></div>` : ""}
               ${pub.experiencia_minima !== null && pub.experiencia_minima !== undefined ? `<div class="detail"><span class="detail-icon">🎓</span><span>${pub.experiencia_minima} años exp.</span></div>` : ""}
             </div>
             <div class="badges">
-              ${pub.nombre_contacto ? `<span class="badge">${pub.nombre_contacto}</span>` : ""}
+              ${pub.nombre_contacto ? `<span class="badge">${utils.escapeHtml(pub.nombre_contacto)}</span>` : ""}
               <span class="badge" style="margin-left: auto;">${utils.formatearFecha(pub.creado_en)}</span>
             </div>
             <div class="card-footer" style="display: flex; gap: 0.5rem;">
               <button class="btn-primary" onclick="app.modal.abrirDetalleConManejo(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
               ${(() => {
                 if (estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id)) {
-                  return `<button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${generatedTitle.replace(/'/g, "\\'")}')" style="flex: 1;">📊 Estadísticas</button>
+                  return `<button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">📊 Estadísticas</button>
                           <button class="btn-danger" onclick="app.publicaciones.retirarPublicacion(${pub.id})" style="flex: 1;">🗑️ Retirar</button>`;
                 }
                 return '';
@@ -3815,7 +3825,7 @@ const app = {
                 }
                 return '';
               })()}
-              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${generatedTitle.replace(/'/g, "\\'")}')" style="flex: 1;">👥 Dentistas (${candidatosPorOferta[pub.id]})</button>` : ''}
+              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">👥 Dentistas (${candidatosPorOferta[pub.id]})</button>` : ''}
               ${interesadosHTML}
             </div>
           </div>
@@ -3926,9 +3936,9 @@ const app = {
           alertas.forEach(a => {
             html += `
               <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
-                <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">${a.descripcion || a.ciudad}</h4>
-                <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📍 Ciudad:</strong> ${a.ciudad}</p>
-                ${a.salario ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>💰 Salario:</strong> ${a.salario}</p>` : ''}
+                <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">${utils.escapeHtml(a.descripcion || a.ciudad)}</h4>
+                <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📍 Ciudad:</strong> ${utils.escapeHtml(a.ciudad)}</p>
+                ${a.salario ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>💰 Salario:</strong> ${utils.escapeHtml(a.salario)}</p>` : ''}
                 <p style="margin: 0.5rem 0 0 0; font-size: 0.8rem; color: #9ca3af;">${utils.formatearFecha(a.alerta_creado_en)}</p>
               </div>
             `;
@@ -4042,7 +4052,7 @@ const app = {
           ${c.contrato || c.jornada ? `<p class="kanban-tarjeta-detalle">📋 ${utils.escapeHtml([c.contrato, c.jornada].filter(Boolean).join(' · '))}</p>` : ''}
           <p class="kanban-tarjeta-fecha">Postulada el ${utils.formatearFecha(c.creado_en)}</p>
           <div class="kanban-tarjeta-acciones">
-            ${c.estado === 'aceptada' ? `<button class="btn-small" style="background: #f59e0b; color: white; border: none; border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;" onclick="app.resenyas.abrirFormulario(${c.id}, '${(c.empresa_nombre || `la ${destinatario}`).replace(/'/g, "\\'")}')">⭐ Valorar</button>` : ''}
+            ${c.estado === 'aceptada' ? `<button class="btn-small" style="background: #f59e0b; color: white; border: none; border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;" onclick="app.resenyas.abrirFormulario(${c.id}, '${utils.escapeHtml((c.empresa_nombre || `la ${destinatario}`).replace(/'/g, "\\'"))}')">⭐ Valorar</button>` : ''}
             <button class="btn-small" style="background: #ef4444; color: white; border: none; border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;" onclick="app.candidaturas.retirarPostulacion(${c.id})">🗑️ Retirar</button>
           </div>
         </div>
@@ -4346,7 +4356,7 @@ const app = {
         <p style="margin: 0.3rem 0; font-size: 1.05rem;">
           <span style="color: #f59e0b; letter-spacing: 2px;">${this.estrellasHtml(resumen.media)}</span>
           <strong>${resumen.media}</strong> · ${resumen.total} valoraci${resumen.total === 1 ? 'ón' : 'ones'}
-          <button class="btn-text btn-small" onclick="app.resenyas.verDeUsuario(${usuarioId}, '${nombreEscapado}')">Ver reseñas</button>
+          <button class="btn-text btn-small" onclick="app.resenyas.verDeUsuario(${usuarioId}, '${utils.escapeHtml(nombreEscapado)}')">Ver reseñas</button>
         </p>
       `;
     },
@@ -4380,7 +4390,7 @@ const app = {
       html += `</div>`;
 
       document.getElementById("interesadosBody").innerHTML = html;
-      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = `Reseñas de ${nombre}`;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = `Reseñas de ${utils.escapeHtml(nombre)}`;
       document.getElementById("modalInteresados").classList.add("active");
     }
   },
@@ -4752,7 +4762,7 @@ const app = {
         }
         const html = candidaturas.map(c => {
           const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[c.estado];
-          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${c.titulo}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Empresa:</strong> ${c.empresa_nombre}</p><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${c.ciudad || 'No especificada'}</p><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Contrato:</strong> ${c.contrato} | <strong>Jornada:</strong> ${c.jornada}</p></div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize;">${c.estado}</span><button class="btn-text btn-small" onclick="app.candidaturas.retirarPostulacion(${c.id})" style="margin-top: 0.5rem; display: block;">Retirar</button></div></div></div>`;
+          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.titulo)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Empresa:</strong> ${utils.escapeHtml(c.empresa_nombre)}</p><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad || 'No especificada')}</p><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Contrato:</strong> ${utils.escapeHtml(c.contrato)} | <strong>Jornada:</strong> ${utils.escapeHtml(c.jornada)}</p></div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize;">${c.estado}</span><button class="btn-text btn-small" onclick="app.candidaturas.retirarPostulacion(${c.id})" style="margin-top: 0.5rem; display: block;">Retirar</button></div></div></div>`;
         });
         container.innerHTML = `<div>${html.join('')}</div>`;
       } catch (error) {
@@ -4789,7 +4799,7 @@ const app = {
         }
         const html = candidatos.map(c => {
           const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[c.estado];
-          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${c.nombre}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Email:</strong> ${c.email}</p>${c.telefono ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Teléfono:</strong> ${c.telefono}</p>` : ''}${c.movil ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Móvil:</strong> ${c.movil}</p>` : ''}${c.ciudad ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${c.ciudad}</p>` : ''}${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; padding: 0.75rem; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #2563eb; color: #374151; font-size: 0.9rem;"><strong>Mensaje:</strong> ${c.mensaje}</p>` : ''}</div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize; display: inline-block; margin-bottom: 0.5rem;">${c.estado}</span><div style="display: flex; gap: 0.5rem; flex-direction: column;">${c.estado === 'pendiente' ? `<button class="btn-primary btn-small" onclick="app.candidaturas.actualizarEstado(${c.id}, 'aceptada', ${publicacionId})" style="font-size: 0.85rem;">✓ Aceptar</button><button class="btn-outline btn-small" onclick="app.candidaturas.actualizarEstado(${c.id}, 'rechazada', ${publicacionId})" style="font-size: 0.85rem;">✗ Rechazar</button>` : ''}</div></div></div></div>`;
+          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.nombre)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Email:</strong> ${utils.escapeHtml(c.email)}</p>${c.telefono ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Teléfono:</strong> ${utils.escapeHtml(c.telefono)}</p>` : ''}${c.movil ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Móvil:</strong> ${utils.escapeHtml(c.movil)}</p>` : ''}${c.ciudad ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad)}</p>` : ''}${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; padding: 0.75rem; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #2563eb; color: #374151; font-size: 0.9rem;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}</div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize; display: inline-block; margin-bottom: 0.5rem;">${c.estado}</span><div style="display: flex; gap: 0.5rem; flex-direction: column;">${c.estado === 'pendiente' ? `<button class="btn-primary btn-small" onclick="app.candidaturas.actualizarEstado(${c.id}, 'aceptada', ${publicacionId})" style="font-size: 0.85rem;">✓ Aceptar</button><button class="btn-outline btn-small" onclick="app.candidaturas.actualizarEstado(${c.id}, 'rechazada', ${publicacionId})" style="font-size: 0.85rem;">✗ Rechazar</button>` : ''}</div></div></div></div>`;
         });
         container.innerHTML = `<div>${html.join('')}</div>`;
       } catch (error) {

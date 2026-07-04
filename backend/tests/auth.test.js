@@ -26,12 +26,36 @@ test("auth", async (t) => {
   await t.test("rechaza email duplicado", async () => {
     await request(app)
       .post("/auth/registro")
-      .send({ nombre: "Otra Clínica", email: "duplicado@test.com", password: "x", tipo: "clinica" });
+      .send({ nombre: "Otra Clínica", email: "duplicado@test.com", password: "secreto123", tipo: "clinica" });
 
     const res = await request(app)
       .post("/auth/registro")
-      .send({ nombre: "Otra Clínica 2", email: "duplicado@test.com", password: "x", tipo: "clinica" });
+      .send({ nombre: "Otra Clínica 2", email: "duplicado@test.com", password: "secreto123", tipo: "clinica" });
 
+    assert.equal(res.status, 400);
+  });
+
+  await t.test("rechaza contraseñas de menos de 8 caracteres o vacías", async () => {
+    const corta = await request(app)
+      .post("/auth/registro")
+      .send({ nombre: "Clínica Corta", email: "corta@test.com", password: "corta12", tipo: "clinica" });
+    assert.equal(corta.status, 400);
+
+    const vacia = await request(app)
+      .post("/auth/registro")
+      .send({ nombre: "Clínica Vacía", email: "vacia@test.com", password: "", tipo: "clinica" });
+    assert.equal(vacia.status, 400);
+  });
+
+  await t.test("la nueva contraseña también exige 8 caracteres al cambiarla", async () => {
+    const reg = await request(app)
+      .post("/auth/registro")
+      .send({ nombre: "Dentista Cambio", email: "cambio@test.com", password: "original123", tipo: "dentista" });
+
+    const res = await request(app)
+      .put("/auth/cambiar-password")
+      .set("Authorization", `Bearer ${reg.body.token}`)
+      .send({ passwordActual: "original123", passwordNueva: "corta" });
     assert.equal(res.status, 400);
   });
 

@@ -9,6 +9,7 @@ const fs = require("fs");
 function createTestApp() {
   const dbPath = path.join(os.tmpdir(), `dentaljobs-test-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.db`);
   process.env.DB_PATH = dbPath;
+  process.env.NODE_ENV = "test"; // desactiva el rate limiting durante los tests
   process.env.JWT_SECRET = process.env.JWT_SECRET || "dental_jobs_secret_key_2024";
 
   delete require.cache[require.resolve("../../db")];

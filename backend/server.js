@@ -3,15 +3,48 @@ const cors = require("cors");
 const morgan = require("morgan");
 const bcrypt = require("bcryptjs");
 const multer = require("multer");
+const helmet = require("helmet");
+const compression = require("compression");
+const rateLimit = require("express-rate-limit");
+const path = require("path");
 const db = require("./db");
 const { verifyToken, generateToken } = require("./middleware/auth");
 
 const app = express();
 
+// Detrás de un proxy (Render, Caddy…) la IP real llega en X-Forwarded-For
+app.set("trust proxy", 1);
+
+// CSP desactivada: el frontend actual usa estilos y manejadores onclick inline
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(compression());
 app.use(express.json());
 app.use(cors());
 app.use(morgan("short"));
-app.use(express.static('../frontend'));
+app.use(express.static(path.join(__dirname, "../frontend")));
+
+// Rate limiting: estricto en login/registro (anti fuerza bruta), laxo global.
+// En tests se desactiva para no interferir con las ráfagas de peticiones.
+const esEntornoTest = () => process.env.NODE_ENV === "test";
+const limiterAuth = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: esEntornoTest,
+  message: { error: "Demasiados intentos. Espera unos minutos y vuelve a probar." }
+});
+const limiterGlobal = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: esEntornoTest,
+  message: { error: "Demasiadas peticiones. Espera un momento." }
+});
+app.use(limiterGlobal);
+app.use("/auth/login", limiterAuth);
+app.use("/auth/registro", limiterAuth);
 
 // Configurar multer para uploads en memoria
 const upload = multer({
@@ -36,9 +69,12 @@ app.post("/auth/registro", (req, res) => {
     return res.status(400).json({ error: "Tipo de usuario inválido" });
   }
 
+  if (!password || typeof password !== "string" || password.length < 8) {
+    return res.status(400).json({ error: "La contraseña debe tener al menos 8 caracteres" });
+  }
+
   try {
-    // Si password es vacío, guardar como vacío; si no, hashear
-    const hashedPassword = password === "" ? "" : bcrypt.hashSync(password, 10);
+    const hashedPassword = bcrypt.hashSync(password, 10);
     db.run(
       "INSERT INTO usuarios (nombre, email, password, tipo, telefono, direccion, codigo_postal, pais) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [nombre, email, hashedPassword, tipo, telefono || null, direccion || null, codigo_postal || null, pais || null],
@@ -198,8 +234,11 @@ app.put("/auth/cambiar-password", verifyToken, (req, res) => {
   const { passwordActual, passwordNueva } = req.body;
   const usuarioId = req.usuario.id;
 
-  // passwordActual y passwordNueva pueden ser vacíos (strings vacíos "")
-  // Se validarán contra la contraseña actual guardada
+  if (!passwordNueva || typeof passwordNueva !== "string" || passwordNueva.length < 8) {
+    return res.status(400).json({ error: "La nueva contraseña debe tener al menos 8 caracteres" });
+  }
+
+  // passwordActual puede ser vacía (cuentas antiguas creadas sin contraseña)
 
   // Obtener usuario actual
   db.get("SELECT password FROM usuarios WHERE id = ?", [usuarioId], (err, usuario) => {
@@ -222,8 +261,7 @@ app.put("/auth/cambiar-password", verifyToken, (req, res) => {
       return res.status(400).json({ error: "Contraseña actual incorrecta" });
     }
 
-    // Crear hash de nueva contraseña (puede ser vacía)
-    const hashedPassword = passwordNueva === "" ? "" : bcrypt.hashSync(passwordNueva, 10);
+    const hashedPassword = bcrypt.hashSync(passwordNueva, 10);
 
     // Actualizar contraseña
     db.run(
