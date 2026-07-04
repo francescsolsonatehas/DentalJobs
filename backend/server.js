@@ -1,3 +1,6 @@
+// Cargar variables de entorno desde backend/.env (en Render vienen del panel)
+require("dotenv").config({ path: require("path").join(__dirname, ".env") });
+
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");

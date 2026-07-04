@@ -1,11 +1,10 @@
-const sqlite3 = require("sqlite3").verbose();
-const path = require("path");
+const { crearDb } = require("./libsql-adapter");
 
-const dbPath = process.env.DB_PATH || path.join(__dirname, "dental_jobs.db");
-const db = new sqlite3.Database(dbPath);
+const db = crearDb();
 
 db.serialize(() => {
-  db.run("PRAGMA foreign_keys = ON");
+  // En Turso (remoto) los PRAGMA pueden no estar soportados: ignorar el error
+  db.run("PRAGMA foreign_keys = ON", () => {});
 
   db.run(`
     CREATE TABLE IF NOT EXISTS usuarios (
