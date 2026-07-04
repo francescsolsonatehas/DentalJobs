@@ -731,6 +731,18 @@ const app = {
       });
     },
 
+    // Copia al portapapeles la URL pública (indexable) de una oferta
+    async copiarEnlacePublico(publicacionId) {
+      const base = API || window.location.origin;
+      const url = `${base}/oferta/${publicacionId}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        utils.mostrarAlerta("🔗 Enlace copiado: compártelo donde quieras", "success");
+      } catch (e) {
+        prompt("Copia el enlace público de la oferta:", url);
+      }
+    },
+
     async retirarPublicacion(publicacionId) {
       if (!confirm("¿Estás seguro de que deseas retirar esta publicación?")) {
         return;
@@ -3985,7 +3997,8 @@ const app = {
               <button class="btn-primary" onclick="app.modal.abrirDetalleConManejo(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
               ${(() => {
                 if (estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id)) {
-                  return `<button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">📊 Estadísticas</button>
+                  return `${pub.tipo === 'oferta' ? `<button class="btn-outline" onclick="app.publicaciones.copiarEnlacePublico(${pub.id})" style="flex: 1;" title="Copiar el enlace público de esta oferta">🔗 Compartir</button>` : ''}
+                          <button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">📊 Estadísticas</button>
                           <button class="btn-danger" onclick="app.publicaciones.retirarPublicacion(${pub.id})" style="flex: 1;">🗑️ Retirar</button>`;
                 }
                 return '';

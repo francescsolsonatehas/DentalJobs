@@ -3299,6 +3299,119 @@ app.get("/alertas/no-leidas/count", verifyToken, (req, res) => {
    🔹 INICIAR SERVIDOR
 =========================== */
 
+/* ===========================
+   🔹 PÁGINAS PÚBLICAS (SEO)
+=========================== */
+
+function escaparHtml(texto) {
+  return String(texto ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+// Página pública e indexable de una oferta: visible sin cuenta, con CTA al registro
+app.get("/oferta/:id", (req, res) => {
+  db.get(
+    `SELECT p.*, u.nombre as clinica_nombre, u.id as clinica_id
+     FROM publicaciones p
+     LEFT JOIN usuarios u ON p.usuario_id = u.id
+     WHERE p.id = ? AND p.activo = 1 AND p.tipo = 'oferta'`,
+    [req.params.id],
+    (err, pub) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).send("Error interno");
+      }
+      if (!pub) {
+        return res.status(404).send(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Oferta no disponible — DentalJobs</title></head>
+          <body style="font-family: Arial; text-align: center; padding: 4rem;">
+          <h1>🦷 Esta oferta ya no está disponible</h1>
+          <p><a href="${escaparHtml(urlFrontend())}">Ver más ofertas en DentalJobs</a></p></body></html>`);
+      }
+
+      db.all(
+        `SELECT e.nombre FROM especialidades e
+         INNER JOIN publicacion_especialidades pe ON e.id = pe.especialidad_id
+         WHERE pe.publicacion_id = ?`,
+        [pub.id],
+        (err, esps) => {
+          const especialidades = (esps || []).map(e => e.nombre);
+          const titulo = `${especialidades[0] || "Dentista"} en ${pub.ciudad} — oferta de empleo dental`;
+          const descripcionMeta = (pub.descripcion || "").slice(0, 155).replace(/\s+/g, " ");
+          const urlApp = escaparHtml(urlFrontend());
+
+          const detalle = (etiqueta, valor) => valor
+            ? `<div style="padding: 0.6rem 0; border-bottom: 1px solid #e5e7eb;"><strong style="color: #0f4c75;">${etiqueta}:</strong> ${escaparHtml(valor)}</div>`
+            : "";
+
+          res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escaparHtml(titulo)} | DentalJobs</title>
+  <meta name="description" content="${escaparHtml(descripcionMeta)}">
+  <meta property="og:title" content="${escaparHtml(titulo)}">
+  <meta property="og:description" content="${escaparHtml(descripcionMeta)}">
+  <meta property="og:type" content="website">
+</head>
+<body style="font-family: Arial, sans-serif; margin: 0; background: #f3f4f6;">
+  <div style="max-width: 640px; margin: 0 auto; padding: 2rem 1rem;">
+    <p style="color: #0f4c75; font-weight: bold; font-size: 1.3rem;">🦷 DentalJobs</p>
+    <div style="background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+      <h1 style="color: #0f4c75; margin-top: 0;">${escaparHtml(titulo)}</h1>
+      ${pub.clinica_nombre ? `<p style="color: #6b7280;">Publicada por <strong>${escaparHtml(pub.clinica_nombre)}</strong></p>` : ""}
+      ${detalle("📍 Ciudad", pub.ciudad)}
+      ${detalle("🦷 Especialidades", especialidades.join(", "))}
+      ${detalle("📋 Contrato", pub.contrato)}
+      ${detalle("⏰ Jornada", pub.jornada)}
+      ${detalle("💰 Salario", pub.salario)}
+      ${pub.experiencia_minima !== null && pub.experiencia_minima !== undefined ? detalle("🎓 Experiencia", pub.experiencia_minima + " años") : ""}
+      <h2 style="color: #0f4c75; font-size: 1.1rem;">Descripción</h2>
+      <p style="white-space: pre-wrap; line-height: 1.6; color: #374151;">${escaparHtml(pub.descripcion)}</p>
+      <p style="text-align: center; margin-top: 2rem;">
+        <a href="${urlApp}" style="background: #0f4c75; color: white; padding: 0.9rem 2rem; border-radius: 8px; text-decoration: none; font-weight: bold;">Postularme en DentalJobs</a>
+      </p>
+      <p style="text-align: center; color: #9ca3af; font-size: 0.85rem;">Regístrate gratis como dentista para postularte y chatear con la clínica.</p>
+    </div>
+    <p style="text-align: center; color: #9ca3af; font-size: 0.8rem; margin-top: 1.5rem;">
+      <a href="${urlApp}" style="color: #6b7280;">DentalJobs</a> — empleo para clínicas dentales y profesionales de la odontología
+    </p>
+  </div>
+</body>
+</html>`);
+        }
+      );
+    }
+  );
+});
+
+// Sitemap con todas las ofertas activas (para buscadores)
+app.get("/sitemap.xml", (req, res) => {
+  db.all(
+    "SELECT id, creado_en FROM publicaciones WHERE activo = 1 AND tipo = 'oferta' ORDER BY id",
+    (err, ofertas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).send("");
+      }
+      const base = `${req.protocol}://${req.get("host")}`;
+      const urls = (ofertas || []).map(o =>
+        `  <url><loc>${base}/oferta/${o.id}</loc><lastmod>${String(o.creado_en).slice(0, 10)}</lastmod></url>`
+      ).join("\n");
+
+      res.type("application/xml").send(
+        `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`
+      );
+    }
+  );
+});
+
+app.get("/robots.txt", (req, res) => {
+  const base = `${req.protocol}://${req.get("host")}`;
+  res.type("text/plain").send(`User-agent: *\nAllow: /oferta/\nSitemap: ${base}/sitemap.xml\n`);
+});
+
 // Comprobación de salud (UptimeRobot y deploys)
 app.get("/salud", (req, res) => {
   res.json({ ok: true });
