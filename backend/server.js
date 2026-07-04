@@ -825,7 +825,7 @@ app.get("/especialidades", (req, res) => {
 =========================== */
 
 app.get("/publicaciones", (req, res) => {
-  const { tipo, especialidad, ciudad, usuario_id, contrato, jornada, salarioMin, experienciaMin, sort, paraUsuarioId } = req.query;
+  const { tipo, especialidad, ciudad, usuario_id, contrato, jornada, salarioMin, salarioMax, experienciaMin, sort, paraUsuarioId, q } = req.query;
 
   let selectCols = "p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad";
   const selectParams = [];
@@ -885,6 +885,18 @@ app.get("/publicaciones", (req, res) => {
   if (salarioMin) {
     query += " AND p.salario_min >= ?";
     params.push(parseInt(salarioMin));
+  }
+
+  if (salarioMax) {
+    query += " AND p.salario_min <= ?";
+    params.push(parseInt(salarioMax));
+  }
+
+  // Búsqueda de texto libre sobre descripción, ciudad y nombre del publicante
+  if (q && q.trim()) {
+    const like = `%${q.trim()}%`;
+    query += " AND (p.descripcion LIKE ? OR p.ciudad LIKE ? OR p.nombre_contacto LIKE ? OR u.nombre LIKE ?)";
+    params.push(like, like, like, like);
   }
 
   if (experienciaMin) {
@@ -1029,7 +1041,7 @@ function generarAlertasParaPublicacion(publicacionId, tipo, ciudad, especialidad
 }
 
 app.post("/publicaciones", verifyToken, (req, res) => {
-  const { tipo, descripcion, ciudad, especialidades, contrato, jornada, salario, experiencia, nombre_contacto, email_contacto, telefono_contacto, sede_id } = req.body;
+  const { tipo, descripcion, ciudad, especialidades, contrato, jornada, salario, salarioDesde, salarioHasta, experiencia, nombre_contacto, email_contacto, telefono_contacto, sede_id } = req.body;
 
   if (!tipo || !ciudad) {
     return res.status(400).json({ error: "Faltan datos obligatorios" });
@@ -1041,16 +1053,19 @@ app.post("/publicaciones", verifyToken, (req, res) => {
     return res.status(403).json({ error: "No puedes crear este tipo de publicación" });
   }
 
+  // Salario estructurado (campos numéricos) con retrocompatibilidad con el texto libre
+  const desdeNum = salarioDesde !== undefined && salarioDesde !== null && salarioDesde !== '' ? parseInt(salarioDesde) : null;
+  const hastaNum = salarioHasta !== undefined && salarioHasta !== null && salarioHasta !== '' ? parseInt(salarioHasta) : null;
   const salarioMatch = (salario || '').match(/\d+/);
-  const salarioMin = salarioMatch ? parseInt(salarioMatch[0]) : null;
+  const salarioMin = desdeNum ?? (salarioMatch ? parseInt(salarioMatch[0]) : null);
   const experienciaMinima = experiencia !== undefined && experiencia !== '' ? parseInt(experiencia) : null;
 
   const insertarPublicacion = (sedeIdValidada) => {
     db.run(
       `INSERT INTO publicaciones
-       (tipo, descripcion, ciudad, especialidad_id, contrato, jornada, salario, salario_min, experiencia_minima, usuario_id, nombre_contacto, email_contacto, telefono_contacto, sede_id)
-       VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [tipo, descripcion, ciudad, contrato || null, jornada || null, salario || null, salarioMin, experienciaMinima, req.usuario.id, nombre_contacto, email_contacto, telefono_contacto, sedeIdValidada],
+       (tipo, descripcion, ciudad, especialidad_id, contrato, jornada, salario, salario_min, salario_max, experiencia_minima, usuario_id, nombre_contacto, email_contacto, telefono_contacto, sede_id)
+       VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [tipo, descripcion, ciudad, contrato || null, jornada || null, salario || null, salarioMin, hastaNum, experienciaMinima, req.usuario.id, nombre_contacto, email_contacto, telefono_contacto, sedeIdValidada],
       function(err) {
         if (err) {
           console.error(err);

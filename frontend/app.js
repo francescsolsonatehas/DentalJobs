@@ -522,6 +522,7 @@ const app = {
         tipo = estadoApp.tipoUsuario === 'clinica' ? 'solicitud' : 'oferta';
       }
 
+      const q = document.getElementById("filterQ").value;
       const ciudad = document.getElementById("filterCiudad").value;
       const especialidad = document.getElementById("filterEspecialidad").value;
       const contrato = document.getElementById("filterContrato").value;
@@ -530,13 +531,14 @@ const app = {
       const experienciaMin = document.getElementById("filterExperienciaMin").value;
       const orden = document.getElementById("filterOrden").value;
 
-      estadoApp.filtros = { tipo, ciudad, especialidad, contrato, jornada, salarioMin, experienciaMin, orden, soloMias: estadoApp.filtros.soloMias };
+      estadoApp.filtros = { tipo, q, ciudad, especialidad, contrato, jornada, salarioMin, experienciaMin, orden, soloMias: estadoApp.filtros.soloMias };
 
       let url = "/publicaciones?";
       if (tipo) url += `tipo=${tipo}&`;
       if (estadoApp.filtros.soloMias && estadoApp.usuario) {
         url += `usuario_id=${estadoApp.usuario.id}&`;
       } else {
+        if (q) url += `q=${encodeURIComponent(q)}&`;
         if (ciudad) url += `ciudad=${encodeURIComponent(ciudad)}&`;
         if (especialidad) url += `especialidad=${especialidad}&`;
         if (contrato) url += `contrato=${encodeURIComponent(contrato)}&`;
@@ -620,7 +622,14 @@ const app = {
           especialidades: especialidades,
           contrato: document.getElementById("ofertaContrato").value || null,
           jornada: document.getElementById("ofertaJornada").value || null,
-          salario: document.getElementById("ofertaSalario").value || null,
+          salario: (() => {
+            const desde = document.getElementById("ofertaSalarioDesde").value;
+            const hasta = document.getElementById("ofertaSalarioHasta").value;
+            if (!desde && !hasta) return null;
+            return hasta ? `${desde || '?'}-${hasta} €/mes` : `Desde ${desde} €/mes`;
+          })(),
+          salarioDesde: document.getElementById("ofertaSalarioDesde").value || null,
+          salarioHasta: document.getElementById("ofertaSalarioHasta").value || null,
           experiencia: document.getElementById("ofertaExperiencia").value || null,
           nombre_contacto: document.getElementById("ofertaNombreContacto").value,
           email_contacto: document.getElementById("ofertaEmailContacto").value,
@@ -4389,7 +4398,7 @@ const app = {
         ciudad: `${tipo}Ciudad`,
         contrato: `${tipo}Contrato`,
         jornada: `${tipo}Jornada`,
-        salario: tipo === 'oferta' ? 'ofertaSalario' : null,
+        salario: null, // el salario de oferta ahora son dos campos numéricos; la plantilla no lo rellena
         experiencia: `${tipo}Experiencia`,
         descripcion: `${tipo}Descripcion`,
         nombre_contacto: `${tipo}NombreContacto`,

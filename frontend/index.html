@@ -190,6 +190,10 @@
 
             <div class="filter-row">
                 <div class="filter-group">
+                    <label for="filterQ">Buscar</label>
+                    <input id="filterQ" placeholder="Ej: implantología, invisalign…" oninput="app.publicaciones.cargar()">
+                </div>
+                <div class="filter-group">
                     <label for="filterCiudad">Ciudad</label>
                     <input id="filterCiudad" placeholder="Ej: Madrid, Barcelona..." oninput="app.publicaciones.cargar()">
                 </div>
@@ -322,8 +326,11 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="ofertaSalario">Salario orientativo</label>
-                        <input id="ofertaSalario" type="text" placeholder="Ej: 2000-2500€/mes">
+                        <label>Salario (€/mes)</label>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <input id="ofertaSalarioDesde" type="number" min="0" placeholder="Desde · ej: 2000" style="flex: 1;">
+                            <input id="ofertaSalarioHasta" type="number" min="0" placeholder="Hasta · ej: 2500" style="flex: 1;">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="ofertaExperiencia">Años de experiencia exigidos</label>
