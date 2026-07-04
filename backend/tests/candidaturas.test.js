@@ -89,7 +89,8 @@ test("candidaturas", async (t) => {
       .get(`/publicaciones/${ofertaId}/candidatos`)
       .set("Authorization", `Bearer ${clinica.token}`);
     const actualizada = listado.body.candidatos.find((c) => c.id === candidaturaId);
-    assert.equal(actualizada.estado, "pendiente");
+    // Al abrir la lista siendo el dueño, las pendientes pasan automáticamente a 'vista' (CV visto)
+    assert.equal(actualizada.estado, "vista");
   });
 
   await t.test("el dentista puede retirar su propia postulación", async () => {

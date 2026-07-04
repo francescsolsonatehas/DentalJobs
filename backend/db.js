@@ -220,6 +220,10 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
+  db.run(`ALTER TABLE usuarios ADD COLUMN recibir_emails INTEGER DEFAULT 1`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
   db.run(`
     CREATE TABLE IF NOT EXISTS tokens_verificacion (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

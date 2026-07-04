@@ -155,6 +155,41 @@ const utils = {
     return JSON.stringify(obj).replace(/"/g, '&quot;');
   },
 
+  // Color y etiqueta de cada estado de candidatura
+  colorEstado(estado) {
+    return {
+      pendiente: '#f59e0b',
+      vista: '#6366f1',
+      en_proceso: '#0ea5e9',
+      entrevista: '#8b5cf6',
+      aceptada: '#10b981',
+      rechazada: '#ef4444',
+      retirada: '#9ca3af'
+    }[estado] || '#9ca3af';
+  },
+
+  textoEstado(estado) {
+    return {
+      pendiente: 'Pendiente',
+      vista: 'CV visto',
+      en_proceso: 'En proceso',
+      entrevista: 'Entrevista',
+      aceptada: 'Aceptada',
+      rechazada: 'Rechazada',
+      retirada: 'Retirada'
+    }[estado] || estado;
+  },
+
+  // Selector de estado que usan las clínicas en las listas de candidatos
+  selectorEstado(candidaturaId, estadoActual, onchangeJs) {
+    const opciones = ['pendiente', 'vista', 'en_proceso', 'entrevista', 'aceptada', 'rechazada'];
+    return `
+      <select onchange="${onchangeJs}" style="padding: 0.4rem 0.6rem; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">
+        ${opciones.map(e => `<option value="${e}" ${e === estadoActual ? 'selected' : ''}>${utils.textoEstado(e)}</option>`).join('')}
+      </select>
+    `;
+  },
+
   escapeHtml(texto) {
     if (texto === null || texto === undefined) return '';
     return String(texto)
@@ -1437,7 +1472,7 @@ const app = {
         } else {
           datos.forEach(d => {
             html += `
-              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarClinicasEspecialidad('${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarClinicasEspecialidad('${utils.escapeHtml((d.especialidad || "Sin especialidad").replace(/'/g, "\\'"))}')">
                 <strong>${utils.escapeHtml(d.especialidad || "Sin especialidad")}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
@@ -1465,7 +1500,7 @@ const app = {
         } else {
           datos.forEach(d => {
             html += `
-              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarClinicasCiudad('${d.ciudad.replace(/'/g, "\\'")}')">
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarClinicasCiudad('${utils.escapeHtml(d.ciudad.replace(/'/g, "\\'"))}')">
                 <strong>${utils.escapeHtml(d.ciudad)}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
@@ -1502,7 +1537,7 @@ const app = {
               html += `<div class='desglose-grupo'><h4>${utils.escapeHtml(ciudadActual)}</h4>`;
             }
             html += `
-              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarClinicasCiudadEspecialidad('${d.ciudad.replace(/'/g, "\\'")}', '${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
+              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarClinicasCiudadEspecialidad('${utils.escapeHtml(d.ciudad.replace(/'/g, "\\'"))}', '${utils.escapeHtml((d.especialidad || "Sin especialidad").replace(/'/g, "\\'"))}')">
                 <strong>${utils.escapeHtml(d.especialidad || "Sin especialidad")}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
@@ -1532,7 +1567,7 @@ const app = {
         } else {
           datos.forEach(d => {
             html += `
-              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarDentistasEspecialidad('${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarDentistasEspecialidad('${utils.escapeHtml((d.especialidad || "Sin especialidad").replace(/'/g, "\\'"))}')">
                 <strong>${utils.escapeHtml(d.especialidad || "Sin especialidad")}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
@@ -1560,7 +1595,7 @@ const app = {
         } else {
           datos.forEach(d => {
             html += `
-              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarDentistasCiudad('${d.ciudad.replace(/'/g, "\\'")}')">
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarDentistasCiudad('${utils.escapeHtml(d.ciudad.replace(/'/g, "\\'"))}')">
                 <strong>${utils.escapeHtml(d.ciudad)}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
@@ -1597,7 +1632,7 @@ const app = {
               html += `<div class='desglose-grupo'><h4>${utils.escapeHtml(ciudadActual)}</h4>`;
             }
             html += `
-              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarDentistasCiudadEspecialidad('${d.ciudad.replace(/'/g, "\\'")}', '${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
+              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarDentistasCiudadEspecialidad('${utils.escapeHtml(d.ciudad.replace(/'/g, "\\'"))}', '${utils.escapeHtml((d.especialidad || "Sin especialidad").replace(/'/g, "\\'"))}')">
                 <strong>${utils.escapeHtml(d.especialidad || "Sin especialidad")}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
@@ -2031,7 +2066,7 @@ const app = {
 
       let html = `<div class="candidatos-list">`;
       ordenadas.forEach(post => {
-        const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[post.estado];
+        const estadoColor = utils.colorEstado(post.estado);
         const tituloPublicacion = post.ciudad || 'Publicación';
         const especialidad = especialidadesPorPublicacion[post.publicacion_id] || 'Sin especialidad';
         const fecha = utils.formatearFecha(post.creado_en);
@@ -2043,7 +2078,7 @@ const app = {
                 <h4 style="margin: 0 0 0.3rem 0; color: #0f4c75; font-size: 1.2rem; font-weight: 700;">${utils.escapeHtml(tituloPublicacion)}</h4>
                 ${post.empresa_nombre ? `<p style="margin: 0; color: #6b7280; font-size: 0.95rem;">🏢 ${utils.escapeHtml(post.empresa_nombre)}</p>` : ''}
               </div>
-              <span style="background: ${estadoColor}; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize; white-space: nowrap;">${post.estado}</span>
+              <span style="background: ${estadoColor}; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize; white-space: nowrap;">${utils.textoEstado(post.estado)}</span>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; font-size: 0.9rem; color: #6b7280;">
               <p style="margin: 0;"><strong>📍 Ciudad:</strong> ${utils.escapeHtml(post.ciudad)}</p>
@@ -2062,7 +2097,7 @@ const app = {
             </div>` : ''}
             <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
               <button class="btn-primary" onclick="app.stats.mostrarDetalleMiPostulacion(${utils.escapeJsonForHtml(postConEspecialidad)})" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">👁️ Ver detalles</button>
-              ${post.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${post.id}, '${(post.empresa_nombre || 'la otra parte').replace(/'/g, "\\'")}')" style="flex: 1; background: #f59e0b; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">⭐ Valorar</button>` : ''}
+              ${post.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${post.id}, '${utils.escapeHtml((post.empresa_nombre || 'la otra parte').replace(/'/g, "\\'"))}')" style="flex: 1; background: #f59e0b; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">⭐ Valorar</button>` : ''}
               <button onclick="app.candidaturas.retirarPostulacion(${post.id})" style="flex: 1; background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">🗑️ Retirar</button>
             </div>
           </div>
@@ -2079,7 +2114,7 @@ const app = {
         this.pollingInterval = null;
       }
 
-      const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[post.estado];
+      const estadoColor = utils.colorEstado(post.estado);
       const especialidad = post.especialidad_nombre || 'Sin especialidad';
       const fecha = utils.formatearFecha(post.creado_en);
 
@@ -2087,7 +2122,7 @@ const app = {
         <div style="padding: 2rem; background: #f9fafb; border-radius: 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
             <h3 style="margin: 0; color: #0f4c75; font-size: 1.5rem; font-weight: 700;">${utils.escapeHtml(post.empresa_nombre || post.ciudad)}</h3>
-            <span style="background: ${estadoColor}; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize;">${post.estado}</span>
+            <span style="background: ${estadoColor}; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize;">${utils.textoEstado(post.estado)}</span>
           </div>
 
           <div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
@@ -2541,26 +2576,21 @@ const app = {
         `;
 
         postulacionesOrdenadas.forEach(p => {
-          const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[p.estado];
+          const estadoColor = utils.colorEstado(p.estado);
           html += `
             <div style="background: white; border-left: 3px solid ${estadoColor}; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem;">
               <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div style="flex: 1; cursor: pointer;" onclick="app.stats.mostrarDetallePostulacion('${p.id}', '${p.nombre.replace(/'/g, "\\'")}', '${p.email.replace(/'/g, "\\'")}', '${(p.ciudad || '').replace(/'/g, "\\'")}', '${(p.direccion || '').replace(/'/g, "\\'")}', '${(p.codigo_postal || '').replace(/'/g, "\\'")}', '${p.estado}', '${(p.mensaje || '').replace(/'/g, "\\'").replace(/"/g, '\\"')}')">
+                <div style="flex: 1; cursor: pointer;" onclick="app.stats.mostrarDetallePostulacion('${p.id}', '${utils.escapeHtml(p.nombre.replace(/'/g, "\\'"))}', '${utils.escapeHtml(p.email.replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.ciudad || '').replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.direccion || '').replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.codigo_postal || '').replace(/'/g, "\\'"))}', '${p.estado}', '${utils.escapeHtml((p.mensaje || '').replace(/'/g, "\\'").replace(/"/g, '\\"'))}')">
                   <strong style="color: #0f4c75; display: block; margin-bottom: 0.3rem;">${utils.escapeHtml(p.nombre)}</strong>
                   <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${utils.escapeHtml(p.email)}</p>
                   ${p.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${utils.escapeHtml(p.ciudad)}</p>` : ''}
                 </div>
-                <span style="background: ${estadoColor}; color: white; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.75rem; text-transform: capitalize; white-space: nowrap; margin-left: 1rem;">${p.estado}</span>
+                <span style="background: ${estadoColor}; color: white; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.75rem; text-transform: capitalize; white-space: nowrap; margin-left: 1rem;">${utils.textoEstado(p.estado)}</span>
               </div>
               <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
-                <button onclick="event.stopPropagation(); app.stats.mostrarDetallePostulacion('${p.id}', '${p.nombre.replace(/'/g, "\\'")}', '${p.email.replace(/'/g, "\\'")}', '${(p.ciudad || '').replace(/'/g, "\\'")}', '${(p.direccion || '').replace(/'/g, "\\'")}', '${(p.codigo_postal || '').replace(/'/g, "\\'")}', '${p.estado}', '${(p.mensaje || '').replace(/'/g, "\\'").replace(/"/g, '\\"')}')" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
-                ${p.estado === 'pendiente' ? `
-                  <button onclick="event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, 'aceptada')" style="background: #10b981; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">✅ Aceptar</button>
-                  <button onclick="event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, 'rechazada')" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">❌ Rechazar</button>
-                ` : `
-                  <button onclick="event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, 'pendiente')" style="background: #f59e0b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">↩️ Deshacer</button>
-                  ${p.estado === 'aceptada' ? `<button onclick="event.stopPropagation(); app.resenyas.abrirFormulario(${p.id}, '${p.nombre.replace(/'/g, "\\'")}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
-                `}
+                <button onclick="event.stopPropagation(); app.stats.mostrarDetallePostulacion('${p.id}', '${utils.escapeHtml(p.nombre.replace(/'/g, "\\'"))}', '${utils.escapeHtml(p.email.replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.ciudad || '').replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.direccion || '').replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.codigo_postal || '').replace(/'/g, "\\'"))}', '${p.estado}', '${utils.escapeHtml((p.mensaje || '').replace(/'/g, "\\'").replace(/"/g, '\\"'))}')" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
+                ${utils.selectorEstado(p.id, p.estado, `event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, this.value)`)}
+                ${p.estado === 'aceptada' ? `<button onclick="event.stopPropagation(); app.resenyas.abrirFormulario(${p.id}, '${utils.escapeHtml(p.nombre.replace(/'/g, "\\'"))}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
               </div>
             </div>
           `;
@@ -2745,7 +2775,7 @@ const app = {
         `;
 
         oferta.candidatos.forEach(c => {
-          const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[c.estado];
+          const estadoColor = utils.colorEstado(c.estado);
           html += `
             <div style="background: white; padding: 1rem; border-radius: 6px; margin-bottom: 0.75rem; border-left: 3px solid ${estadoColor};">
               <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -2754,18 +2784,13 @@ const app = {
                   <p style="margin: 0.3rem 0 0 0; font-size: 0.85rem; color: #6b7280;">${utils.escapeHtml(c.email)}</p>
                   ${c.ciudad ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: #6b7280;">📍 ${utils.escapeHtml(c.ciudad)}</p>` : ''}
                 </div>
-                <span style="background: ${estadoColor}; color: white; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.8rem; text-transform: capitalize; white-space: nowrap; margin-left: 1rem;">${c.estado}</span>
+                <span style="background: ${estadoColor}; color: white; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.8rem; text-transform: capitalize; white-space: nowrap; margin-left: 1rem;">${utils.textoEstado(c.estado)}</span>
               </div>
               ${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; padding: 0.75rem; background: #f0f9ff; border-radius: 4px; border-left: 2px solid #0ea5e9; color: #0c4a6e;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}
               <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
                 <button onclick="app.stats.mostrarPerfilDentista(${JSON.stringify(c).replace(/"/g, '&quot;')})" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
-                ${c.estado === 'pendiente' ? `
-                  <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'aceptada')" style="background: #10b981; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">✅ Aceptar</button>
-                  <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'rechazada')" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">❌ Rechazar</button>
-                ` : `
-                  <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'pendiente')" style="background: #f59e0b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">↩️ Deshacer</button>
-                  ${c.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${c.id}, '${c.nombre.replace(/'/g, "\\'")}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
-                `}
+                ${utils.selectorEstado(c.id, c.estado, `app.stats.cambiarEstadoCandidatura(${c.id}, this.value)`)}
+                ${c.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${c.id}, '${utils.escapeHtml(c.nombre.replace(/'/g, "\\'"))}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
               </div>
             </div>
           `;
@@ -3148,6 +3173,13 @@ const app = {
             </div>
 
             <div class="form-group">
+              <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <input type="checkbox" id="perfilRecibirEmails" ${u.recibir_emails ? 'checked' : ''}>
+                Recibir avisos por email (postulaciones, mensajes, cambios de estado)
+              </label>
+            </div>
+
+            <div class="form-group">
               <label>Fijo</label>
               <input type="tel" id="perfilTelefono" value="${utils.escapeHtml(u.telefono || '')}">
             </div>
@@ -3234,6 +3266,13 @@ const app = {
                 : `<small style="color: #f59e0b; margin-top: 0.3rem; display: block;">⚠️ Email sin verificar
                      <button type="button" class="btn-text btn-small" onclick="app.auth.reenviarVerificacion()">Reenviar correo</button>
                    </small>`}
+            </div>
+
+            <div class="form-group">
+              <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <input type="checkbox" id="perfilRecibirEmails" ${u.recibir_emails ? 'checked' : ''}>
+                Recibir avisos por email (postulaciones, mensajes, cambios de estado)
+              </label>
             </div>
 
             <div class="form-group">
@@ -3341,7 +3380,8 @@ const app = {
         codigo_postal: document.getElementById("perfilCodigoPostal").value || null,
         pais: document.getElementById("perfilPais").value || null,
         descripcion: document.getElementById("perfilDescripcion")?.value || null,
-        anyos_experiencia: document.getElementById("perfilAnyosExperiencia")?.value || null
+        anyos_experiencia: document.getElementById("perfilAnyosExperiencia")?.value || null,
+        recibir_emails: document.getElementById("perfilRecibirEmails")?.checked ?? true
       };
 
       try {
@@ -3945,7 +3985,7 @@ const app = {
               <button class="btn-primary" onclick="app.modal.abrirDetalleConManejo(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
               ${(() => {
                 if (estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id)) {
-                  return `<button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${generatedTitle.replace(/'/g, "\\'")}')" style="flex: 1;">📊 Estadísticas</button>
+                  return `<button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">📊 Estadísticas</button>
                           <button class="btn-danger" onclick="app.publicaciones.retirarPublicacion(${pub.id})" style="flex: 1;">🗑️ Retirar</button>`;
                 }
                 return '';
@@ -3976,7 +4016,7 @@ const app = {
                 }
                 return '';
               })()}
-              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${generatedTitle.replace(/'/g, "\\'")}')" style="flex: 1;">👥 Dentistas (${candidatosPorOferta[pub.id]})</button>` : ''}
+              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">👥 Dentistas (${candidatosPorOferta[pub.id]})</button>` : ''}
               ${interesadosHTML}
             </div>
           </div>
@@ -4164,6 +4204,9 @@ const app = {
 
         const columnas = [
           { estado: 'pendiente', titulo: '⏳ Pendientes', color: '#f59e0b' },
+          { estado: 'vista', titulo: '👁️ CV visto', color: '#6366f1' },
+          { estado: 'en_proceso', titulo: '🔄 En proceso', color: '#0ea5e9' },
+          { estado: 'entrevista', titulo: '🗓️ Entrevista', color: '#8b5cf6' },
           { estado: 'aceptada', titulo: '✅ Aceptadas', color: '#10b981' },
           { estado: 'rechazada', titulo: '❌ Rechazadas', color: '#ef4444' }
         ];
@@ -4912,8 +4955,8 @@ const app = {
           return;
         }
         const html = candidaturas.map(c => {
-          const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[c.estado];
-          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.titulo)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Empresa:</strong> ${utils.escapeHtml(c.empresa_nombre)}</p><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad || 'No especificada')}</p><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Contrato:</strong> ${utils.escapeHtml(c.contrato)} | <strong>Jornada:</strong> ${utils.escapeHtml(c.jornada)}</p></div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize;">${c.estado}</span><button class="btn-text btn-small" onclick="app.candidaturas.retirarPostulacion(${c.id})" style="margin-top: 0.5rem; display: block;">Retirar</button></div></div></div>`;
+          const estadoColor = utils.colorEstado(c.estado);
+          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.titulo)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Empresa:</strong> ${utils.escapeHtml(c.empresa_nombre)}</p><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad || 'No especificada')}</p><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Contrato:</strong> ${utils.escapeHtml(c.contrato)} | <strong>Jornada:</strong> ${utils.escapeHtml(c.jornada)}</p></div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize;">${utils.textoEstado(c.estado)}</span><button class="btn-text btn-small" onclick="app.candidaturas.retirarPostulacion(${c.id})" style="margin-top: 0.5rem; display: block;">Retirar</button></div></div></div>`;
         });
         container.innerHTML = `<div>${html.join('')}</div>`;
       } catch (error) {
@@ -4949,8 +4992,8 @@ const app = {
           return;
         }
         const html = candidatos.map(c => {
-          const estadoColor = {'pendiente': '#f59e0b', 'aceptada': '#10b981', 'rechazada': '#ef4444'}[c.estado];
-          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.nombre)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Email:</strong> ${utils.escapeHtml(c.email)}</p>${c.telefono ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Teléfono:</strong> ${utils.escapeHtml(c.telefono)}</p>` : ''}${c.movil ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Móvil:</strong> ${utils.escapeHtml(c.movil)}</p>` : ''}${c.ciudad ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad)}</p>` : ''}${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; padding: 0.75rem; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #2563eb; color: #374151; font-size: 0.9rem;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}</div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize; display: inline-block; margin-bottom: 0.5rem;">${c.estado}</span><div style="display: flex; gap: 0.5rem; flex-direction: column;">${c.estado === 'pendiente' ? `<button class="btn-primary btn-small" onclick="app.candidaturas.actualizarEstado(${c.id}, 'aceptada', ${publicacionId})" style="font-size: 0.85rem;">✓ Aceptar</button><button class="btn-outline btn-small" onclick="app.candidaturas.actualizarEstado(${c.id}, 'rechazada', ${publicacionId})" style="font-size: 0.85rem;">✗ Rechazar</button>` : ''}</div></div></div></div>`;
+          const estadoColor = utils.colorEstado(c.estado);
+          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.nombre)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Email:</strong> ${utils.escapeHtml(c.email)}</p>${c.telefono ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Teléfono:</strong> ${utils.escapeHtml(c.telefono)}</p>` : ''}${c.movil ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Móvil:</strong> ${utils.escapeHtml(c.movil)}</p>` : ''}${c.ciudad ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad)}</p>` : ''}${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; padding: 0.75rem; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #2563eb; color: #374151; font-size: 0.9rem;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}</div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize; display: inline-block; margin-bottom: 0.5rem;">${utils.textoEstado(c.estado)}</span><div style="display: flex; gap: 0.5rem; flex-direction: column;">${utils.selectorEstado(c.id, c.estado, `app.candidaturas.actualizarEstado(${c.id}, this.value, ${publicacionId})`)}</div></div></div></div>`;
         });
         container.innerHTML = `<div>${html.join('')}</div>`;
       } catch (error) {

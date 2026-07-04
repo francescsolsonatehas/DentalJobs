@@ -18,6 +18,28 @@ const { verifyToken, generateToken } = require("./middleware/auth");
 const { enviarEmail, plantilla, urlFrontend } = require("./email");
 const crypto = require("crypto");
 
+// Notifica por email a un usuario, si tiene los avisos activados
+function notificarUsuario(usuarioId, asunto, titulo, cuerpo, textoBoton) {
+  db.get("SELECT nombre, email, recibir_emails FROM usuarios WHERE id = ?", [usuarioId], (err, u) => {
+    if (err || !u || !u.recibir_emails) return;
+    if ((u.email || "").endsWith("@dentaljobs.invalid")) return; // cuentas eliminadas
+
+    enviarEmail(u.email, asunto, plantilla(titulo, cuerpo, urlFrontend(), textoBoton || "Abrir DentalJobs"))
+      .catch(e => console.error("Error al enviar notificación:", e.message));
+  });
+}
+
+// Etiquetas legibles de los estados de candidatura
+const ETIQUETAS_ESTADO = {
+  pendiente: "Pendiente",
+  vista: "CV visto",
+  en_proceso: "En proceso",
+  entrevista: "Entrevista",
+  aceptada: "Aceptada",
+  rechazada: "Rechazada",
+  retirada: "Retirada"
+};
+
 const app = express();
 
 // Detrás de un proxy (Render, Caddy…) la IP real llega en X-Forwarded-For
@@ -407,9 +429,12 @@ app.put("/auth/actualizar-perfil", verifyToken, (req, res) => {
     ? parseInt(anyos_experiencia)
     : null;
 
+  // Preferencia de avisos por email: si el cliente no la envía, se mantiene activada
+  const recibirEmails = req.body.recibir_emails === false || req.body.recibir_emails === 0 ? 0 : 1;
+
   db.run(
-    "UPDATE usuarios SET nombre = ?, telefono = ?, movil = ?, direccion = ?, codigo_postal = ?, pais = ?, ciudad = ?, descripcion = ?, anyos_experiencia = ? WHERE id = ?",
-    [nombre, telefono || null, movil || null, direccion || null, codigo_postal || null, pais || null, ciudad || null, (descripcion || "").trim() || null, experiencia, usuarioId],
+    "UPDATE usuarios SET nombre = ?, telefono = ?, movil = ?, direccion = ?, codigo_postal = ?, pais = ?, ciudad = ?, descripcion = ?, anyos_experiencia = ?, recibir_emails = ? WHERE id = ?",
+    [nombre, telefono || null, movil || null, direccion || null, codigo_postal || null, pais || null, ciudad || null, (descripcion || "").trim() || null, experiencia, recibirEmails, usuarioId],
     function(err) {
       if (err) {
         console.error(err);
@@ -588,7 +613,7 @@ app.get("/auth/mi-perfil", verifyToken, (req, res) => {
   const usuarioId = req.usuario.id;
 
   db.get(
-    "SELECT id, nombre, email, tipo, telefono, movil, direccion, codigo_postal, pais, ciudad, descripcion, anyos_experiencia, email_verificado, creado_en FROM usuarios WHERE id = ?",
+    "SELECT id, nombre, email, tipo, telefono, movil, direccion, codigo_postal, pais, ciudad, descripcion, anyos_experiencia, email_verificado, recibir_emails, creado_en FROM usuarios WHERE id = ?",
     [usuarioId],
     (err, usuario) => {
       if (err) {
@@ -2234,6 +2259,9 @@ app.get("/mensajes/no-leidos/count", verifyToken, (req, res) => {
 const escribiendoStatus = new Map();
 const ESCRIBIENDO_TTL_MS = 5000;
 
+// Último aviso por email de mensajes de chat, por conversación (throttle 1 h)
+const ultimaNotificacionChat = new Map();
+
 // Bandeja de conversaciones del usuario, agrupadas por publicación e interlocutor
 app.get("/chat/conversaciones", verifyToken, (req, res) => {
   const usuarioId = req.usuario.id;
@@ -2386,6 +2414,20 @@ app.post("/chat/mensajes", verifyToken, (req, res) => {
               }
               escribiendoStatus.delete(`${usuarioId}:${destinatario_id}:${publicacion_id}`);
               res.json({ mensaje: "Mensaje enviado", id: this.lastID });
+
+              // Aviso por email al destinatario, como mucho uno por conversación y hora
+              const claveNotif = `${destinatario_id}:${usuarioId}:${publicacion_id}`;
+              const ultima = ultimaNotificacionChat.get(claveNotif);
+              if (!ultima || Date.now() - ultima > 60 * 60 * 1000) {
+                ultimaNotificacionChat.set(claveNotif, Date.now());
+                notificarUsuario(
+                  destinatario_id,
+                  `💬 Mensaje nuevo de ${remitente.nombre} en DentalJobs`,
+                  "Tienes un mensaje nuevo",
+                  `${remitente.nombre} te ha escrito en el chat de DentalJobs. Entra para leerlo y responder.`,
+                  "Abrir el chat"
+                );
+              }
             }
           );
         });
@@ -2618,6 +2660,24 @@ app.post("/candidaturas", verifyToken, (req, res) => {
         mensaje: "Postulación creada",
         candidatura_id: this.lastID
       });
+
+      // Avisar por email al dueño de la publicación
+      db.get(
+        `SELECT p.usuario_id as propietario_id, p.ciudad, u.nombre as candidato_nombre
+         FROM publicaciones p, usuarios u
+         WHERE p.id = ? AND u.id = ?`,
+        [publicacion_id, usuario_id],
+        (err, info) => {
+          if (err || !info) return;
+          notificarUsuario(
+            info.propietario_id,
+            "📬 Nueva postulación en DentalJobs",
+            "¡Tienes una nueva postulación!",
+            `${info.candidato_nombre} se ha postulado a tu publicación de ${info.ciudad}. Entra para ver su perfil y responder.`,
+            "Ver la postulación"
+          );
+        }
+      );
     }
   );
 });
@@ -2650,22 +2710,36 @@ app.get("/candidaturas/mis-postulaciones", verifyToken, (req, res) => {
 app.get("/publicaciones/:id/candidatos", verifyToken, (req, res) => {
   const publicacion_id = req.params.id;
 
-  db.all(
-    `SELECT c.*, u.nombre, u.email, u.telefono, u.movil, u.ciudad, u.direccion, u.tipo
-     FROM candidaturas c
-     JOIN usuarios u ON c.usuario_id = u.id
-     WHERE c.publicacion_id = ?
-     ORDER BY c.creado_en DESC`,
-    [publicacion_id],
-    (err, rows) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener candidatos" });
+  const listar = () => {
+    db.all(
+      `SELECT c.*, u.nombre, u.email, u.telefono, u.movil, u.ciudad, u.direccion, u.tipo
+       FROM candidaturas c
+       JOIN usuarios u ON c.usuario_id = u.id
+       WHERE c.publicacion_id = ?
+       ORDER BY c.creado_en DESC`,
+      [publicacion_id],
+      (err, rows) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al obtener candidatos" });
+        }
+        res.json({ candidatos: rows || [] });
       }
+    );
+  };
 
-      res.json({ candidatos: rows || [] });
+  // "CV visto": cuando el dueño abre la lista, las pendientes pasan a 'vista'
+  db.get("SELECT usuario_id FROM publicaciones WHERE id = ?", [publicacion_id], (err, pub) => {
+    if (!err && pub && pub.usuario_id === req.usuario.id) {
+      db.run(
+        "UPDATE candidaturas SET estado = 'vista', actualizado_en = CURRENT_TIMESTAMP WHERE publicacion_id = ? AND estado = 'pendiente'",
+        [publicacion_id],
+        () => listar()
+      );
+    } else {
+      listar();
     }
-  );
+  });
 });
 
 // Cambiar estado de candidatura (aceptar/rechazar)
@@ -2674,12 +2748,12 @@ app.put("/candidaturas/:id", verifyToken, (req, res) => {
   const candidatura_id = req.params.id;
   const usuarioId = req.usuario.id;
 
-  if (!["pendiente", "aceptada", "rechazada"].includes(estado)) {
+  if (!["pendiente", "vista", "en_proceso", "entrevista", "aceptada", "rechazada"].includes(estado)) {
     return res.status(400).json({ error: "Estado inválido" });
   }
 
   db.get(
-    `SELECT p.usuario_id
+    `SELECT p.usuario_id, p.ciudad, c.usuario_id as candidato_id, c.estado as estado_anterior
      FROM candidaturas c
      JOIN publicaciones p ON p.id = c.publicacion_id
      WHERE c.id = ?`,
@@ -2706,6 +2780,25 @@ app.put("/candidaturas/:id", verifyToken, (req, res) => {
           }
 
           res.json({ mensaje: "Candidatura actualizada" });
+
+          // Avisar al candidato de los cambios relevantes (no del ida y vuelta administrativo)
+          const avisar = ["en_proceso", "entrevista", "aceptada", "rechazada"].includes(estado)
+            && estado !== row.estado_anterior;
+          if (avisar) {
+            const textos = {
+              en_proceso: `Tu candidatura en ${row.ciudad} está en proceso de selección.`,
+              entrevista: `¡Buenas noticias! Quieren hacerte una entrevista para la publicación de ${row.ciudad}. Contacta con ellos desde la plataforma.`,
+              aceptada: `🎉 ¡Enhorabuena! Tu candidatura en ${row.ciudad} ha sido ACEPTADA. Ya puedes chatear directamente con la otra parte.`,
+              rechazada: `Tu candidatura en ${row.ciudad} no ha seguido adelante esta vez. ¡Ánimo, hay más oportunidades esperándote!`
+            };
+            notificarUsuario(
+              row.candidato_id,
+              `Tu candidatura ha cambiado a: ${ETIQUETAS_ESTADO[estado]}`,
+              `Candidatura ${ETIQUETAS_ESTADO[estado].toLowerCase()}`,
+              textos[estado],
+              "Ver mis postulaciones"
+            );
+          }
         }
       );
     }
@@ -3019,7 +3112,7 @@ app.get("/recordatorios/pendientes", verifyToken, (req, res) => {
      FROM candidaturas c
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
      INNER JOIN usuarios u ON c.usuario_id = u.id
-     WHERE p.usuario_id = ? AND p.activo = 1 AND c.estado = 'pendiente'
+     WHERE p.usuario_id = ? AND p.activo = 1 AND c.estado IN ('pendiente', 'vista')
        AND c.creado_en <= datetime('now', ?)
      ORDER BY c.creado_en ASC`,
     [req.usuario.id, `-${dias} days`],
