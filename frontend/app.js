@@ -1,4 +1,5 @@
-const API = "http://localhost:3000";
+// URL del backend: definida en config.js (vacía = mismo origen)
+const API = window.API_URL || "";
 
 let estadoApp = {
   token: localStorage.getItem("token"),
@@ -36,6 +37,15 @@ const utils = {
       headers.Authorization = `Bearer ${estadoApp.token}`;
     }
 
+    // Si la respuesta tarda (arranque en frío del servidor gratuito), avisar
+    const avisoLento = setTimeout(() => {
+      if (!utils._avisoDespertarMostrado) {
+        utils._avisoDespertarMostrado = true;
+        utils.mostrarAlerta("⏳ Despertando el servidor… puede tardar unos segundos", "info");
+        setTimeout(() => { utils._avisoDespertarMostrado = false; }, 60000);
+      }
+    }, 3000);
+
     try {
       const response = await fetch(API + endpoint, {
         ...options,
@@ -52,6 +62,8 @@ const utils = {
     } catch (error) {
       console.error(error);
       throw error;
+    } finally {
+      clearTimeout(avisoLento);
     }
   },
 
@@ -992,7 +1004,7 @@ const app = {
 
         if (candidaturaAceptada) {
           html += `<div style="margin-top: 1.5rem;">
-                    <button class="btn-primary" onclick="app.chat.abrirConDestinatario(${publicacion.id}, ${publicacion.usuario_id}, '${utils.escapeHtml(nombreOtro)}')">💬 Enviar mensaje</button>
+                    <button class="btn-primary" onclick="app.chat.abrirConDestinatario(${publicacion.id}, ${publicacion.usuario_id}, '${nombreOtro}')">💬 Enviar mensaje</button>
                   </div>`;
         }
       }
@@ -1330,7 +1342,7 @@ const app = {
         } else {
           datos.forEach(d => {
             html += `
-              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarClinicasEspecialidad('${utils.escapeHtml((d.especialidad || "Sin especialidad").replace(/'/g, "\\'"))}')">
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarClinicasEspecialidad('${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
                 <strong>${utils.escapeHtml(d.especialidad || "Sin especialidad")}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
@@ -1358,7 +1370,7 @@ const app = {
         } else {
           datos.forEach(d => {
             html += `
-              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarClinicasCiudad('${utils.escapeHtml(d.ciudad.replace(/'/g, "\\'"))}')">
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarClinicasCiudad('${d.ciudad.replace(/'/g, "\\'")}')">
                 <strong>${utils.escapeHtml(d.ciudad)}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
@@ -1395,7 +1407,7 @@ const app = {
               html += `<div class='desglose-grupo'><h4>${utils.escapeHtml(ciudadActual)}</h4>`;
             }
             html += `
-              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarClinicasCiudadEspecialidad('${utils.escapeHtml(d.ciudad.replace(/'/g, "\\'"))}', '${utils.escapeHtml((d.especialidad || "Sin especialidad").replace(/'/g, "\\'"))}')">
+              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarClinicasCiudadEspecialidad('${d.ciudad.replace(/'/g, "\\'")}', '${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
                 <strong>${utils.escapeHtml(d.especialidad || "Sin especialidad")}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
@@ -1425,7 +1437,7 @@ const app = {
         } else {
           datos.forEach(d => {
             html += `
-              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarDentistasEspecialidad('${utils.escapeHtml((d.especialidad || "Sin especialidad").replace(/'/g, "\\'"))}')">
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarDentistasEspecialidad('${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
                 <strong>${utils.escapeHtml(d.especialidad || "Sin especialidad")}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
@@ -1453,7 +1465,7 @@ const app = {
         } else {
           datos.forEach(d => {
             html += `
-              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarDentistasCiudad('${utils.escapeHtml(d.ciudad.replace(/'/g, "\\'"))}')">
+              <div class="desglose-item desglose-clickable" onclick="app.stats.mostrarDentistasCiudad('${d.ciudad.replace(/'/g, "\\'")}')">
                 <strong>${utils.escapeHtml(d.ciudad)}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
@@ -1490,7 +1502,7 @@ const app = {
               html += `<div class='desglose-grupo'><h4>${utils.escapeHtml(ciudadActual)}</h4>`;
             }
             html += `
-              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarDentistasCiudadEspecialidad('${utils.escapeHtml(d.ciudad.replace(/'/g, "\\'"))}', '${utils.escapeHtml((d.especialidad || "Sin especialidad").replace(/'/g, "\\'"))}')">
+              <div class="desglose-item-sub desglose-clickable" onclick="app.stats.mostrarDentistasCiudadEspecialidad('${d.ciudad.replace(/'/g, "\\'")}', '${(d.especialidad || "Sin especialidad").replace(/'/g, "\\'")}')">
                 <strong>${utils.escapeHtml(d.especialidad || "Sin especialidad")}</strong>
                 <span class="desglose-numero">${d.total}</span>
               </div>
@@ -1955,7 +1967,7 @@ const app = {
             </div>` : ''}
             <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
               <button class="btn-primary" onclick="app.stats.mostrarDetalleMiPostulacion(${utils.escapeJsonForHtml(postConEspecialidad)})" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">👁️ Ver detalles</button>
-              ${post.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${post.id}, '${utils.escapeHtml((post.empresa_nombre || 'la otra parte').replace(/'/g, "\\'"))}')" style="flex: 1; background: #f59e0b; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">⭐ Valorar</button>` : ''}
+              ${post.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${post.id}, '${(post.empresa_nombre || 'la otra parte').replace(/'/g, "\\'")}')" style="flex: 1; background: #f59e0b; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">⭐ Valorar</button>` : ''}
               <button onclick="app.candidaturas.retirarPostulacion(${post.id})" style="flex: 1; background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">🗑️ Retirar</button>
             </div>
           </div>
@@ -2438,7 +2450,7 @@ const app = {
           html += `
             <div style="background: white; border-left: 3px solid ${estadoColor}; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem;">
               <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div style="flex: 1; cursor: pointer;" onclick="app.stats.mostrarDetallePostulacion('${p.id}', '${utils.escapeHtml(p.nombre.replace(/'/g, "\\'"))}', '${utils.escapeHtml(p.email.replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.ciudad || '').replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.direccion || '').replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.codigo_postal || '').replace(/'/g, "\\'"))}', '${p.estado}', '${utils.escapeHtml((p.mensaje || '').replace(/'/g, "\\'").replace(/"/g, '\\"'))}')">
+                <div style="flex: 1; cursor: pointer;" onclick="app.stats.mostrarDetallePostulacion('${p.id}', '${p.nombre.replace(/'/g, "\\'")}', '${p.email.replace(/'/g, "\\'")}', '${(p.ciudad || '').replace(/'/g, "\\'")}', '${(p.direccion || '').replace(/'/g, "\\'")}', '${(p.codigo_postal || '').replace(/'/g, "\\'")}', '${p.estado}', '${(p.mensaje || '').replace(/'/g, "\\'").replace(/"/g, '\\"')}')">
                   <strong style="color: #0f4c75; display: block; margin-bottom: 0.3rem;">${utils.escapeHtml(p.nombre)}</strong>
                   <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${utils.escapeHtml(p.email)}</p>
                   ${p.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${utils.escapeHtml(p.ciudad)}</p>` : ''}
@@ -2446,13 +2458,13 @@ const app = {
                 <span style="background: ${estadoColor}; color: white; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.75rem; text-transform: capitalize; white-space: nowrap; margin-left: 1rem;">${p.estado}</span>
               </div>
               <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
-                <button onclick="event.stopPropagation(); app.stats.mostrarDetallePostulacion('${p.id}', '${utils.escapeHtml(p.nombre.replace(/'/g, "\\'"))}', '${utils.escapeHtml(p.email.replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.ciudad || '').replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.direccion || '').replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.codigo_postal || '').replace(/'/g, "\\'"))}', '${p.estado}', '${utils.escapeHtml((p.mensaje || '').replace(/'/g, "\\'").replace(/"/g, '\\"'))}')" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
+                <button onclick="event.stopPropagation(); app.stats.mostrarDetallePostulacion('${p.id}', '${p.nombre.replace(/'/g, "\\'")}', '${p.email.replace(/'/g, "\\'")}', '${(p.ciudad || '').replace(/'/g, "\\'")}', '${(p.direccion || '').replace(/'/g, "\\'")}', '${(p.codigo_postal || '').replace(/'/g, "\\'")}', '${p.estado}', '${(p.mensaje || '').replace(/'/g, "\\'").replace(/"/g, '\\"')}')" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
                 ${p.estado === 'pendiente' ? `
                   <button onclick="event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, 'aceptada')" style="background: #10b981; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">✅ Aceptar</button>
                   <button onclick="event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, 'rechazada')" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">❌ Rechazar</button>
                 ` : `
                   <button onclick="event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, 'pendiente')" style="background: #f59e0b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">↩️ Deshacer</button>
-                  ${p.estado === 'aceptada' ? `<button onclick="event.stopPropagation(); app.resenyas.abrirFormulario(${p.id}, '${utils.escapeHtml(p.nombre.replace(/'/g, "\\'"))}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
+                  ${p.estado === 'aceptada' ? `<button onclick="event.stopPropagation(); app.resenyas.abrirFormulario(${p.id}, '${p.nombre.replace(/'/g, "\\'")}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
                 `}
               </div>
             </div>
@@ -2657,7 +2669,7 @@ const app = {
                   <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'rechazada')" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">❌ Rechazar</button>
                 ` : `
                   <button onclick="app.stats.cambiarEstadoCandidatura(${c.id}, 'pendiente')" style="background: #f59e0b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">↩️ Deshacer</button>
-                  ${c.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${c.id}, '${utils.escapeHtml(c.nombre.replace(/'/g, "\\'"))}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
+                  ${c.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${c.id}, '${c.nombre.replace(/'/g, "\\'")}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
                 `}
               </div>
             </div>
@@ -3794,7 +3806,7 @@ const app = {
               <button class="btn-primary" onclick="app.modal.abrirDetalleConManejo(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
               ${(() => {
                 if (estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id)) {
-                  return `<button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">📊 Estadísticas</button>
+                  return `<button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${generatedTitle.replace(/'/g, "\\'")}')" style="flex: 1;">📊 Estadísticas</button>
                           <button class="btn-danger" onclick="app.publicaciones.retirarPublicacion(${pub.id})" style="flex: 1;">🗑️ Retirar</button>`;
                 }
                 return '';
@@ -3825,7 +3837,7 @@ const app = {
                 }
                 return '';
               })()}
-              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">👥 Dentistas (${candidatosPorOferta[pub.id]})</button>` : ''}
+              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${generatedTitle.replace(/'/g, "\\'")}')" style="flex: 1;">👥 Dentistas (${candidatosPorOferta[pub.id]})</button>` : ''}
               ${interesadosHTML}
             </div>
           </div>
@@ -4052,7 +4064,7 @@ const app = {
           ${c.contrato || c.jornada ? `<p class="kanban-tarjeta-detalle">📋 ${utils.escapeHtml([c.contrato, c.jornada].filter(Boolean).join(' · '))}</p>` : ''}
           <p class="kanban-tarjeta-fecha">Postulada el ${utils.formatearFecha(c.creado_en)}</p>
           <div class="kanban-tarjeta-acciones">
-            ${c.estado === 'aceptada' ? `<button class="btn-small" style="background: #f59e0b; color: white; border: none; border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;" onclick="app.resenyas.abrirFormulario(${c.id}, '${utils.escapeHtml((c.empresa_nombre || `la ${destinatario}`).replace(/'/g, "\\'"))}')">⭐ Valorar</button>` : ''}
+            ${c.estado === 'aceptada' ? `<button class="btn-small" style="background: #f59e0b; color: white; border: none; border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;" onclick="app.resenyas.abrirFormulario(${c.id}, '${(c.empresa_nombre || `la ${destinatario}`).replace(/'/g, "\\'")}')">⭐ Valorar</button>` : ''}
             <button class="btn-small" style="background: #ef4444; color: white; border: none; border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;" onclick="app.candidaturas.retirarPostulacion(${c.id})">🗑️ Retirar</button>
           </div>
         </div>
@@ -4356,7 +4368,7 @@ const app = {
         <p style="margin: 0.3rem 0; font-size: 1.05rem;">
           <span style="color: #f59e0b; letter-spacing: 2px;">${this.estrellasHtml(resumen.media)}</span>
           <strong>${resumen.media}</strong> · ${resumen.total} valoraci${resumen.total === 1 ? 'ón' : 'ones'}
-          <button class="btn-text btn-small" onclick="app.resenyas.verDeUsuario(${usuarioId}, '${utils.escapeHtml(nombreEscapado)}')">Ver reseñas</button>
+          <button class="btn-text btn-small" onclick="app.resenyas.verDeUsuario(${usuarioId}, '${nombreEscapado}')">Ver reseñas</button>
         </p>
       `;
     },

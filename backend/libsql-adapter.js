@@ -11,7 +11,10 @@ const path = require("path");
 const { createClient } = require("@libsql/client");
 
 function crearDb() {
-  const url = process.env.TURSO_DATABASE_URL
+  // Turso solo en producción: en desarrollo y tests siempre archivo local,
+  // aunque el .env tenga las credenciales (evita tocar datos reales por error).
+  const usarTurso = process.env.TURSO_DATABASE_URL && process.env.NODE_ENV === "production";
+  const url = usarTurso
     ? process.env.TURSO_DATABASE_URL
     : "file:" + (process.env.DB_PATH || path.join(__dirname, "dental_jobs.db"));
 

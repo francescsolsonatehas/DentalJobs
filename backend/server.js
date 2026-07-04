@@ -1,5 +1,8 @@
-// Cargar variables de entorno desde backend/.env (en Render vienen del panel)
-require("dotenv").config({ path: require("path").join(__dirname, ".env") });
+// Cargar variables de entorno desde backend/.env (en Render vienen del panel).
+// En tests NO se carga: usan siempre una BD temporal local, jamás Turso.
+if (process.env.NODE_ENV !== "test") {
+  require("dotenv").config({ path: require("path").join(__dirname, ".env") });
+}
 
 const express = require("express");
 const cors = require("cors");
@@ -22,7 +25,13 @@ app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(compression());
 app.use(express.json());
-app.use(cors());
+
+// CORS: en producción, restringido al origen del frontend (GitHub Pages);
+// sin CORS_ORIGIN definido (desarrollo), se permite cualquier origen.
+const origenesCors = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map(o => o.trim())
+  : true;
+app.use(cors({ origin: origenesCors }));
 app.use(morgan("short"));
 app.use(express.static(path.join(__dirname, "../frontend")));
 
@@ -2981,12 +2990,28 @@ app.get("/alertas/no-leidas/count", verifyToken, (req, res) => {
    🔹 INICIAR SERVIDOR
 =========================== */
 
+// Comprobación de salud (UptimeRobot y deploys)
+app.get("/salud", (req, res) => {
+  res.json({ ok: true });
+});
+
 const PORT = process.env.PORT || 3000;
 
 if (require.main === module) {
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
   });
+
+  // Apagado limpio: terminar las peticiones en curso antes de salir
+  const cerrar = (senyal) => {
+    console.log(`${senyal} recibido, cerrando…`);
+    server.close(() => {
+      db.close(() => process.exit(0));
+    });
+    setTimeout(() => process.exit(0), 5000).unref();
+  };
+  process.on("SIGTERM", () => cerrar("SIGTERM"));
+  process.on("SIGINT", () => cerrar("SIGINT"));
 }
 
 module.exports = app;

@@ -11,6 +11,10 @@ function createTestApp() {
   process.env.DB_PATH = dbPath;
   process.env.NODE_ENV = "test"; // desactiva el rate limiting durante los tests
   process.env.JWT_SECRET = process.env.JWT_SECRET || "dental_jobs_secret_key_2024";
+  // Los tests SIEMPRE usan la BD temporal local, nunca Turso
+  // (server.js carga backend/.env con dotenv y estas variables se colarían)
+  delete process.env.TURSO_DATABASE_URL;
+  delete process.env.TURSO_AUTH_TOKEN;
 
   delete require.cache[require.resolve("../../db")];
   delete require.cache[require.resolve("../../server")];
