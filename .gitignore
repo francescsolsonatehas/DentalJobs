@@ -1,3 +1,21 @@
+# Dependencias
 node_modules/
-backend/tests/**/*.db
+
+# Bases de datos (la BD de desarrollo y las temporales de tests nunca van a git)
+*.db
 *.db-journal
+*.db-wal
+*.db-shm
+
+# Sistema operativo
+.DS_Store
+
+# Secretos y configuración local
+.env
+
+# Archivos personales / notas locales (nunca commitear)
+Fotos-Roger/
+Comptes a Webs i Apps gratuits.txt
+Comptes.txt
+Millores.txt
+Prompt.md
