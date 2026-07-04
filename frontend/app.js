@@ -344,6 +344,91 @@ const app = {
       }
     },
 
+    // Recuperación de contraseña: pide el email y envía las instrucciones
+    async olvidePassword(inputEmailId) {
+      const prefill = inputEmailId ? document.getElementById(inputEmailId)?.value : "";
+      const email = prompt("Escribe el email de tu cuenta:", prefill || "");
+      if (!email) return;
+
+      try {
+        const res = await utils.request("/auth/olvide-password", {
+          method: "POST",
+          body: JSON.stringify({ email: email.trim() })
+        });
+        utils.mostrarAlerta(res.mensaje || "Revisa tu correo", "success");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    tokenRestablecer: null,
+
+    async restablecerPassword() {
+      const password = document.getElementById("restablecerPassword").value;
+      const confirma = document.getElementById("restablecerPasswordConfirma").value;
+
+      if (password !== confirma) {
+        utils.mostrarAlerta("Las contraseñas no coinciden", "error");
+        return;
+      }
+
+      try {
+        const res = await utils.request("/auth/restablecer-password", {
+          method: "POST",
+          body: JSON.stringify({ token: this.tokenRestablecer, passwordNueva: password })
+        });
+        document.getElementById("modalRestablecer").classList.remove("active");
+        this.tokenRestablecer = null;
+        utils.mostrarAlerta("✅ " + (res.mensaje || "Contraseña actualizada"), "success");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async reenviarVerificacion() {
+      try {
+        const res = await utils.request("/auth/reenviar-verificacion", { method: "POST" });
+        utils.mostrarAlerta(res.mensaje || "Correo reenviado", "success");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    // Procesa los enlaces que llegan por correo (#verificar= / #restablecer= / #confirmar-email=)
+    async procesarEnlacesDeCorreo() {
+      const hash = window.location.hash || "";
+
+      const limpiarHash = () => history.replaceState(null, "", window.location.pathname + window.location.search);
+
+      if (hash.startsWith("#verificar=")) {
+        const token = hash.slice("#verificar=".length);
+        limpiarHash();
+        try {
+          const res = await utils.request(`/auth/verificar-email/${encodeURIComponent(token)}`);
+          utils.mostrarAlerta("✅ " + (res.mensaje || "Email verificado"), "success");
+        } catch (error) {
+          utils.mostrarAlerta(error.message, "error");
+        }
+      } else if (hash.startsWith("#restablecer=")) {
+        this.tokenRestablecer = hash.slice("#restablecer=".length);
+        limpiarHash();
+        document.getElementById("restablecerPassword").value = "";
+        document.getElementById("restablecerPasswordConfirma").value = "";
+        document.getElementById("modalRestablecer").classList.add("active");
+      } else if (hash.startsWith("#confirmar-email=")) {
+        const token = hash.slice("#confirmar-email=".length);
+        limpiarHash();
+        try {
+          const res = await utils.request(`/auth/confirmar-cambio-email/${encodeURIComponent(token)}`);
+          utils.mostrarAlerta("✅ " + (res.message || "Email actualizado. Vuelve a iniciar sesión."), "success");
+          // El JWT lleva el email antiguo: cerrar sesión para regenerarlo
+          if (estadoApp.token) app.auth.logout();
+        } catch (error) {
+          utils.mostrarAlerta(error.message, "error");
+        }
+      }
+    },
+
     logout() {
       localStorage.removeItem("token");
       localStorage.removeItem("usuario");
@@ -3045,6 +3130,11 @@ const app = {
               <label>Email</label>
               <input type="email" id="perfilEmail" value="${utils.escapeHtml(u.email)}" required>
               <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Se enviará un email de confirmación al cambiar</small>
+              ${u.email_verificado
+                ? `<small style="color: #10b981; font-weight: 600; margin-top: 0.3rem; display: block;">✓ Email verificado</small>`
+                : `<small style="color: #f59e0b; margin-top: 0.3rem; display: block;">⚠️ Email sin verificar
+                     <button type="button" class="btn-text btn-small" onclick="app.auth.reenviarVerificacion()">Reenviar correo</button>
+                   </small>`}
             </div>
 
             <div class="form-group">
@@ -3124,6 +3214,11 @@ const app = {
               <label>Email</label>
               <input type="email" id="perfilEmail" value="${utils.escapeHtml(u.email)}" required>
               <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Se enviará un email de confirmación al cambiar</small>
+              ${u.email_verificado
+                ? `<small style="color: #10b981; font-weight: 600; margin-top: 0.3rem; display: block;">✓ Email verificado</small>`
+                : `<small style="color: #f59e0b; margin-top: 0.3rem; display: block;">⚠️ Email sin verificar
+                     <button type="button" class="btn-text btn-small" onclick="app.auth.reenviarVerificacion()">Reenviar correo</button>
+                   </small>`}
             </div>
 
             <div class="form-group">
@@ -3515,6 +3610,9 @@ const app = {
       } else {
         app.ui.mostrarLanding();
       }
+
+      // Enlaces llegados por correo (verificación, restablecer contraseña…)
+      app.auth.procesarEnlacesDeCorreo();
     },
 
     mostrarLanding() {

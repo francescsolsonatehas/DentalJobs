@@ -212,6 +212,21 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`ALTER TABLE usuarios ADD COLUMN email_verificado INTEGER DEFAULT 0`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS tokens_verificacion (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      tipo TEXT NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      expiracion DATETIME NOT NULL,
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   db.run(`
     CREATE TABLE IF NOT EXISTS resenyas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

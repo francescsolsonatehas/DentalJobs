@@ -15,6 +15,8 @@ const rateLimit = require("express-rate-limit");
 const path = require("path");
 const db = require("./db");
 const { verifyToken, generateToken } = require("./middleware/auth");
+const { enviarEmail, plantilla, urlFrontend } = require("./email");
+const crypto = require("crypto");
 
 const app = express();
 
@@ -107,7 +109,29 @@ app.post("/auth/registro", (req, res) => {
         };
         const token = generateToken(usuario);
 
-        res.json({ mensaje: "Usuario registrado", token, usuario });
+        // Token de verificación de email (7 días) — el insert se completa antes de responder
+        const tokenVerificacion = crypto.randomBytes(32).toString("hex");
+        const expiracion = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+        db.run(
+          "INSERT INTO tokens_verificacion (usuario_id, tipo, token, expiracion) VALUES (?, 'verificacion', ?, ?)",
+          [usuario.id, tokenVerificacion, expiracion],
+          (err) => {
+            if (err) console.error("Error al crear token de verificación:", err);
+
+            res.json({ mensaje: "Usuario registrado", token, usuario });
+
+            enviarEmail(
+              email,
+              "Verifica tu email en DentalJobs",
+              plantilla(
+                `¡Bienvenido/a, ${nombre}!`,
+                "Gracias por registrarte en DentalJobs. Confirma tu dirección de correo para que las clínicas y dentistas sepan que tu cuenta es real.",
+                `${urlFrontend()}#verificar=${tokenVerificacion}`,
+                "Verificar mi email"
+              )
+            ).catch(e => console.error("Error al enviar email de verificación:", e.message));
+          }
+        );
       }
     );
   } catch (err) {
@@ -135,10 +159,14 @@ app.post("/auth/login", (req, res) => {
       return res.status(400).json({ error: "Email o contraseña incorrectos" });
     }
 
-    // Si la contraseña guardada es vacía, solo permitir login con contraseña vacía
-    const esValido = usuario.password === ""
-      ? password === ""
-      : bcrypt.compareSync(password, usuario.password);
+    // Cuentas antiguas sin contraseña: obligar a crear una por email
+    if (usuario.password === "") {
+      return res.status(403).json({
+        error: "Tu cuenta no tiene contraseña. Usa '¿Has olvidado tu contraseña?' para crear una."
+      });
+    }
+
+    const esValido = bcrypt.compareSync(password || "", usuario.password);
 
     if (!esValido) {
       return res.status(400).json({ error: "Email o contraseña incorrectos" });
@@ -149,6 +177,158 @@ app.post("/auth/login", (req, res) => {
       token,
       usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, tipo: usuario.tipo }
     });
+  });
+});
+
+// Recuperación de contraseña: siempre responde igual, exista o no el email
+app.post("/auth/olvide-password", (req, res) => {
+  const { email } = req.body;
+  const respuestaNeutra = { success: true, mensaje: "Si el email está registrado, te hemos enviado instrucciones." };
+
+  if (!email) {
+    return res.status(400).json({ error: "Email requerido" });
+  }
+
+  db.get("SELECT id, nombre FROM usuarios WHERE email = ?", [email], (err, usuario) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al procesar la solicitud" });
+    }
+    if (!usuario) {
+      return res.json(respuestaNeutra);
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiracion = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hora
+
+    db.run(
+      "INSERT INTO tokens_verificacion (usuario_id, tipo, token, expiracion) VALUES (?, 'password', ?, ?)",
+      [usuario.id, token, expiracion],
+      (err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al procesar la solicitud" });
+        }
+
+        res.json(respuestaNeutra);
+
+        enviarEmail(
+          email,
+          "Restablece tu contraseña de DentalJobs",
+          plantilla(
+            `Hola, ${usuario.nombre}`,
+            "Hemos recibido una solicitud para restablecer tu contraseña. Si no has sido tú, ignora este correo. El enlace caduca en 1 hora.",
+            `${urlFrontend()}#restablecer=${token}`,
+            "Crear nueva contraseña"
+          )
+        ).catch(e => console.error("Error al enviar email de recuperación:", e.message));
+      }
+    );
+  });
+});
+
+app.post("/auth/restablecer-password", (req, res) => {
+  const { token, passwordNueva } = req.body;
+
+  if (!token) {
+    return res.status(400).json({ error: "Token requerido" });
+  }
+  if (!passwordNueva || typeof passwordNueva !== "string" || passwordNueva.length < 8) {
+    return res.status(400).json({ error: "La nueva contraseña debe tener al menos 8 caracteres" });
+  }
+
+  db.get(
+    "SELECT * FROM tokens_verificacion WHERE token = ? AND tipo = 'password' AND expiracion > datetime('now')",
+    [token],
+    (err, registro) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al restablecer contraseña" });
+      }
+      if (!registro) {
+        return res.status(400).json({ error: "Enlace inválido o caducado. Solicita uno nuevo." });
+      }
+
+      const hashedPassword = bcrypt.hashSync(passwordNueva, 10);
+      // Llegar por email también verifica la dirección
+      db.run(
+        "UPDATE usuarios SET password = ?, email_verificado = 1 WHERE id = ?",
+        [hashedPassword, registro.usuario_id],
+        (err) => {
+          if (err) {
+            console.error(err);
+            return res.status(500).json({ error: "Error al restablecer contraseña" });
+          }
+          db.run("DELETE FROM tokens_verificacion WHERE id = ?", [registro.id], () => {
+            res.json({ success: true, mensaje: "Contraseña actualizada. Ya puedes iniciar sesión." });
+          });
+        }
+      );
+    }
+  );
+});
+
+// Verificación de la dirección de email (enlace del correo de bienvenida)
+app.get("/auth/verificar-email/:token", (req, res) => {
+  db.get(
+    "SELECT * FROM tokens_verificacion WHERE token = ? AND tipo = 'verificacion' AND expiracion > datetime('now')",
+    [req.params.token],
+    (err, registro) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al verificar email" });
+      }
+      if (!registro) {
+        return res.status(400).json({ error: "Enlace inválido o caducado" });
+      }
+
+      db.run("UPDATE usuarios SET email_verificado = 1 WHERE id = ?", [registro.usuario_id], (err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al verificar email" });
+        }
+        db.run("DELETE FROM tokens_verificacion WHERE id = ?", [registro.id], () => {
+          res.json({ success: true, mensaje: "Email verificado correctamente" });
+        });
+      });
+    }
+  );
+});
+
+app.post("/auth/reenviar-verificacion", verifyToken, (req, res) => {
+  db.get("SELECT id, nombre, email, email_verificado FROM usuarios WHERE id = ?", [req.usuario.id], (err, usuario) => {
+    if (err || !usuario) {
+      return res.status(500).json({ error: "Error al reenviar verificación" });
+    }
+    if (usuario.email_verificado) {
+      return res.json({ success: true, mensaje: "Tu email ya está verificado" });
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiracion = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    db.run(
+      "INSERT INTO tokens_verificacion (usuario_id, tipo, token, expiracion) VALUES (?, 'verificacion', ?, ?)",
+      [usuario.id, token, expiracion],
+      (err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al reenviar verificación" });
+        }
+        res.json({ success: true, mensaje: "Te hemos reenviado el correo de verificación" });
+
+        enviarEmail(
+          usuario.email,
+          "Verifica tu email en DentalJobs",
+          plantilla(
+            `Hola, ${usuario.nombre}`,
+            "Confirma tu dirección de correo pulsando el botón.",
+            `${urlFrontend()}#verificar=${token}`,
+            "Verificar mi email"
+          )
+        ).catch(e => console.error("Error al reenviar verificación:", e.message));
+      }
+    );
   });
 });
 
@@ -311,58 +491,31 @@ app.post("/auth/solicitar-cambio-email", verifyToken, (req, res) => {
     }
 
     // Generar token de confirmación
-    const token = require('crypto').randomBytes(32).toString('hex');
+    const token = crypto.randomBytes(32).toString('hex');
     const expiracion = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
 
-    // Guardar token en BD
     db.run(
       "INSERT INTO confirmacion_email (usuario_id, nuevo_email, token, expiracion, datos) VALUES (?, ?, ?, ?, ?)",
       [usuarioId, nuevoEmail, token, expiracion.toISOString(), JSON.stringify(datos)],
       function(err) {
         if (err) {
           console.error("Error al insertar token:", err);
-          // Intentar crear la tabla si no existe
-          db.run(`
-            CREATE TABLE IF NOT EXISTS confirmacion_email (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              usuario_id INTEGER REFERENCES usuarios(id),
-              nuevo_email TEXT NOT NULL,
-              token TEXT UNIQUE NOT NULL,
-              datos TEXT,
-              expiracion DATETIME NOT NULL,
-              creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-          `, (createErr) => {
-            if (createErr) {
-              console.error(createErr);
-              return res.status(500).json({ error: "Error al procesar cambio de email" });
-            }
-
-            // Reintentar insert
-            db.run(
-              "INSERT INTO confirmacion_email (usuario_id, nuevo_email, token, expiracion, datos) VALUES (?, ?, ?, ?, ?)",
-              [usuarioId, nuevoEmail, token, expiracion.toISOString(), JSON.stringify(datos)],
-              function(err) {
-                if (err) {
-                  console.error(err);
-                  return res.status(500).json({ error: "Error al procesar cambio de email" });
-                }
-
-                res.json({
-                  success: true,
-                  message: "Email de confirmación enviado",
-                  token: token // Retornar token para desarrollo
-                });
-              }
-            );
-          });
-        } else {
-          res.json({
-            success: true,
-            message: "Email de confirmación enviado",
-            token: token // Retornar token para desarrollo
-          });
+          return res.status(500).json({ error: "Error al procesar cambio de email" });
         }
+
+        // El token viaja SOLO por correo, al email nuevo (demuestra que es suyo)
+        res.json({ success: true, message: "Email de confirmación enviado" });
+
+        enviarEmail(
+          nuevoEmail,
+          "Confirma tu nuevo email en DentalJobs",
+          plantilla(
+            "Confirma el cambio de email",
+            "Has pedido cambiar tu dirección de correo en DentalJobs a esta. Confírmalo pulsando el botón. Si no has sido tú, ignora este mensaje y tu email actual seguirá activo.",
+            `${urlFrontend()}#confirmar-email=${token}`,
+            "Confirmar nuevo email"
+          )
+        ).catch(e => console.error("Error al enviar confirmación de cambio de email:", e.message));
       }
     );
   });
@@ -372,7 +525,7 @@ app.get("/auth/mi-perfil", verifyToken, (req, res) => {
   const usuarioId = req.usuario.id;
 
   db.get(
-    "SELECT id, nombre, email, tipo, telefono, movil, direccion, codigo_postal, pais, ciudad, descripcion, anyos_experiencia, creado_en FROM usuarios WHERE id = ?",
+    "SELECT id, nombre, email, tipo, telefono, movil, direccion, codigo_postal, pais, ciudad, descripcion, anyos_experiencia, email_verificado, creado_en FROM usuarios WHERE id = ?",
     [usuarioId],
     (err, usuario) => {
       if (err) {
