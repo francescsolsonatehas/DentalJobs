@@ -1,0 +1,56 @@
+# Backup nocturno de la base de datos de Turso al repo privado dentaljobs-backups.
+# Retención: 14 días (por fecha en el nombre del archivo).
+#
+# Secrets necesarios en este repo:
+#   TURSO_DATABASE_URL, TURSO_AUTH_TOKEN  → acceso a la BD
+#   GH_SYNC_TOKEN                         → PAT con "Contents: read and write"
+#                                            sobre dentaljobs-backups
+name: Backup nocturno de la BD
+
+on:
+  schedule:
+    - cron: "15 3 * * *" # cada noche a las 03:15 UTC
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Instalar dependencias
+        run: npm ci --prefix backend
+
+      - name: Volcar la base de datos
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        run: node backend/backup-dump.js > "dentaljobs-$(date +%F).sql"
+
+      - name: Subir al repo privado de backups
+        env:
+          GH_SYNC_TOKEN: ${{ secrets.GH_SYNC_TOKEN }}
+        run: |
+          git clone --depth 1 "https://x-access-token:${GH_SYNC_TOKEN}@github.com/${GITHUB_REPOSITORY_OWNER}/dentaljobs-backups.git" backups
+          cp dentaljobs-*.sql backups/
+
+          cd backups
+          # Retención: borrar volcados con fecha anterior a hace 14 días
+          limite=$(date -d '14 days ago' +%F)
+          for f in dentaljobs-*.sql; do
+            fecha="${f#dentaljobs-}"; fecha="${fecha%.sql}"
+            if [[ "$fecha" < "$limite" ]]; then
+              rm -f "$f"
+              echo "retención: borrado $f"
+            fi
+          done
+
+          git config user.name "dentaljobs-bot"
+          git config user.email "dentaljobs-bot@users.noreply.github.com"
+          git add -A
+          git commit -m "Backup $(date +%F)" || echo "sin cambios que respaldar"
+          git push

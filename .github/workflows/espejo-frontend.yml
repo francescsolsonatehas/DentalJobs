@@ -1,0 +1,31 @@
+# Sincroniza la carpeta frontend/ al repositorio público espejo (dentaljobs-web),
+# desde el que se sirve GitHub Pages. El repo principal permanece privado.
+#
+# Requiere el secret GH_SYNC_TOKEN: un fine-grained PAT con permiso
+# "Contents: read and write" sobre el repo dentaljobs-web.
+name: Espejo del frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+  workflow_dispatch:
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publicar frontend en el repo espejo
+        env:
+          GH_SYNC_TOKEN: ${{ secrets.GH_SYNC_TOKEN }}
+        run: |
+          cd frontend
+          git init -b main
+          git config user.name "dentaljobs-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Sincronizar frontend desde el repo principal (${GITHUB_SHA::7})"
+          git push --force "https://x-access-token:${GH_SYNC_TOKEN}@github.com/${GITHUB_REPOSITORY_OWNER}/dentaljobs-web.git" main
