@@ -39,6 +39,68 @@ function verificarAdmin(req, res, next) {
   next();
 }
 
+// Dentistas cuya ciudad y especialidad coinciden con las ofertas activas de una clínica
+// (misma lógica que /stats/posibles-candidatos-lista/:empresa_id, reutilizada para el resumen semanal)
+function listarDentistasPotencialesParaClinica(empresaId, callback) {
+  db.all(
+    `WITH pub_esp AS (
+       SELECT pe.publicacion_id, pe.especialidad_id FROM publicacion_especialidades pe
+       UNION
+       SELECT p.id as publicacion_id, p.especialidad_id FROM publicaciones p
+       WHERE p.especialidad_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
+     )
+     SELECT DISTINCT s.id as publicacion_id, s.usuario_id, u.nombre, u.email, s.ciudad
+     FROM publicaciones s
+     INNER JOIN usuarios u ON s.usuario_id = u.id
+     WHERE s.tipo = 'solicitud' AND s.activo = 1
+     AND (
+       SELECT COUNT(*) FROM publicaciones o
+       WHERE o.usuario_id = ? AND o.tipo = 'oferta' AND o.activo = 1
+       AND (o.ciudad = s.ciudad OR s.ciudad LIKE '%' || o.ciudad || '%' OR o.ciudad LIKE '%' || s.ciudad || '%')
+       AND (
+         NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = o.id)
+         OR NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = s.id)
+         OR EXISTS (
+           SELECT 1 FROM pub_esp peo INNER JOIN pub_esp pes ON peo.especialidad_id = pes.especialidad_id
+           WHERE peo.publicacion_id = o.id AND pes.publicacion_id = s.id
+         )
+       )
+     ) > 0`,
+    [empresaId],
+    callback
+  );
+}
+
+// Clínicas cuya ciudad y especialidad coinciden con las solicitudes activas de un dentista
+// (misma lógica que /stats/clinicas-potenciales-lista/:usuario_id, reutilizada para el resumen semanal)
+function listarClinicasPotencialesParaDentista(usuarioId, callback) {
+  db.all(
+    `WITH pub_esp AS (
+       SELECT pe.publicacion_id, pe.especialidad_id FROM publicacion_especialidades pe
+       UNION
+       SELECT p.id as publicacion_id, p.especialidad_id FROM publicaciones p
+       WHERE p.especialidad_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
+     )
+     SELECT DISTINCT s.id as publicacion_id, o.usuario_id, u.nombre, u.email, o.ciudad
+     FROM publicaciones o
+     INNER JOIN usuarios u ON o.usuario_id = u.id
+     INNER JOIN publicaciones s ON s.usuario_id = ? AND s.tipo = 'solicitud' AND s.activo = 1 AND o.ciudad = s.ciudad
+     WHERE o.tipo = 'oferta' AND o.activo = 1
+     AND (
+       NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = o.id)
+       OR NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = s.id)
+       OR EXISTS (
+         SELECT 1 FROM pub_esp peo INNER JOIN pub_esp pes ON peo.especialidad_id = pes.especialidad_id
+         WHERE peo.publicacion_id = o.id AND pes.publicacion_id = s.id
+       )
+     )`,
+    [usuarioId],
+    callback
+  );
+}
+
 // Catálogos fijos (sin tabla propia, como contrato/jornada)
 const EQUIPAMIENTO_CATALOGO = ["CBCT / TAC 3D", "CAD-CAM", "Microscopio", "Escáner intraoral", "Láser dental", "Sedación consciente"];
 const CERTIFICACIONES_CATALOGO = ["Invisalign", "Implantología avanzada", "Ortodoncia lingual", "Estética dental avanzada", "Sedación consciente", "Cirugía guiada"];
@@ -1199,6 +1261,53 @@ app.put("/admin/verificaciones/:usuarioId", verificarAdmin, (req, res) => {
         );
       }
     );
+  });
+});
+
+/* ===========================
+   🔹 MATCHING PROACTIVO (resumen semanal por email)
+=========================== */
+
+// Envía a cada clínica y dentista un resumen de sus coincidencias activas
+// (misma ciudad + especialidad). Pensado para dispararse una vez por semana
+// desde un cron externo (GitHub Actions), ya que Render free no trae cron propio.
+app.post("/admin/enviar-resumen-semanal", verificarAdmin, (req, res) => {
+  // Responder ya: con muchos usuarios el envío puede tardar más de lo que conviene mantener la petición abierta
+  res.json({ success: true, mensaje: "Envío de resúmenes semanales en curso" });
+
+  db.all("SELECT id, tipo FROM usuarios WHERE tipo IN ('clinica', 'dentista')", (err, usuarios) => {
+    if (err || !usuarios) {
+      console.error("Error al listar usuarios para el resumen semanal:", err);
+      return;
+    }
+
+    usuarios.forEach(u => {
+      if (u.tipo === 'clinica') {
+        listarDentistasPotencialesParaClinica(u.id, (err, candidatos) => {
+          if (err) return console.error("Error al calcular dentistas potenciales:", err);
+          if (!candidatos || candidatos.length === 0) return;
+          notificarUsuario(
+            u.id,
+            `🔍 ${candidatos.length} dentista${candidatos.length === 1 ? "" : "s"} que encajan con tus ofertas`,
+            "Resumen semanal de coincidencias",
+            `Esta semana hemos encontrado ${candidatos.length} dentista${candidatos.length === 1 ? "" : "s"} cuya ciudad y especialidad coinciden con tus ofertas activas. Entra en DentalJobs para verlos y contactar.`,
+            "Ver dentistas potenciales"
+          );
+        });
+      } else {
+        listarClinicasPotencialesParaDentista(u.id, (err, clinicas) => {
+          if (err) return console.error("Error al calcular clínicas potenciales:", err);
+          if (!clinicas || clinicas.length === 0) return;
+          notificarUsuario(
+            u.id,
+            `🔍 ${clinicas.length} clínica${clinicas.length === 1 ? "" : "s"} que encajan contigo`,
+            "Resumen semanal de coincidencias",
+            `Esta semana hemos encontrado ${clinicas.length} clínica${clinicas.length === 1 ? "" : "s"} que buscan un perfil como el tuyo en tu ciudad y especialidad. Entra en DentalJobs para verlas y contactar.`,
+            "Ver clínicas potenciales"
+          );
+        });
+      }
+    });
   });
 });
 

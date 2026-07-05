@@ -1,0 +1,28 @@
+# Dispara semanalmente el resumen de coincidencias (matching proactivo) por email:
+# a cada clínica y dentista con publicaciones activas que ya tengan candidatos
+# potenciales (misma ciudad + especialidad) se le envía un aviso por correo.
+#
+# Render free no trae cron propio, así que el disparo se hace desde aquí con
+# una simple petición HTTP al endpoint protegido /admin/enviar-resumen-semanal.
+#
+# Secrets necesarios en este repo:
+#   BACKEND_URL   → URL pública del backend en Render (ej. https://dentaljobs.onrender.com)
+#   ADMIN_TOKEN   → el mismo valor que ADMIN_TOKEN en el backend
+name: Resumen semanal de coincidencias
+
+on:
+  schedule:
+    - cron: "0 7 * * 1" # cada lunes a las 07:00 UTC
+  workflow_dispatch:
+
+jobs:
+  enviar-resumen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar al endpoint de resumen semanal
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          curl -sf -X POST "${BACKEND_URL%/}/admin/enviar-resumen-semanal" \
+            -H "X-Admin-Token: ${ADMIN_TOKEN}"

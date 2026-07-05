@@ -112,6 +112,11 @@ Luego accede a `http://localhost:8000` (o el puerto que configure)
 ### Exportación
 - `GET /candidaturas/export.csv` — Exportar postulaciones recibidas o enviadas (`?tipo=recibidas|enviadas`)
 
+### Administración
+Requieren la cabecera `X-Admin-Token` con el valor de `ADMIN_TOKEN` (ver `.env.example`).
+- `GET /admin/verificaciones-pendientes` / `POST /admin/verificaciones/:id` — Revisar y aprobar/rechazar la verificación manual del nº de colegiado
+- `POST /admin/enviar-resumen-semanal` — Envía por email, a cada clínica y dentista, un resumen de las coincidencias activas (misma ciudad + especialidad) con sus publicaciones. Pensado para dispararse una vez por semana desde `.github/workflows/resumen-semanal.yml`
+
 ## Desarrollo futuro
 
 - [ ] Búsqueda fulltext (nombre de clínica, especialista)
