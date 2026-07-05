@@ -4046,7 +4046,9 @@ app.get("/salud", (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 if (require.main === module) {
-  const server = app.listen(PORT, () => {
+  // Render escanea el puerto por IPv4; sin indicar el host, algunas
+  // plataformas de contenedores solo abren IPv6 y el escaneo nunca lo detecta.
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
   });
 
