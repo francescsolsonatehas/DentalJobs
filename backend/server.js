@@ -1164,6 +1164,9 @@ app.get("/publicaciones", (req, res) => {
     query += " ORDER BY p.salario_min DESC, p.creado_en DESC";
   } else if (sort === 'ciudad') {
     query += " ORDER BY p.ciudad ASC, p.creado_en DESC";
+  } else if (sort === 'fecha') {
+    // Para suplencias: las urgentes primero, luego por fecha de inicio más próxima
+    query += " ORDER BY p.urgente DESC, p.fecha_desde ASC, p.creado_en DESC";
   } else if (usarRelevancia) {
     query += " ORDER BY relevancia_score DESC, p.creado_en DESC";
   } else {
@@ -1227,7 +1230,7 @@ app.get("/publicaciones/usuario/:usuario_id/candidatos", verifyToken, (req, res)
     `SELECT p.id as publicacion_id, COUNT(c.id) as candidatos_count
      FROM publicaciones p
      LEFT JOIN candidaturas c ON p.id = c.publicacion_id
-     WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1
+     WHERE p.usuario_id = ? AND p.tipo IN ('oferta', 'suplencia') AND p.activo = 1
      GROUP BY p.id`,
     [usuario_id],
     (err, ofertas) => {
@@ -1291,16 +1294,21 @@ function generarAlertasParaPublicacion(publicacionId, tipo, ciudad, especialidad
 }
 
 app.post("/publicaciones", verifyToken, (req, res) => {
-  const { tipo, descripcion, ciudad, especialidades, contrato, jornada, salario, salarioDesde, salarioHasta, experiencia, nombre_contacto, email_contacto, telefono_contacto, sede_id } = req.body;
+  const { tipo, descripcion, ciudad, especialidades, contrato, jornada, salario, salarioDesde, salarioHasta, experiencia, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente } = req.body;
 
   if (!tipo || !ciudad) {
     return res.status(400).json({ error: "Faltan datos obligatorios" });
   }
 
-  // Validar tipo de usuario vs tipo de publicación
+  // Validar tipo de usuario vs tipo de publicación (las clínicas pueden crear ofertas fijas o suplencias puntuales)
   const tipoUsuario = req.usuario.tipo;
-  if ((tipoUsuario === 'clinica' && tipo !== 'oferta') || (tipoUsuario === 'dentista' && tipo !== 'solicitud')) {
+  const tiposPermitidos = tipoUsuario === 'clinica' ? ['oferta', 'suplencia'] : ['solicitud'];
+  if (!tiposPermitidos.includes(tipo)) {
     return res.status(403).json({ error: "No puedes crear este tipo de publicación" });
+  }
+
+  if (tipo === 'suplencia' && !fecha_desde) {
+    return res.status(400).json({ error: "Las suplencias necesitan al menos una fecha de inicio" });
   }
 
   // Salario estructurado (campos numéricos) con retrocompatibilidad con el texto libre
@@ -1313,9 +1321,9 @@ app.post("/publicaciones", verifyToken, (req, res) => {
   const insertarPublicacion = (sedeIdValidada) => {
     db.run(
       `INSERT INTO publicaciones
-       (tipo, descripcion, ciudad, especialidad_id, contrato, jornada, salario, salario_min, salario_max, experiencia_minima, usuario_id, nombre_contacto, email_contacto, telefono_contacto, sede_id)
-       VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [tipo, descripcion, ciudad, contrato || null, jornada || null, salario || null, salarioMin, hastaNum, experienciaMinima, req.usuario.id, nombre_contacto, email_contacto, telefono_contacto, sedeIdValidada],
+       (tipo, descripcion, ciudad, especialidad_id, contrato, jornada, salario, salario_min, salario_max, experiencia_minima, usuario_id, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente)
+       VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [tipo, descripcion, ciudad, contrato || null, jornada || null, salario || null, salarioMin, hastaNum, experienciaMinima, req.usuario.id, nombre_contacto, email_contacto, telefono_contacto, sedeIdValidada, tipo === 'suplencia' ? (fecha_desde || null) : null, tipo === 'suplencia' ? (fecha_hasta || null) : null, tipo === 'suplencia' && urgente ? 1 : 0],
       function(err) {
         if (err) {
           console.error(err);
@@ -3213,7 +3221,7 @@ app.post("/plantillas", verifyToken, (req, res) => {
   if (!nombre || !nombre.trim()) {
     return res.status(400).json({ error: "La plantilla necesita un nombre" });
   }
-  if (!["oferta", "solicitud"].includes(tipo)) {
+  if (!["oferta", "solicitud", "suplencia"].includes(tipo)) {
     return res.status(400).json({ error: "Tipo de plantilla inválido" });
   }
 
@@ -3412,7 +3420,7 @@ app.post("/favoritos", verifyToken, (req, res) => {
     if (!pub) {
       return res.status(404).json({ error: "Publicación no encontrada" });
     }
-    if ((tipoUsuario === 'clinica' && pub.tipo !== 'solicitud') || (tipoUsuario === 'dentista' && pub.tipo !== 'oferta')) {
+    if ((tipoUsuario === 'clinica' && pub.tipo !== 'solicitud') || (tipoUsuario === 'dentista' && !['oferta', 'suplencia'].includes(pub.tipo))) {
       return res.status(403).json({ error: "No puedes guardar este tipo de publicación en favoritos" });
     }
 
@@ -3580,7 +3588,7 @@ app.get("/oferta/:id", (req, res) => {
     `SELECT p.*, u.nombre as clinica_nombre, u.id as clinica_id
      FROM publicaciones p
      LEFT JOIN usuarios u ON p.usuario_id = u.id
-     WHERE p.id = ? AND p.activo = 1 AND p.tipo = 'oferta'`,
+     WHERE p.id = ? AND p.activo = 1 AND p.tipo IN ('oferta', 'suplencia')`,
     [req.params.id],
     (err, pub) => {
       if (err) {
@@ -3601,9 +3609,13 @@ app.get("/oferta/:id", (req, res) => {
         [pub.id],
         (err, esps) => {
           const especialidades = (esps || []).map(e => e.nombre);
-          const titulo = `${especialidades[0] || "Dentista"} en ${pub.ciudad} — oferta de empleo dental`;
+          const esSuplencia = pub.tipo === 'suplencia';
+          const titulo = esSuplencia
+            ? `${pub.urgente ? "🚨 Urgente: " : ""}Suplencia de ${especialidades[0] || "dentista"} en ${pub.ciudad}`
+            : `${especialidades[0] || "Dentista"} en ${pub.ciudad} — oferta de empleo dental`;
           const descripcionMeta = (pub.descripcion || "").slice(0, 155).replace(/\s+/g, " ");
           const urlApp = escaparHtml(urlFrontend());
+          const rangoFechas = [pub.fecha_desde, pub.fecha_hasta].filter(Boolean).join(" — ");
 
           const detalle = (etiqueta, valor) => valor
             ? `<div style="padding: 0.6rem 0; border-bottom: 1px solid #e5e7eb;"><strong style="color: #0f4c75;">${etiqueta}:</strong> ${escaparHtml(valor)}</div>`
@@ -3624,8 +3636,10 @@ app.get("/oferta/:id", (req, res) => {
   <div style="max-width: 640px; margin: 0 auto; padding: 2rem 1rem;">
     <p style="color: #0f4c75; font-weight: bold; font-size: 1.3rem;">🦷 DentalJobs</p>
     <div style="background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+      ${esSuplencia && pub.urgente ? `<p style="display: inline-block; background: #fef2f2; color: #b91c1c; padding: 0.3rem 0.8rem; border-radius: 999px; font-weight: bold; font-size: 0.85rem; margin: 0 0 1rem 0;">🚨 Urgente</p>` : ""}
       <h1 style="color: #0f4c75; margin-top: 0;">${escaparHtml(titulo)}</h1>
       ${pub.clinica_nombre ? `<p style="color: #6b7280;">Publicada por <strong>${escaparHtml(pub.clinica_nombre)}</strong></p>` : ""}
+      ${esSuplencia ? detalle("🗓️ Fechas", rangoFechas) : ""}
       ${detalle("📍 Ciudad", pub.ciudad)}
       ${detalle("🦷 Especialidades", especialidades.join(", "))}
       ${detalle("📋 Contrato", pub.contrato)}
@@ -3651,10 +3665,10 @@ app.get("/oferta/:id", (req, res) => {
   );
 });
 
-// Sitemap con todas las ofertas activas (para buscadores)
+// Sitemap con todas las ofertas y suplencias activas (para buscadores)
 app.get("/sitemap.xml", (req, res) => {
   db.all(
-    "SELECT id, creado_en FROM publicaciones WHERE activo = 1 AND tipo = 'oferta' ORDER BY id",
+    "SELECT id, creado_en FROM publicaciones WHERE activo = 1 AND tipo IN ('oferta', 'suplencia') ORDER BY id",
     (err, ofertas) => {
       if (err) {
         console.error(err);

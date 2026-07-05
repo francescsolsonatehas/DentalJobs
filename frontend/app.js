@@ -514,9 +514,12 @@ const app = {
 
       // Determinar tipo según modo
       let tipo;
-      if (estadoApp.filtros.soloMias) {
-        // Mis publicaciones: empresas ven sus OFERTAS, candidatos ven sus SOLICITUDES
-        tipo = estadoApp.tipoUsuario === 'clinica' ? 'oferta' : 'solicitud';
+      if (estadoApp.filtros.verSuplencias) {
+        // Suplencias y turnos sueltos (solo dentistas navegando)
+        tipo = 'suplencia';
+      } else if (estadoApp.filtros.soloMias) {
+        // Mis publicaciones: empresas ven sus OFERTAS y SUPLENCIAS (sin filtro de tipo), candidatos ven sus SOLICITUDES
+        tipo = estadoApp.tipoUsuario === 'clinica' ? null : 'solicitud';
       } else {
         // Ver todas: empresas ven SOLICITUDES, candidatos ven OFERTAS
         tipo = estadoApp.tipoUsuario === 'clinica' ? 'solicitud' : 'oferta';
@@ -531,7 +534,7 @@ const app = {
       const experienciaMin = document.getElementById("filterExperienciaMin").value;
       const orden = document.getElementById("filterOrden").value;
 
-      estadoApp.filtros = { tipo, q, ciudad, especialidad, contrato, jornada, salarioMin, experienciaMin, orden, soloMias: estadoApp.filtros.soloMias };
+      estadoApp.filtros = { tipo, q, ciudad, especialidad, contrato, jornada, salarioMin, experienciaMin, orden, soloMias: estadoApp.filtros.soloMias, verSuplencias: estadoApp.filtros.verSuplencias };
 
       let url = "/publicaciones?";
       if (tipo) url += `tipo=${tipo}&`;
@@ -548,6 +551,9 @@ const app = {
         if (orden && orden !== 'recientes') {
           url += `sort=${orden}&`;
           if (orden === 'relevancia' && estadoApp.usuario) url += `paraUsuarioId=${estadoApp.usuario.id}&`;
+        } else if (estadoApp.filtros.verSuplencias) {
+          // Suplencias: urgentes primero y luego por fecha de inicio más próxima
+          url += `sort=fecha&`;
         } else if (
           (estadoApp.tipoUsuario === 'clinica' && tipo === 'solicitud') ||
           (estadoApp.tipoUsuario === 'dentista' && tipo === 'oferta')
@@ -636,6 +642,24 @@ const app = {
           telefono_contacto: document.getElementById("ofertaTelefonoContacto").value || null,
           sede_id: document.getElementById("ofertaSede")?.value || null
         };
+      } else if (tipo === "suplencia") {
+        const especialidadesCheckboxes = document.querySelectorAll('#suplenciaEspecialidadesContainer input[type="checkbox"]:checked');
+        const especialidades = Array.from(especialidadesCheckboxes).map(cb => parseInt(cb.value));
+
+        formData = {
+          tipo: "suplencia",
+          descripcion: document.getElementById("suplenciaDescripcion").value,
+          ciudad: document.getElementById("suplenciaCiudad").value,
+          especialidades: especialidades,
+          salario: document.getElementById("suplenciaSalario").value || null,
+          fecha_desde: document.getElementById("suplenciaFechaDesde").value || null,
+          fecha_hasta: document.getElementById("suplenciaFechaHasta").value || null,
+          urgente: document.getElementById("suplenciaUrgente").checked,
+          nombre_contacto: document.getElementById("suplenciaNombreContacto").value,
+          email_contacto: document.getElementById("suplenciaEmailContacto").value,
+          telefono_contacto: document.getElementById("suplenciaTelefonoContacto").value || null,
+          sede_id: document.getElementById("suplenciaSede")?.value || null
+        };
       } else {
         // Obtener especialidades seleccionadas
         const especialidadesCheckboxes = document.querySelectorAll('#solicitudEspecialidadesContainer input[type="checkbox"]:checked');
@@ -659,6 +683,11 @@ const app = {
 
       if (!formData.ciudad || !formData.descripcion || !formData.nombre_contacto || !formData.email_contacto) {
         utils.mostrarAlerta("Por favor completa todos los campos obligatorios", "error");
+        return;
+      }
+
+      if (tipo === "suplencia" && !formData.fecha_desde) {
+        utils.mostrarAlerta("Indica al menos la fecha de inicio de la suplencia", "error");
         return;
       }
 
@@ -686,11 +715,7 @@ const app = {
         app.publicaciones.cargar();
         app.ui.actualizarStats();
 
-        if (tipo === "oferta") {
-          document.getElementById("tab-oferta").querySelector("form").reset();
-        } else {
-          document.getElementById("tab-solicitud").querySelector("form").reset();
-        }
+        document.getElementById(`tab-${tipo}`).querySelector("form").reset();
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -775,6 +800,7 @@ const app = {
   filtros: {
     mostrarTodas(btn) {
       estadoApp.filtros.soloMias = false;
+      estadoApp.filtros.verSuplencias = false;
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -792,6 +818,7 @@ const app = {
     mostrarMias(btn) {
       estadoApp.filtros.soloMias = true;
       estadoApp.filtros.contactadas = false;
+      estadoApp.filtros.verSuplencias = false;
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -809,6 +836,7 @@ const app = {
     mostrarMisPublicaciones(btn) {
       estadoApp.filtros.soloMias = true;
       estadoApp.filtros.contactadas = false;
+      estadoApp.filtros.verSuplencias = false;
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -825,6 +853,7 @@ const app = {
     mostrarContactadas(btn) {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = true;
+      estadoApp.filtros.verSuplencias = false;
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -837,6 +866,7 @@ const app = {
     mostrarFavoritos(btn) {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
+      estadoApp.filtros.verSuplencias = false;
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -849,6 +879,7 @@ const app = {
     mostrarKanban(btn) {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
+      estadoApp.filtros.verSuplencias = false;
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -857,6 +888,20 @@ const app = {
       filtersTitle.style.display = "block";
 
       app.kanban.render();
+    },
+
+    mostrarSuplencias(btn) {
+      estadoApp.filtros.soloMias = false;
+      estadoApp.filtros.contactadas = false;
+      estadoApp.filtros.verSuplencias = true;
+      document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
+
+      const filtersTitle = document.getElementById("filtrosTitle");
+      filtersTitle.textContent = "🚨 Suplencias y turnos sueltos";
+      filtersTitle.style.display = "block";
+
+      app.publicaciones.cargar();
     },
 
     mostrarMisPostulaciones(btn) {
@@ -968,21 +1013,32 @@ const app = {
 
       // Mostrar/ocultar tabs según tipo de usuario
       if (estadoApp.tipoUsuario === 'clinica') {
-        // Empresa solo ve tab de Oferta
+        // Empresa elige entre Oferta fija y Suplencia
+        document.getElementById("tabsPublicar").style.display = "flex";
         document.getElementById("tabBtnOferta").style.display = "inline-block";
+        document.getElementById("tabBtnSuplencia").style.display = "inline-block";
         document.getElementById("tabBtnSolicitud").style.display = "none";
         document.getElementById("tab-oferta").classList.add("active");
+        document.getElementById("tab-suplencia").classList.remove("active");
         document.getElementById("tab-solicitud").classList.remove("active");
         document.getElementById("tabBtnOferta").classList.add("active");
+        document.getElementById("tabBtnSuplencia").classList.remove("active");
         app.publicaciones.cargarEspecialidadesPublicar('oferta');
+        app.publicaciones.cargarEspecialidadesPublicar('suplencia');
         app.plantillas.cargar('oferta');
-        app.sedes.cargarEnSelector();
+        app.plantillas.cargar('suplencia');
+        app.sedes.cargarEnSelector('oferta');
+        app.sedes.cargarEnSelector('suplencia');
+        document.getElementById("modalPublicarTitle").textContent = "Publicar nueva oferta";
       } else {
         // Candidato solo ve tab de Solicitud
+        document.getElementById("tabsPublicar").style.display = "none";
         document.getElementById("tabBtnOferta").style.display = "none";
+        document.getElementById("tabBtnSuplencia").style.display = "none";
         document.getElementById("tabBtnSolicitud").style.display = "inline-block";
         document.getElementById("tab-solicitud").classList.add("active");
         document.getElementById("tab-oferta").classList.remove("active");
+        document.getElementById("tab-suplencia").classList.remove("active");
         document.getElementById("tabBtnSolicitud").classList.add("active");
         app.publicaciones.cargarEspecialidadesPublicar('solicitud');
         app.plantillas.cargar('solicitud');
@@ -1026,6 +1082,9 @@ const app = {
 
       document.getElementById(`tab-${tab}`).classList.add("active");
       event.target.classList.add("active");
+
+      const titulos = { oferta: "Publicar nueva oferta", suplencia: "🚨 Publicar suplencia / turno suelto", solicitud: "Publicar nueva solicitud" };
+      document.getElementById("modalPublicarTitle").textContent = titulos[tab] || "Publicar";
     },
 
     abrirDetalleConManejo(publicacion) {
@@ -1064,8 +1123,14 @@ const app = {
             </tr>
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">Tipo:</td>
-              <td style="padding: 0.8rem;">${publicacion.tipo === 'oferta' ? '📋 Oferta' : '🔍 Solicitud'}</td>
+              <td style="padding: 0.8rem;">${publicacion.tipo === 'oferta' ? '📋 Oferta' : publicacion.tipo === 'suplencia' ? `🚨 Suplencia${publicacion.urgente ? ' (urgente)' : ''}` : '🔍 Solicitud'}</td>
             </tr>
+            ${publicacion.tipo === 'suplencia' && (publicacion.fecha_desde || publicacion.fecha_hasta) ? `
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🗓️ Fechas:</td>
+              <td style="padding: 0.8rem;">${utils.escapeHtml([publicacion.fecha_desde, publicacion.fecha_hasta].filter(Boolean).join(' → '))}</td>
+            </tr>
+            ` : ''}
             ${publicacion.usuario_nombre ? `
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">Publicado por:</td>
@@ -1161,7 +1226,7 @@ const app = {
       }
 
       document.getElementById("detalleBody").innerHTML = html;
-      document.getElementById("detalleTitle").textContent = publicacion.tipo === "oferta" ? "Oferta de trabajo" : "Solicitud de empleo";
+      document.getElementById("detalleTitle").textContent = publicacion.tipo === "oferta" ? "Oferta de trabajo" : publicacion.tipo === "suplencia" ? "Suplencia / turno suelto" : "Solicitud de empleo";
 
       // Ocultar sección de contacto si es propia publicación
       const detalleContacto = document.getElementById("detalleContacto");
@@ -3793,6 +3858,7 @@ const app = {
         document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
         document.getElementById("btnKanban").style.display = "none";
+        document.getElementById("btnSuplencias").style.display = "none";
         btnTodas.textContent = "Dentistas";
       } else {
         // Dentista
@@ -3808,6 +3874,7 @@ const app = {
         document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
         document.getElementById("btnKanban").style.display = "inline-block";
+        document.getElementById("btnSuplencias").style.display = "inline-block";
         btnTodas.textContent = "Clínicas";
       }
 
@@ -3982,11 +4049,16 @@ const app = {
         }
         const generatedTitle = pub.tipo === 'solicitud'
           ? `${utils.escapeHtml(pub.ciudad)} - ${pub.usuario_nombre || 'Dentista'}`
-          : `${utils.escapeHtml(pub.ciudad)} - ${pub.usuario_nombre || 'Clínica'}`;
+          : pub.tipo === 'suplencia'
+            ? `Suplencia en ${utils.escapeHtml(pub.ciudad)} - ${pub.usuario_nombre || 'Clínica'}`
+            : `${utils.escapeHtml(pub.ciudad)} - ${pub.usuario_nombre || 'Clínica'}`;
         let tipoBadge, tipoClase;
         if (pub.tipo === "oferta") {
           tipoBadge = "";
           tipoClase = "type-oferta";
+        } else if (pub.tipo === "suplencia") {
+          tipoBadge = pub.urgente ? "🚨 Urgente" : "🚨 Suplencia";
+          tipoClase = "type-suplencia";
         } else {
           // tipo: 'solicitud' (dentistas)
           tipoBadge = "";
@@ -4014,7 +4086,7 @@ const app = {
           <div class="card ${tipoClase}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
               ${tipoBadge ? `<span class="card-type ${tipoClase}">${tipoBadge}</span>` : "<span></span>"}
-              ${estadoApp.usuario && ((estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'solicitud') || (estadoApp.tipoUsuario === 'dentista' && pub.tipo === 'oferta')) ? `<button onclick="app.favoritos.toggle(${pub.id}, this)" data-favorito="${esFavorito}" style="background: none; border: none; cursor: pointer; font-size: 1.3rem; padding: 0;" title="${esFavorito ? 'Quitar de favoritos' : 'Guardar en favoritos'}">${esFavorito ? '⭐' : '☆'}</button>` : ''}
+              ${estadoApp.usuario && ((estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'solicitud') || (estadoApp.tipoUsuario === 'dentista' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia'))) ? `<button onclick="app.favoritos.toggle(${pub.id}, this)" data-favorito="${esFavorito}" style="background: none; border: none; cursor: pointer; font-size: 1.3rem; padding: 0;" title="${esFavorito ? 'Quitar de favoritos' : 'Guardar en favoritos'}">${esFavorito ? '⭐' : '☆'}</button>` : ''}
             </div>
             <h3>${utils.escapeHtml(generatedTitle)}</h3>
             <div class="card-details">
@@ -4022,6 +4094,7 @@ const app = {
                 <span class="detail-icon">🦷</span>
                 <span>${especialidadesText || 'Sin especialidades'}</span>
               </div>
+              ${pub.tipo === 'suplencia' && (pub.fecha_desde || pub.fecha_hasta) ? `<div class="detail"><span class="detail-icon">🗓️</span><span>${utils.escapeHtml([pub.fecha_desde, pub.fecha_hasta].filter(Boolean).join(' → '))}</span></div>` : ""}
               ${pub.contrato ? `<div class="detail"><span class="detail-icon">📋</span><span>${utils.escapeHtml(pub.contrato)}</span></div>` : ""}
               ${pub.jornada ? `<div class="detail"><span class="detail-icon">⏰</span><span>${utils.escapeHtml(pub.jornada)}</span></div>` : ""}
               ${pub.salario ? `<div class="detail"><span class="detail-icon">💰</span><span>${utils.escapeHtml(pub.salario)}</span></div>` : ""}
@@ -4035,14 +4108,14 @@ const app = {
               <button class="btn-primary" onclick="app.modal.abrirDetalleConManejo(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
               ${(() => {
                 if (estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id)) {
-                  return `${pub.tipo === 'oferta' ? `<button class="btn-outline" onclick="app.publicaciones.copiarEnlacePublico(${pub.id})" style="flex: 1;" title="Copiar el enlace público de esta oferta">🔗 Compartir</button>` : ''}
+                  return `${(pub.tipo === 'oferta' || pub.tipo === 'suplencia') ? `<button class="btn-outline" onclick="app.publicaciones.copiarEnlacePublico(${pub.id})" style="flex: 1;" title="Copiar el enlace público de esta publicación">🔗 Compartir</button>` : ''}
                           <button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">📊 Estadísticas</button>
                           <button class="btn-danger" onclick="app.publicaciones.retirarPublicacion(${pub.id})" style="flex: 1;">🗑️ Retirar</button>`;
                 }
                 return '';
               })()}
               ${(() => {
-                if (estadoApp.tipoUsuario === 'dentista' && pub.tipo === 'oferta') {
+                if (estadoApp.tipoUsuario === 'dentista' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia')) {
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
                   if (yaPostulada) {
                     const estadoText = yaPostulada.estado === 'aceptada' ? 'Aceptada' : 'Pendiente';
@@ -4067,7 +4140,7 @@ const app = {
                 }
                 return '';
               })()}
-              ${estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'oferta' && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">👥 Dentistas (${candidatosPorOferta[pub.id]})</button>` : ''}
+              ${estadoApp.tipoUsuario === 'clinica' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia') && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">👥 Dentistas (${candidatosPorOferta[pub.id]})</button>` : ''}
               ${interesadosHTML}
             </div>
           </div>
@@ -4539,9 +4612,10 @@ const app = {
     },
 
     // Rellena el selector de sedes del formulario de oferta
-    async cargarEnSelector() {
-      const grupo = document.getElementById("ofertaSedeGroup");
-      const select = document.getElementById("ofertaSede");
+    // prefijo: 'oferta' o 'suplencia' (ambas comparten el mismo patrón de ids)
+    async cargarEnSelector(prefijo = 'oferta') {
+      const grupo = document.getElementById(`${prefijo}SedeGroup`);
+      const select = document.getElementById(`${prefijo}Sede`);
       if (!grupo || !select) return;
 
       try {
@@ -4562,12 +4636,12 @@ const app = {
       }
     },
 
-    // Al elegir sede, rellenar la ciudad de la oferta automáticamente
-    aplicarAPublicacion() {
-      const select = document.getElementById("ofertaSede");
+    // Al elegir sede, rellenar la ciudad de la publicación automáticamente
+    aplicarAPublicacion(prefijo = 'oferta') {
+      const select = document.getElementById(`${prefijo}Sede`);
       const opcion = select.options[select.selectedIndex];
       if (opcion && opcion.dataset.ciudad) {
-        document.getElementById("ofertaCiudad").value = opcion.dataset.ciudad;
+        document.getElementById(`${prefijo}Ciudad`).value = opcion.dataset.ciudad;
       }
     }
   },

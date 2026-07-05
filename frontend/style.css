@@ -707,6 +707,10 @@ input:focus, select:focus {
   border-top-color: var(--secondary);
 }
 
+.card.type-suplencia {
+  border-top-color: #ef4444;
+}
+
 .card:hover {
   transform: translateY(-6px);
   box-shadow: 0 12px 30px rgba(0,0,0,0.12);
@@ -738,6 +742,11 @@ input:focus, select:focus {
 .type-solicitud {
   background: rgba(46, 196, 182, 0.1);
   color: var(--secondary);
+}
+
+.type-suplencia {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 .card h3 {

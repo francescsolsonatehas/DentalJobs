@@ -184,6 +184,7 @@
                 <button id="btnContactadas" onclick="app.filtros.mostrarContactadas(this)" style="display: none;">Contactadas</button>
                 <button id="btnFavoritos" onclick="app.filtros.mostrarFavoritos(this)" style="display: none;">⭐ Favoritos</button>
                 <button id="btnKanban" onclick="app.filtros.mostrarKanban(this)" style="display: none;">📌 Mis Postulaciones</button>
+                <button id="btnSuplencias" onclick="app.filtros.mostrarSuplencias(this)" style="display: none;">🚨 Suplencias</button>
                 <button id="btnMisPostulacionesDentistas" onclick="app.filtros.mostrarMisPostulacionesDentistas(this)" style="display: none;">Mis Postulaciones a Dentistas</button>
                 <button id="btnMisPostulacionesDentistasAceptadas" onclick="app.filtros.mostrarMisPostulacionesDentistasAceptadas(this)" style="display: none;">Mis Postulaciones a Dentistas Aceptadas</button>
             </div>
@@ -264,12 +265,13 @@
     <div id="modalPublicar" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Publicar nueva oferta</h2>
+                <h2 id="modalPublicarTitle">Publicar nueva oferta</h2>
                 <button class="close-btn" onclick="app.modal.cerrarPublicar()">✕</button>
             </div>
 
-            <div class="tabs" style="display: none;">
-                <button class="tab-btn active" id="tabBtnOferta" onclick="app.modal.switchTab('oferta')"></button>
+            <div class="tabs" id="tabsPublicar" style="display: none;">
+                <button class="tab-btn active" id="tabBtnOferta" onclick="app.modal.switchTab('oferta')">Oferta fija</button>
+                <button class="tab-btn" id="tabBtnSuplencia" onclick="app.modal.switchTab('suplencia')" style="display: none;">🚨 Suplencia</button>
                 <button class="tab-btn" id="tabBtnSolicitud" onclick="app.modal.switchTab('solicitud')"></button>
             </div>
 
@@ -423,6 +425,70 @@
                         <input id="solicitudTelefonoContacto" type="tel" placeholder="+34 xxx xxx xxx">
                     </div>
                     <button type="submit" class="btn-primary" style="width: 100%;">Publicar solicitud</button>
+                </form>
+            </div>
+
+            <!-- Tab: Suplencia / turno suelto -->
+            <div id="tab-suplencia" class="tab-content">
+                <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 0.9rem 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                    <p style="margin: 0; font-size: 0.85rem; color: #7f1d1d;">Para cubrir una baja, vacaciones o un día suelto. Se muestra en la sección de Suplencias, donde los dentistas buscan disponibilidad inmediata.</p>
+                </div>
+                <form onsubmit="event.preventDefault(); app.publicaciones.crear('suplencia');">
+                    <div class="form-group" id="suplenciaSedeGroup" style="display: none;">
+                        <label for="suplenciaSede">Sede</label>
+                        <select id="suplenciaSede" onchange="app.sedes.aplicarAPublicacion('suplencia')">
+                            <option value="">Sin sede específica…</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="suplenciaCiudad">Ciudad *</label>
+                        <input id="suplenciaCiudad" type="text" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Especialidades</label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.5rem;">
+                          <input type="checkbox" id="suplenciaMarcarTodas" onchange="app.publicaciones.marcarTodasEspecialidades('suplencia')">
+                          <strong>Marcar todas</strong>
+                        </label>
+                        <div id="suplenciaEspecialidadesContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                          <!-- Se llenarán dinámicamente -->
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label for="suplenciaFechaDesde">Desde *</label>
+                            <input id="suplenciaFechaDesde" type="date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="suplenciaFechaHasta">Hasta (vacío = día suelto)</label>
+                            <input id="suplenciaFechaHasta" type="date">
+                        </div>
+                    </div>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.8rem;">
+                        <input type="checkbox" id="suplenciaUrgente">
+                        🚨 Marcar como urgente
+                    </label>
+                    <div class="form-group">
+                        <label for="suplenciaSalario">Retribución</label>
+                        <input id="suplenciaSalario" type="text" placeholder="Ej: 250€/día, o 35% facturación">
+                    </div>
+                    <div class="form-group">
+                        <label for="suplenciaDescripcion">Descripción *</label>
+                        <textarea id="suplenciaDescripcion" required placeholder="Motivo de la suplencia, horario, equipo disponible..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="suplenciaNombreContacto">Nombre de clínica/contacto *</label>
+                        <input id="suplenciaNombreContacto" type="text" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="suplenciaEmailContacto">Email de contacto *</label>
+                        <input id="suplenciaEmailContacto" type="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="suplenciaTelefonoContacto">Teléfono de contacto</label>
+                        <input id="suplenciaTelefonoContacto" type="tel" placeholder="+34 xxx xxx xxx">
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%; background: #ef4444;">Publicar suplencia</button>
                 </form>
             </div>
         </div>

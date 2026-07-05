@@ -147,6 +147,18 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
+  db.run(`ALTER TABLE publicaciones ADD COLUMN fecha_desde TEXT`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
+  db.run(`ALTER TABLE publicaciones ADD COLUMN fecha_hasta TEXT`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
+  db.run(`ALTER TABLE publicaciones ADD COLUMN urgente INTEGER DEFAULT 0`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
   db.run(`ALTER TABLE usuarios ADD COLUMN anyos_experiencia INTEGER`, (err) => {
     // Ignorar error si la columna ya existe
   });
