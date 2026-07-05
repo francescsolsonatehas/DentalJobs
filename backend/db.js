@@ -159,6 +159,35 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
+  // Retribución: salario fijo (por defecto) o porcentaje de facturación (habitual en autónomos)
+  db.run(`ALTER TABLE publicaciones ADD COLUMN retribucion_tipo TEXT DEFAULT 'fijo'`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
+  db.run(`ALTER TABLE publicaciones ADD COLUMN retribucion_porcentaje INTEGER`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
+  // Equipamiento disponible en la clínica para esta oferta/suplencia (catálogo fijo, ver server.js)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS publicacion_equipamiento (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      publicacion_id INTEGER NOT NULL REFERENCES publicaciones(id),
+      equipo TEXT NOT NULL,
+      UNIQUE(publicacion_id, equipo)
+    )
+  `);
+
+  // Certificaciones del dentista más allá de su especialidad base (catálogo fijo, ver server.js)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS certificaciones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      certificacion TEXT NOT NULL,
+      UNIQUE(usuario_id, certificacion)
+    )
+  `);
+
   db.run(`ALTER TABLE usuarios ADD COLUMN anyos_experiencia INTEGER`, (err) => {
     // Ignorar error si la columna ya existe
   });

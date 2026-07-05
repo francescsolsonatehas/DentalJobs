@@ -530,11 +530,14 @@ const app = {
       const especialidad = document.getElementById("filterEspecialidad").value;
       const contrato = document.getElementById("filterContrato").value;
       const jornada = document.getElementById("filterJornada").value;
+      const equipamiento = document.getElementById("filterEquipamiento").value;
+      const certificacion = document.getElementById("filterCertificacion").value;
+      const retribucion = document.getElementById("filterRetribucion").value;
       const salarioMin = document.getElementById("filterSalarioMin").value;
       const experienciaMin = document.getElementById("filterExperienciaMin").value;
       const orden = document.getElementById("filterOrden").value;
 
-      estadoApp.filtros = { tipo, q, ciudad, especialidad, contrato, jornada, salarioMin, experienciaMin, orden, soloMias: estadoApp.filtros.soloMias, verSuplencias: estadoApp.filtros.verSuplencias };
+      estadoApp.filtros = { tipo, q, ciudad, especialidad, contrato, jornada, equipamiento, certificacion, retribucion, salarioMin, experienciaMin, orden, soloMias: estadoApp.filtros.soloMias, verSuplencias: estadoApp.filtros.verSuplencias };
 
       let url = "/publicaciones?";
       if (tipo) url += `tipo=${tipo}&`;
@@ -546,6 +549,9 @@ const app = {
         if (especialidad) url += `especialidad=${especialidad}&`;
         if (contrato) url += `contrato=${encodeURIComponent(contrato)}&`;
         if (jornada) url += `jornada=${encodeURIComponent(jornada)}&`;
+        if (equipamiento) url += `equipamiento=${encodeURIComponent(equipamiento)}&`;
+        if (certificacion) url += `certificacion=${encodeURIComponent(certificacion)}&`;
+        if (retribucion) url += `retribucion=${retribucion}&`;
         if (salarioMin) url += `salarioMin=${salarioMin}&`;
         if (experienciaMin) url += `experienciaMin=${experienciaMin}&`;
         if (orden && orden !== 'recientes') {
@@ -640,7 +646,10 @@ const app = {
           nombre_contacto: document.getElementById("ofertaNombreContacto").value,
           email_contacto: document.getElementById("ofertaEmailContacto").value,
           telefono_contacto: document.getElementById("ofertaTelefonoContacto").value || null,
-          sede_id: document.getElementById("ofertaSede")?.value || null
+          sede_id: document.getElementById("ofertaSede")?.value || null,
+          retribucionTipo: document.querySelector('input[name="ofertaRetribucionTipo"]:checked')?.value || 'fijo',
+          retribucionPorcentaje: document.getElementById("ofertaRetribucionPorcentaje").value || null,
+          equipamiento: Array.from(document.querySelectorAll('#ofertaEquipamientoContainer input[type="checkbox"]:checked')).map(cb => cb.value)
         };
       } else if (tipo === "suplencia") {
         const especialidadesCheckboxes = document.querySelectorAll('#suplenciaEspecialidadesContainer input[type="checkbox"]:checked');
@@ -658,7 +667,10 @@ const app = {
           nombre_contacto: document.getElementById("suplenciaNombreContacto").value,
           email_contacto: document.getElementById("suplenciaEmailContacto").value,
           telefono_contacto: document.getElementById("suplenciaTelefonoContacto").value || null,
-          sede_id: document.getElementById("suplenciaSede")?.value || null
+          sede_id: document.getElementById("suplenciaSede")?.value || null,
+          retribucionTipo: document.querySelector('input[name="suplenciaRetribucionTipo"]:checked')?.value || 'fijo',
+          retribucionPorcentaje: document.getElementById("suplenciaRetribucionPorcentaje").value || null,
+          equipamiento: Array.from(document.querySelectorAll('#suplenciaEquipamientoContainer input[type="checkbox"]:checked')).map(cb => cb.value)
         };
       } else {
         // Obtener especialidades seleccionadas
@@ -716,9 +728,19 @@ const app = {
         app.ui.actualizarStats();
 
         document.getElementById(`tab-${tipo}`).querySelector("form").reset();
+        if (tipo === "oferta" || tipo === "suplencia") app.publicaciones.toggleRetribucion(tipo);
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
+    },
+
+    // Muestra el campo de importe fijo o el de porcentaje según la opción elegida
+    toggleRetribucion(prefijo) {
+      const tipo = document.querySelector(`input[name="${prefijo}RetribucionTipo"]:checked`)?.value || 'fijo';
+      const grupoFijo = document.getElementById(`${prefijo}SalarioFijoGroup`);
+      const grupoPorcentaje = document.getElementById(`${prefijo}RetribucionPorcentajeGroup`);
+      grupoFijo.style.display = tipo === 'fijo' ? (prefijo === 'oferta' ? 'flex' : 'block') : 'none';
+      grupoPorcentaje.style.display = tipo === 'porcentaje' ? 'block' : 'none';
     },
 
     async eliminar(id) {
@@ -1029,6 +1051,10 @@ const app = {
         app.plantillas.cargar('suplencia');
         app.sedes.cargarEnSelector('oferta');
         app.sedes.cargarEnSelector('suplencia');
+        app.catalogos.renderizarEquipamientoPublicar('oferta');
+        app.catalogos.renderizarEquipamientoPublicar('suplencia');
+        app.publicaciones.toggleRetribucion('oferta');
+        app.publicaciones.toggleRetribucion('suplencia');
         document.getElementById("modalPublicarTitle").textContent = "Publicar nueva oferta";
       } else {
         // Candidato solo ve tab de Solicitud
@@ -1114,6 +1140,19 @@ const app = {
         console.error("Error al cargar especialidades:", error);
       }
 
+      // Equipamiento (solo relevante en ofertas y suplencias)
+      let equipamientoText = "";
+      if (publicacion.tipo === 'oferta' || publicacion.tipo === 'suplencia') {
+        try {
+          const data = await utils.request(`/publicaciones/${publicacion.id}/equipamiento`, { method: 'GET' });
+          if (data && data.equipamiento && data.equipamiento.length > 0) {
+            equipamientoText = data.equipamiento.join(", ");
+          }
+        } catch (error) {
+          console.error("Error al cargar equipamiento:", error);
+        }
+      }
+
       let html = `
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 1.5rem;">
           <tbody>
@@ -1159,10 +1198,21 @@ const app = {
               <td style="padding: 0.8rem;">${utils.escapeHtml(publicacion.jornada)}</td>
             </tr>
             ` : ''}
-            ${publicacion.salario ? `
+            ${publicacion.retribucion_tipo === 'porcentaje' && publicacion.retribucion_porcentaje ? `
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">💰 Retribución:</td>
+              <td style="padding: 0.8rem;">${publicacion.retribucion_porcentaje}% de facturación</td>
+            </tr>
+            ` : publicacion.salario ? `
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">💰 Salario:</td>
               <td style="padding: 0.8rem;">${utils.escapeHtml(publicacion.salario)}</td>
+            </tr>
+            ` : ''}
+            ${equipamientoText ? `
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🔬 Equipamiento:</td>
+              <td style="padding: 0.8rem;">${utils.escapeHtml(equipamientoText)}</td>
             </tr>
             ` : ''}
             ${publicacion.experiencia_minima !== null && publicacion.experiencia_minima !== undefined ? `
@@ -3011,6 +3061,12 @@ const app = {
           <p style="margin: 0;">${trayectoria.idiomas.map(i => `${utils.escapeHtml(i.idioma)} (${utils.escapeHtml(i.nivel)})`).join('  ·  ')}</p>
         </div>
         ` : ''}
+        ${trayectoria && trayectoria.certificaciones && trayectoria.certificaciones.length > 0 ? `
+        <div style="background: #F8FAFF; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+          <h4 style="margin: 0 0 0.75rem 0; color: #0F4C75; font-weight: 700;">📜 Certificaciones</h4>
+          <p style="margin: 0;">${trayectoria.certificaciones.map(c => utils.escapeHtml(c)).join('  ·  ')}</p>
+        </div>
+        ` : ''}
       `;
 
       document.getElementById("interesadosBody").innerHTML = html;
@@ -3459,6 +3515,13 @@ const app = {
             </div>
 
             <div class="form-group">
+              <label>Certificaciones</label>
+              <div id="certificacionesContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                <!-- Se llenarán dinámicamente -->
+              </div>
+            </div>
+
+            <div class="form-group">
               <label>Sobre mí</label>
               <textarea id="perfilDescripcion" placeholder="Cuenta tu trayectoria, formación y qué tipo de trabajo buscas...">${utils.escapeHtml(u.descripcion || '')}</textarea>
             </div>
@@ -3496,11 +3559,22 @@ const app = {
           </div>
         `;
 
-        // Cargar especialidades para candidatos
+        // Cargar especialidades y certificaciones para candidatos
         await app.perfil.cargarEspecialidades();
+        await app.perfil.cargarCertificaciones();
       }
       } catch (error) {
         utils.mostrarAlerta("Error al cargar perfil: " + error.message, "error");
+      }
+    },
+
+    async cargarCertificaciones() {
+      try {
+        await app.catalogos.cargar();
+        const respuesta = await utils.request("/auth/mis-certificaciones");
+        app.catalogos.renderizarCertificacionesPerfil(respuesta.certificaciones || []);
+      } catch (error) {
+        console.error("Error al cargar certificaciones:", error);
       }
     },
 
@@ -3565,6 +3639,19 @@ const app = {
             });
           }
 
+          // Guardar certificaciones (solo dentistas)
+          if (estadoApp.tipoUsuario === 'dentista') {
+            const certCheckboxes = document.querySelectorAll('#certificacionesContainer input[type="checkbox"]');
+            const certificacionesSeleccionadas = Array.from(certCheckboxes)
+              .filter(cb => cb.checked)
+              .map(cb => cb.value);
+
+            await utils.request("/auth/guardar-certificaciones", {
+              method: "POST",
+              body: JSON.stringify({ certificaciones: certificacionesSeleccionadas })
+            });
+          }
+
           // Cambiar contraseña si se proporcionó
           const passwordActual = document.getElementById("perfilPasswordActual").value;
           const passwordNueva = document.getElementById("perfilPasswordNueva").value;
@@ -3626,6 +3713,19 @@ const app = {
           await utils.request("/auth/guardar-especialidades", {
             method: "POST",
             body: JSON.stringify({ especialidades: especialidadesSeleccionadas })
+          });
+        }
+
+        // Guardar certificaciones (solo dentistas)
+        if (estadoApp.tipoUsuario === 'dentista') {
+          const certCheckboxes = document.querySelectorAll('#certificacionesContainer input[type="checkbox"]');
+          const certificacionesSeleccionadas = Array.from(certCheckboxes)
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+
+          await utils.request("/auth/guardar-certificaciones", {
+            method: "POST",
+            body: JSON.stringify({ certificaciones: certificacionesSeleccionadas })
           });
         }
 
@@ -3835,6 +3935,8 @@ const app = {
 
     async init() {
       await app.especialidades.cargar();
+      await app.catalogos.cargar();
+      app.catalogos.renderizarFiltros();
 
       if (estadoApp.token && estadoApp.usuario) {
         app.ui.mostrarPlataforma();
@@ -3894,6 +3996,8 @@ const app = {
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
         document.getElementById("btnKanban").style.display = "none";
         document.getElementById("btnSuplencias").style.display = "none";
+        document.getElementById("filterEquipamientoGroup").style.display = "none";
+        document.getElementById("filterCertificacionGroup").style.display = "block";
         btnTodas.textContent = "Dentistas";
       } else {
         // Dentista
@@ -3910,6 +4014,8 @@ const app = {
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
         document.getElementById("btnKanban").style.display = "inline-block";
         document.getElementById("btnSuplencias").style.display = "inline-block";
+        document.getElementById("filterEquipamientoGroup").style.display = "block";
+        document.getElementById("filterCertificacionGroup").style.display = "none";
         btnTodas.textContent = "Clínicas";
       }
 
@@ -5221,6 +5327,68 @@ const app = {
         select.innerHTML = `<option value="">Todas las especialidades</option>${opcionesHTML}`;
         select.value = valorActual;
       });
+    }
+  },
+
+  // ============================================
+  // Módulo: Catálogos fijos (equipamiento, certificaciones)
+  // ============================================
+
+  catalogos: {
+    equipamiento: [],
+    certificaciones: [],
+
+    async cargar() {
+      if (this.equipamiento.length > 0 || this.certificaciones.length > 0) return;
+      try {
+        const data = await utils.request("/catalogos");
+        this.equipamiento = data.equipamiento || [];
+        this.certificaciones = data.certificaciones || [];
+      } catch (error) {
+        console.error("Error al cargar catálogos:", error);
+      }
+    },
+
+    // Rellena el <select> de filtro de equipamiento/certificación
+    renderizarFiltros() {
+      const selEquipo = document.getElementById("filterEquipamiento");
+      if (selEquipo) {
+        const actual = selEquipo.value;
+        selEquipo.innerHTML = `<option value="">Cualquier equipamiento</option>` +
+          this.equipamiento.map(e => `<option value="${utils.escapeHtml(e)}">${utils.escapeHtml(e)}</option>`).join("");
+        selEquipo.value = actual;
+      }
+      const selCert = document.getElementById("filterCertificacion");
+      if (selCert) {
+        const actual = selCert.value;
+        selCert.innerHTML = `<option value="">Cualquier certificación</option>` +
+          this.certificaciones.map(c => `<option value="${utils.escapeHtml(c)}">${utils.escapeHtml(c)}</option>`).join("");
+        selCert.value = actual;
+      }
+    },
+
+    // Checkboxes de equipamiento en el formulario de publicar (prefijo: 'oferta' o 'suplencia')
+    renderizarEquipamientoPublicar(prefijo) {
+      const contenedor = document.getElementById(`${prefijo}EquipamientoContainer`);
+      if (!contenedor) return;
+      contenedor.innerHTML = this.equipamiento.map(e => `
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+          <input type="checkbox" value="${utils.escapeHtml(e)}">
+          ${utils.escapeHtml(e)}
+        </label>
+      `).join("");
+    },
+
+    // Checkboxes de certificaciones en "Mis datos" del dentista
+    renderizarCertificacionesPerfil(seleccionadas) {
+      const contenedor = document.getElementById("certificacionesContainer");
+      if (!contenedor) return;
+      contenedor.innerHTML = this.certificaciones.map(c => `
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+          <input type="checkbox" value="${utils.escapeHtml(c)}" ${seleccionadas.includes(c) ? 'checked' : ''}>
+          ${utils.escapeHtml(c)}
+        </label>
+      `).join("");
     }
   },
 

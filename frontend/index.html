@@ -223,6 +223,26 @@
                         <option value="Flexible">Flexible</option>
                     </select>
                 </div>
+                <div class="filter-group" id="filterEquipamientoGroup" style="display: none;">
+                    <label for="filterEquipamiento">Equipamiento</label>
+                    <select id="filterEquipamiento" onchange="app.publicaciones.cargar()">
+                        <option value="">Cualquier equipamiento</option>
+                    </select>
+                </div>
+                <div class="filter-group" id="filterCertificacionGroup" style="display: none;">
+                    <label for="filterCertificacion">Certificación</label>
+                    <select id="filterCertificacion" onchange="app.publicaciones.cargar()">
+                        <option value="">Cualquier certificación</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filterRetribucion">Retribución</label>
+                    <select id="filterRetribucion" onchange="app.publicaciones.cargar()">
+                        <option value="">Cualquiera</option>
+                        <option value="fijo">Salario fijo</option>
+                        <option value="porcentaje">% de facturación</option>
+                    </select>
+                </div>
                 <div class="filter-group">
                     <label for="filterSalarioMin">Salario mínimo</label>
                     <input id="filterSalarioMin" type="number" placeholder="Ej: 20000" oninput="app.publicaciones.cargar()">
@@ -328,15 +348,34 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Salario (€/mes)</label>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <input id="ofertaSalarioDesde" type="number" min="0" placeholder="Desde · ej: 2000" style="flex: 1;">
-                            <input id="ofertaSalarioHasta" type="number" min="0" placeholder="Hasta · ej: 2500" style="flex: 1;">
+                        <label>Tipo de retribución</label>
+                        <div style="display: flex; gap: 1.5rem; margin-bottom: 0.5rem;">
+                            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-weight: normal;">
+                                <input type="radio" name="ofertaRetribucionTipo" value="fijo" checked onchange="app.publicaciones.toggleRetribucion('oferta')">
+                                Salario fijo
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-weight: normal;">
+                                <input type="radio" name="ofertaRetribucionTipo" value="porcentaje" onchange="app.publicaciones.toggleRetribucion('oferta')">
+                                % de facturación
+                            </label>
+                        </div>
+                        <div id="ofertaSalarioFijoGroup" style="display: flex; gap: 0.5rem;">
+                            <input id="ofertaSalarioDesde" type="number" min="0" placeholder="Desde · ej: 2000 €/mes" style="flex: 1;">
+                            <input id="ofertaSalarioHasta" type="number" min="0" placeholder="Hasta · ej: 2500 €/mes" style="flex: 1;">
+                        </div>
+                        <div id="ofertaRetribucionPorcentajeGroup" style="display: none;">
+                            <input id="ofertaRetribucionPorcentaje" type="number" min="0" max="100" placeholder="Ej: 35 (% de facturación)">
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="ofertaExperiencia">Años de experiencia exigidos</label>
                         <input id="ofertaExperiencia" type="number" min="0" placeholder="Ej: 3">
+                    </div>
+                    <div class="form-group">
+                        <label>Equipamiento de la clínica</label>
+                        <div id="ofertaEquipamientoContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                          <!-- Se llenarán dinámicamente -->
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="ofertaDescripcion">Descripción *</label>
@@ -469,8 +508,29 @@
                         🚨 Marcar como urgente
                     </label>
                     <div class="form-group">
-                        <label for="suplenciaSalario">Retribución</label>
-                        <input id="suplenciaSalario" type="text" placeholder="Ej: 250€/día, o 35% facturación">
+                        <label>Tipo de retribución</label>
+                        <div style="display: flex; gap: 1.5rem; margin-bottom: 0.5rem;">
+                            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-weight: normal;">
+                                <input type="radio" name="suplenciaRetribucionTipo" value="fijo" checked onchange="app.publicaciones.toggleRetribucion('suplencia')">
+                                Importe fijo
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-weight: normal;">
+                                <input type="radio" name="suplenciaRetribucionTipo" value="porcentaje" onchange="app.publicaciones.toggleRetribucion('suplencia')">
+                                % de facturación
+                            </label>
+                        </div>
+                        <div id="suplenciaSalarioFijoGroup">
+                            <input id="suplenciaSalario" type="text" placeholder="Ej: 250€/día">
+                        </div>
+                        <div id="suplenciaRetribucionPorcentajeGroup" style="display: none;">
+                            <input id="suplenciaRetribucionPorcentaje" type="number" min="0" max="100" placeholder="Ej: 35 (% de facturación)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Equipamiento de la clínica</label>
+                        <div id="suplenciaEquipamientoContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                          <!-- Se llenarán dinámicamente -->
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="suplenciaDescripcion">Descripción *</label>

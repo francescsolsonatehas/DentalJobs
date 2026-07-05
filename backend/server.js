@@ -39,6 +39,10 @@ function verificarAdmin(req, res, next) {
   next();
 }
 
+// Catálogos fijos (sin tabla propia, como contrato/jornada)
+const EQUIPAMIENTO_CATALOGO = ["CBCT / TAC 3D", "CAD-CAM", "Microscopio", "Escáner intraoral", "Láser dental", "Sedación consciente"];
+const CERTIFICACIONES_CATALOGO = ["Invisalign", "Implantología avanzada", "Ortodoncia lingual", "Estética dental avanzada", "Sedación consciente", "Cirugía guiada"];
+
 // Etiquetas legibles de los estados de candidatura
 const ETIQUETAS_ESTADO = {
   pendiente: "Pendiente",
@@ -253,6 +257,7 @@ app.delete("/auth/mi-cuenta", verifyToken, (req, res) => {
       ["DELETE FROM experiencia_laboral WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM formacion WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM idiomas WHERE usuario_id = ?", [usuarioId]],
+      ["DELETE FROM certificaciones WHERE usuario_id = ?", [usuarioId]],
       // Historial compartido: anonimizar, no borrar
       ["UPDATE mensajes SET remitente_nombre = 'Usuario eliminado', remitente_email = '' WHERE usuario_id = ?", [usuarioId]],
       // La fila de usuario se anonimiza para mantener íntegras las referencias (reseñas, mensajes)
@@ -556,6 +561,51 @@ app.post("/auth/guardar-especialidades", verifyToken, (req, res) => {
   );
 });
 
+app.get("/auth/mis-certificaciones", verifyToken, (req, res) => {
+  db.all(
+    "SELECT certificacion FROM certificaciones WHERE usuario_id = ?",
+    [req.usuario.id],
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener certificaciones" });
+      }
+      res.json({ certificaciones: (rows || []).map(r => r.certificacion) });
+    }
+  );
+});
+
+app.post("/auth/guardar-certificaciones", verifyToken, (req, res) => {
+  const { certificaciones } = req.body;
+  const usuarioId = req.usuario.id;
+
+  if (!Array.isArray(certificaciones)) {
+    return res.status(400).json({ error: "Certificaciones debe ser un array" });
+  }
+
+  const validas = certificaciones.filter(c => CERTIFICACIONES_CATALOGO.includes(c));
+
+  db.run("DELETE FROM certificaciones WHERE usuario_id = ?", [usuarioId], (err) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al guardar certificaciones" });
+    }
+    if (validas.length === 0) {
+      return res.json({ success: true, message: "Certificaciones guardadas" });
+    }
+
+    const stmt = db.prepare("INSERT INTO certificaciones (usuario_id, certificacion) VALUES (?, ?)");
+    validas.forEach(c => stmt.run(usuarioId, c));
+    stmt.finalize((err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al guardar certificaciones" });
+      }
+      res.json({ success: true, message: "Certificaciones guardadas correctamente" });
+    });
+  });
+});
+
 app.put("/auth/cambiar-password", verifyToken, (req, res) => {
   const { passwordActual, passwordNueva } = req.body;
   const usuarioId = req.usuario.id;
@@ -721,6 +771,10 @@ app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
       "SELECT idioma, nivel FROM idiomas WHERE usuario_id = ? ORDER BY id ASC",
       [req.usuario.id]
     );
+    const certificacionesLista = await all(
+      "SELECT certificacion FROM certificaciones WHERE usuario_id = ? ORDER BY certificacion ASC",
+      [req.usuario.id]
+    );
 
     const PDFDocument = require("pdfkit");
     const doc = new PDFDocument({ margin: 50, size: "A4" });
@@ -811,6 +865,11 @@ app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
       especialidades.forEach(e => doc.text(`•  ${e.nombre}`));
     }
 
+    if (certificacionesLista.length > 0) {
+      seccion("Certificaciones");
+      certificacionesLista.forEach(c => doc.text(`•  ${c.certificacion}`));
+    }
+
     if (solicitudes.length > 0) {
       seccion("Busco trabajo como");
       solicitudes.forEach(s => {
@@ -893,11 +952,22 @@ app.get("/usuarios/:id/trayectoria", (req, res) => {
                 console.error(err);
                 return res.status(500).json({ error: "Error al obtener la trayectoria" });
               }
-              res.json({
-                experiencia: experiencia || [],
-                formacion: formacion || [],
-                idiomas: idiomas || []
-              });
+              db.all(
+                "SELECT certificacion FROM certificaciones WHERE usuario_id = ? ORDER BY certificacion ASC",
+                [usuarioId],
+                (err, certs) => {
+                  if (err) {
+                    console.error(err);
+                    return res.status(500).json({ error: "Error al obtener la trayectoria" });
+                  }
+                  res.json({
+                    experiencia: experiencia || [],
+                    formacion: formacion || [],
+                    idiomas: idiomas || [],
+                    certificaciones: (certs || []).map(c => c.certificacion)
+                  });
+                }
+              );
             }
           );
         }
@@ -1187,12 +1257,17 @@ app.get("/especialidades", (req, res) => {
   });
 });
 
+// Catálogos fijos de equipamiento y certificaciones (para pintar checkboxes en el frontend)
+app.get("/catalogos", (req, res) => {
+  res.json({ equipamiento: EQUIPAMIENTO_CATALOGO, certificaciones: CERTIFICACIONES_CATALOGO });
+});
+
 /* ===========================
    🔹 PUBLICACIONES
 =========================== */
 
 app.get("/publicaciones", (req, res) => {
-  const { tipo, especialidad, ciudad, usuario_id, contrato, jornada, salarioMin, salarioMax, experienciaMin, sort, paraUsuarioId, q } = req.query;
+  const { tipo, especialidad, ciudad, usuario_id, contrato, jornada, salarioMin, salarioMax, experienciaMin, sort, paraUsuarioId, q, equipamiento, retribucion, certificacion } = req.query;
 
   let selectCols = "p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad";
   const selectParams = [];
@@ -1264,6 +1339,22 @@ app.get("/publicaciones", (req, res) => {
     const like = `%${q.trim()}%`;
     query += " AND (p.descripcion LIKE ? OR p.ciudad LIKE ? OR p.nombre_contacto LIKE ? OR u.nombre LIKE ?)";
     params.push(like, like, like, like);
+  }
+
+  if (equipamiento) {
+    query += " AND EXISTS (SELECT 1 FROM publicacion_equipamiento pq WHERE pq.publicacion_id = p.id AND pq.equipo = ?)";
+    params.push(equipamiento);
+  }
+
+  if (retribucion) {
+    query += " AND p.retribucion_tipo = ?";
+    params.push(retribucion);
+  }
+
+  // Certificación del dentista: solo tiene sentido al buscar solicitudes (perfiles de dentistas)
+  if (certificacion) {
+    query += " AND EXISTS (SELECT 1 FROM certificaciones cert WHERE cert.usuario_id = p.usuario_id AND cert.certificacion = ?)";
+    params.push(certificacion);
   }
 
   if (experienciaMin) {
@@ -1411,7 +1502,7 @@ function generarAlertasParaPublicacion(publicacionId, tipo, ciudad, especialidad
 }
 
 app.post("/publicaciones", verifyToken, (req, res) => {
-  const { tipo, descripcion, ciudad, especialidades, contrato, jornada, salario, salarioDesde, salarioHasta, experiencia, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente } = req.body;
+  const { tipo, descripcion, ciudad, especialidades, contrato, jornada, salario, salarioDesde, salarioHasta, experiencia, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente, retribucionTipo, retribucionPorcentaje, equipamiento } = req.body;
 
   if (!tipo || !ciudad) {
     return res.status(400).json({ error: "Faltan datos obligatorios" });
@@ -1433,14 +1524,24 @@ app.post("/publicaciones", verifyToken, (req, res) => {
   const hastaNum = salarioHasta !== undefined && salarioHasta !== null && salarioHasta !== '' ? parseInt(salarioHasta) : null;
   const salarioMatch = (salario || '').match(/\d+/);
   const salarioMin = desdeNum ?? (salarioMatch ? parseInt(salarioMatch[0]) : null);
-  const experienciaMinima = experiencia !== undefined && experiencia !== '' ? parseInt(experiencia) : null;
+  const experienciaMinima = experiencia !== undefined && experiencia !== null && experiencia !== '' ? parseInt(experiencia) : null;
+
+  const retribucionTipoFinal = retribucionTipo === 'porcentaje' ? 'porcentaje' : 'fijo';
+  const retribucionPorcentajeFinal = retribucionTipoFinal === 'porcentaje' && retribucionPorcentaje !== undefined && retribucionPorcentaje !== null && retribucionPorcentaje !== ''
+    ? parseInt(retribucionPorcentaje)
+    : null;
+
+  // Equipamiento solo aplica a ofertas/suplencias, y solo se aceptan valores del catálogo fijo
+  const equipamientoValido = (tipo === 'oferta' || tipo === 'suplencia') && Array.isArray(equipamiento)
+    ? equipamiento.filter(e => EQUIPAMIENTO_CATALOGO.includes(e))
+    : [];
 
   const insertarPublicacion = (sedeIdValidada) => {
     db.run(
       `INSERT INTO publicaciones
-       (tipo, descripcion, ciudad, especialidad_id, contrato, jornada, salario, salario_min, salario_max, experiencia_minima, usuario_id, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente)
-       VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [tipo, descripcion, ciudad, contrato || null, jornada || null, salario || null, salarioMin, hastaNum, experienciaMinima, req.usuario.id, nombre_contacto, email_contacto, telefono_contacto, sedeIdValidada, tipo === 'suplencia' ? (fecha_desde || null) : null, tipo === 'suplencia' ? (fecha_hasta || null) : null, tipo === 'suplencia' && urgente ? 1 : 0],
+       (tipo, descripcion, ciudad, especialidad_id, contrato, jornada, salario, salario_min, salario_max, experiencia_minima, usuario_id, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente, retribucion_tipo, retribucion_porcentaje)
+       VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [tipo, descripcion, ciudad, contrato || null, jornada || null, salario || null, salarioMin, hastaNum, experienciaMinima, req.usuario.id, nombre_contacto, email_contacto, telefono_contacto, sedeIdValidada, tipo === 'suplencia' ? (fecha_desde || null) : null, tipo === 'suplencia' ? (fecha_hasta || null) : null, tipo === 'suplencia' && urgente ? 1 : 0, retribucionTipoFinal, retribucionPorcentajeFinal],
       function(err) {
         if (err) {
           console.error(err);
@@ -1455,6 +1556,12 @@ app.post("/publicaciones", verifyToken, (req, res) => {
           especialidades.forEach(eId => {
             stmt.run(publicacionId, eId);
           });
+          stmt.finalize();
+        }
+
+        if (equipamientoValido.length > 0) {
+          const stmt = db.prepare("INSERT INTO publicacion_equipamiento (publicacion_id, equipo) VALUES (?, ?)");
+          equipamientoValido.forEach(eq => stmt.run(publicacionId, eq));
           stmt.finalize();
         }
 
@@ -1550,6 +1657,20 @@ app.get("/publicaciones/:id/estadisticas", verifyToken, (req, res) => {
   });
 });
 
+app.get("/publicaciones/:id/equipamiento", (req, res) => {
+  db.all(
+    "SELECT equipo FROM publicacion_equipamiento WHERE publicacion_id = ? ORDER BY equipo",
+    [req.params.id],
+    (err, filas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener el equipamiento" });
+      }
+      res.json({ equipamiento: (filas || []).map(f => f.equipo) });
+    }
+  );
+});
+
 app.get("/publicaciones/:id/especialidades", (req, res) => {
   const publicacionId = req.params.id;
 
@@ -1633,7 +1754,7 @@ app.put("/publicaciones/:id", verifyToken, (req, res) => {
 
     const salarioMatch = (salario || '').match(/\d+/);
     const salarioMin = salarioMatch ? parseInt(salarioMatch[0]) : null;
-    const experienciaMinima = experiencia !== undefined && experiencia !== '' ? parseInt(experiencia) : null;
+    const experienciaMinima = experiencia !== undefined && experiencia !== null && experiencia !== '' ? parseInt(experiencia) : null;
 
     db.run(
       `UPDATE publicaciones
