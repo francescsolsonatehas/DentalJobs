@@ -240,6 +240,19 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
+  db.run(`ALTER TABLE usuarios ADD COLUMN num_colegiado TEXT`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
+  db.run(`ALTER TABLE usuarios ADD COLUMN colegio TEXT`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
+  // sin_indicar | pendiente | verificado | rechazado
+  db.run(`ALTER TABLE usuarios ADD COLUMN colegiado_estado TEXT DEFAULT 'sin_indicar'`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
   db.run(`
     CREATE TABLE IF NOT EXISTS tokens_verificacion (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

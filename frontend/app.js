@@ -2929,6 +2929,12 @@ const app = {
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; width: 30%; color: #0F4C75;">Nombre:</td>
               <td style="padding: 0.8rem;">${utils.escapeHtml(dentista.nombre || '-')}</td>
             </tr>
+            ${publico && publico.colegiado_estado === 'verificado' ? `
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🎓 Colegiado:</td>
+              <td style="padding: 0.8rem; color: #059669; font-weight: 600;">✓ Verificado — nº ${utils.escapeHtml(publico.num_colegiado)}${publico.colegio ? ` (${utils.escapeHtml(publico.colegio)})` : ''}</td>
+            </tr>
+            ` : ''}
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📧 Email:</td>
               <td style="padding: 0.8rem;"><a href="mailto:${utils.escapeHtml(dentista.email)}" style="color: #0F4C75; text-decoration: none;">${utils.escapeHtml(dentista.email || '-')}</a></td>
@@ -3012,10 +3018,16 @@ const app = {
       document.getElementById("modalInteresados").classList.add("active");
     },
 
-    mostrarPerfilDentista(dentista) {
+    async mostrarPerfilDentista(dentista) {
+      let publico = null;
+      if (dentista.usuario_id) {
+        try { publico = await utils.request(`/usuarios/${dentista.usuario_id}/publico`); } catch (e) { /* opcional */ }
+      }
+
       let html = `
         <div class="perfil-dentista">
           <h3 style="margin-top: 0;">${utils.escapeHtml(dentista.nombre)}</h3>
+          ${publico && publico.colegiado_estado === 'verificado' ? `<p style="color: #059669; font-weight: 600;">✓ Colegiado verificado — nº ${utils.escapeHtml(publico.num_colegiado)}${publico.colegio ? ` (${utils.escapeHtml(publico.colegio)})` : ''}</p>` : ''}
 
           <div class="info-section">
             <h4>Contacto</h4>
@@ -3213,6 +3225,16 @@ const app = {
   // ============================================
 
   perfil: {
+    // Aviso del estado de verificación del nº de colegiado, para el propio formulario
+    badgeColegiado(estado) {
+      const estilos = {
+        pendiente: `<small style="color: #6366f1; font-weight: 600; margin-top: 0.3rem; display: block;">⏳ Verificación pendiente de revisión</small>`,
+        verificado: `<small style="color: #10b981; font-weight: 600; margin-top: 0.3rem; display: block;">✓ Colegiado verificado</small>`,
+        rechazado: `<small style="color: #ef4444; font-weight: 600; margin-top: 0.3rem; display: block;">⚠️ No hemos podido verificarlo. Revisa los datos y vuelve a guardarlos.</small>`
+      };
+      return estilos[estado] || '';
+    },
+
     async cargar() {
       if (!estadoApp.usuario) return;
 
@@ -3426,6 +3448,17 @@ const app = {
             </div>
 
             <div class="form-group">
+              <label>Nº de colegiado</label>
+              <input type="text" id="perfilNumColegiado" value="${utils.escapeHtml(u.num_colegiado || '')}" placeholder="Ej: 12345">
+            </div>
+
+            <div class="form-group">
+              <label>Colegio profesional</label>
+              <input type="text" id="perfilColegio" value="${utils.escapeHtml(u.colegio || '')}" placeholder="Ej: Colegio de Odontólogos de Barcelona">
+              ${app.perfil.badgeColegiado(u.colegiado_estado)}
+            </div>
+
+            <div class="form-group">
               <label>Sobre mí</label>
               <textarea id="perfilDescripcion" placeholder="Cuenta tu trayectoria, formación y qué tipo de trabajo buscas...">${utils.escapeHtml(u.descripcion || '')}</textarea>
             </div>
@@ -3496,7 +3529,9 @@ const app = {
         pais: document.getElementById("perfilPais").value || null,
         descripcion: document.getElementById("perfilDescripcion")?.value || null,
         anyos_experiencia: document.getElementById("perfilAnyosExperiencia")?.value || null,
-        recibir_emails: document.getElementById("perfilRecibirEmails")?.checked ?? true
+        recibir_emails: document.getElementById("perfilRecibirEmails")?.checked ?? true,
+        num_colegiado: document.getElementById("perfilNumColegiado")?.value || null,
+        colegio: document.getElementById("perfilColegio")?.value || null
       };
 
       try {
