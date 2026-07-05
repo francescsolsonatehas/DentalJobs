@@ -240,6 +240,9 @@ app.delete("/auth/mi-cuenta", verifyToken, (req, res) => {
       ["DELETE FROM confirmacion_email WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM plantillas_publicacion WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM sedes WHERE usuario_id = ?", [usuarioId]],
+      ["DELETE FROM experiencia_laboral WHERE usuario_id = ?", [usuarioId]],
+      ["DELETE FROM formacion WHERE usuario_id = ?", [usuarioId]],
+      ["DELETE FROM idiomas WHERE usuario_id = ?", [usuarioId]],
       // Historial compartido: anonimizar, no borrar
       ["UPDATE mensajes SET remitente_nombre = 'Usuario eliminado', remitente_email = '' WHERE usuario_id = ?", [usuarioId]],
       // La fila de usuario se anonimiza para mantener íntegras las referencias (reseñas, mensajes)
@@ -663,6 +666,18 @@ app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
        WHERE usuario_id = ? AND tipo = 'solicitud' AND activo = 1 ORDER BY creado_en DESC`,
       [req.usuario.id]
     );
+    const experienciaLaboral = await all(
+      "SELECT puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion FROM experiencia_laboral WHERE usuario_id = ? ORDER BY orden ASC, fecha_inicio DESC",
+      [req.usuario.id]
+    );
+    const formacionLista = await all(
+      "SELECT titulo, centro, anyo FROM formacion WHERE usuario_id = ? ORDER BY orden ASC, anyo DESC",
+      [req.usuario.id]
+    );
+    const idiomasLista = await all(
+      "SELECT idioma, nivel FROM idiomas WHERE usuario_id = ? ORDER BY id ASC",
+      [req.usuario.id]
+    );
 
     const PDFDocument = require("pdfkit");
     const doc = new PDFDocument({ margin: 50, size: "A4" });
@@ -717,6 +732,31 @@ app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
       doc.text(`${usuario.anyos_experiencia} año${usuario.anyos_experiencia === 1 ? "" : "s"} de experiencia profesional`);
     }
 
+    if (experienciaLaboral.length > 0) {
+      seccion("Experiencia laboral");
+      experienciaLaboral.forEach(e => {
+        const rango = [e.fecha_inicio, e.actual ? "Actualidad" : e.fecha_fin].filter(Boolean).join(" – ");
+        doc.font("Helvetica-Bold").text(`${e.puesto}${e.lugar ? ` · ${e.lugar}` : ""}`);
+        if (rango) doc.font("Helvetica").fillColor(gris).fontSize(10).text(rango);
+        if (e.descripcion) doc.font("Helvetica").fillColor(gris).fontSize(11).text(e.descripcion, { lineGap: 1 });
+        doc.fillColor("#1f2937").fontSize(11);
+        doc.moveDown(0.4);
+      });
+    }
+
+    if (formacionLista.length > 0) {
+      seccion("Formación");
+      formacionLista.forEach(f => {
+        const linea = [f.titulo, f.centro].filter(Boolean).join(" · ") + (f.anyo ? ` (${f.anyo})` : "");
+        doc.text(linea);
+      });
+    }
+
+    if (idiomasLista.length > 0) {
+      seccion("Idiomas");
+      doc.text(idiomasLista.map(i => `${i.idioma} (${i.nivel})`).join("  ·  "));
+    }
+
     if (especialidades.length > 0) {
       seccion("Especialidades");
       especialidades.forEach(e => doc.text(`•  ${e.nombre}`));
@@ -763,6 +803,216 @@ app.get("/usuarios/:id/publico", (req, res) => {
       res.json(usuario);
     }
   );
+});
+
+/* ===========================
+   🔹 TRAYECTORIA PROFESIONAL (experiencia, formación, idiomas)
+=========================== */
+
+// Trayectoria pública de un usuario (visible en su ficha y usada en el CV en PDF)
+app.get("/usuarios/:id/trayectoria", (req, res) => {
+  const usuarioId = req.params.id;
+  db.all(
+    "SELECT id, puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion FROM experiencia_laboral WHERE usuario_id = ? ORDER BY orden ASC, fecha_inicio DESC",
+    [usuarioId],
+    (err, experiencia) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener la trayectoria" });
+      }
+      db.all(
+        "SELECT id, titulo, centro, anyo FROM formacion WHERE usuario_id = ? ORDER BY orden ASC, anyo DESC",
+        [usuarioId],
+        (err, formacion) => {
+          if (err) {
+            console.error(err);
+            return res.status(500).json({ error: "Error al obtener la trayectoria" });
+          }
+          db.all(
+            "SELECT id, idioma, nivel FROM idiomas WHERE usuario_id = ? ORDER BY id ASC",
+            [usuarioId],
+            (err, idiomas) => {
+              if (err) {
+                console.error(err);
+                return res.status(500).json({ error: "Error al obtener la trayectoria" });
+              }
+              res.json({
+                experiencia: experiencia || [],
+                formacion: formacion || [],
+                idiomas: idiomas || []
+              });
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
+app.post("/experiencia-laboral", verifyToken, (req, res) => {
+  const { puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion } = req.body;
+  if (!puesto || !puesto.trim()) {
+    return res.status(400).json({ error: "El puesto es obligatorio" });
+  }
+  db.run(
+    `INSERT INTO experiencia_laboral (usuario_id, puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [req.usuario.id, puesto.trim(), lugar || null, fecha_inicio || null, actual ? null : (fecha_fin || null), actual ? 1 : 0, descripcion || null],
+    function(err) {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al guardar la experiencia" });
+      }
+      res.json({ mensaje: "Experiencia guardada", id: this.lastID });
+    }
+  );
+});
+
+app.put("/experiencia-laboral/:id", verifyToken, (req, res) => {
+  const { puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion } = req.body;
+  if (!puesto || !puesto.trim()) {
+    return res.status(400).json({ error: "El puesto es obligatorio" });
+  }
+  db.get("SELECT usuario_id FROM experiencia_laboral WHERE id = ?", [req.params.id], (err, fila) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al actualizar la experiencia" });
+    }
+    if (!fila || fila.usuario_id !== req.usuario.id) {
+      return res.status(403).json({ error: "No tienes permiso para modificar esta experiencia" });
+    }
+    db.run(
+      `UPDATE experiencia_laboral SET puesto = ?, lugar = ?, fecha_inicio = ?, fecha_fin = ?, actual = ?, descripcion = ? WHERE id = ?`,
+      [puesto.trim(), lugar || null, fecha_inicio || null, actual ? null : (fecha_fin || null), actual ? 1 : 0, descripcion || null, req.params.id],
+      (err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al actualizar la experiencia" });
+        }
+        res.json({ mensaje: "Experiencia actualizada" });
+      }
+    );
+  });
+});
+
+app.delete("/experiencia-laboral/:id", verifyToken, (req, res) => {
+  db.get("SELECT usuario_id FROM experiencia_laboral WHERE id = ?", [req.params.id], (err, fila) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al eliminar la experiencia" });
+    }
+    if (!fila || fila.usuario_id !== req.usuario.id) {
+      return res.status(403).json({ error: "No tienes permiso para eliminar esta experiencia" });
+    }
+    db.run("DELETE FROM experiencia_laboral WHERE id = ?", [req.params.id], (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al eliminar la experiencia" });
+      }
+      res.json({ mensaje: "Experiencia eliminada" });
+    });
+  });
+});
+
+app.post("/formacion", verifyToken, (req, res) => {
+  const { titulo, centro, anyo } = req.body;
+  if (!titulo || !titulo.trim()) {
+    return res.status(400).json({ error: "El título es obligatorio" });
+  }
+  db.run(
+    "INSERT INTO formacion (usuario_id, titulo, centro, anyo) VALUES (?, ?, ?, ?)",
+    [req.usuario.id, titulo.trim(), centro || null, anyo || null],
+    function(err) {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al guardar la formación" });
+      }
+      res.json({ mensaje: "Formación guardada", id: this.lastID });
+    }
+  );
+});
+
+app.put("/formacion/:id", verifyToken, (req, res) => {
+  const { titulo, centro, anyo } = req.body;
+  if (!titulo || !titulo.trim()) {
+    return res.status(400).json({ error: "El título es obligatorio" });
+  }
+  db.get("SELECT usuario_id FROM formacion WHERE id = ?", [req.params.id], (err, fila) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al actualizar la formación" });
+    }
+    if (!fila || fila.usuario_id !== req.usuario.id) {
+      return res.status(403).json({ error: "No tienes permiso para modificar esta formación" });
+    }
+    db.run(
+      "UPDATE formacion SET titulo = ?, centro = ?, anyo = ? WHERE id = ?",
+      [titulo.trim(), centro || null, anyo || null, req.params.id],
+      (err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al actualizar la formación" });
+        }
+        res.json({ mensaje: "Formación actualizada" });
+      }
+    );
+  });
+});
+
+app.delete("/formacion/:id", verifyToken, (req, res) => {
+  db.get("SELECT usuario_id FROM formacion WHERE id = ?", [req.params.id], (err, fila) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al eliminar la formación" });
+    }
+    if (!fila || fila.usuario_id !== req.usuario.id) {
+      return res.status(403).json({ error: "No tienes permiso para eliminar esta formación" });
+    }
+    db.run("DELETE FROM formacion WHERE id = ?", [req.params.id], (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al eliminar la formación" });
+      }
+      res.json({ mensaje: "Formación eliminada" });
+    });
+  });
+});
+
+app.post("/idiomas", verifyToken, (req, res) => {
+  const { idioma, nivel } = req.body;
+  if (!idioma || !idioma.trim() || !nivel || !nivel.trim()) {
+    return res.status(400).json({ error: "Idioma y nivel son obligatorios" });
+  }
+  db.run(
+    "INSERT INTO idiomas (usuario_id, idioma, nivel) VALUES (?, ?, ?)",
+    [req.usuario.id, idioma.trim(), nivel.trim()],
+    function(err) {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al guardar el idioma" });
+      }
+      res.json({ mensaje: "Idioma guardado", id: this.lastID });
+    }
+  );
+});
+
+app.delete("/idiomas/:id", verifyToken, (req, res) => {
+  db.get("SELECT usuario_id FROM idiomas WHERE id = ?", [req.params.id], (err, fila) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al eliminar el idioma" });
+    }
+    if (!fila || fila.usuario_id !== req.usuario.id) {
+      return res.status(403).json({ error: "No tienes permiso para eliminar este idioma" });
+    }
+    db.run("DELETE FROM idiomas WHERE id = ?", [req.params.id], (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al eliminar el idioma" });
+      }
+      res.json({ mensaje: "Idioma eliminado" });
+    });
+  });
 });
 
 app.get("/auth/confirmar-cambio-email/:token", (req, res) => {

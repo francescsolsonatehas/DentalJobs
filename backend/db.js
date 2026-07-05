@@ -289,6 +289,43 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS experiencia_laboral (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      puesto TEXT NOT NULL,
+      lugar TEXT,
+      fecha_inicio TEXT,
+      fecha_fin TEXT,
+      actual INTEGER DEFAULT 0,
+      descripcion TEXT,
+      orden INTEGER DEFAULT 0,
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS formacion (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      titulo TEXT NOT NULL,
+      centro TEXT,
+      anyo TEXT,
+      orden INTEGER DEFAULT 0,
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS idiomas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      idioma TEXT NOT NULL,
+      nivel TEXT NOT NULL,
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Backfill: calcular salario_min para publicaciones existentes que aún no lo tienen
   db.all("SELECT id, salario FROM publicaciones WHERE salario_min IS NULL AND salario IS NOT NULL", (err, filas) => {
     if (err || !filas) return;

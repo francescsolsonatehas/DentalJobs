@@ -575,6 +575,7 @@
 
             <div class="tabs">
                 <button class="tab-btn active" id="tabDatos" onclick="app.perfil.switchTab('datos')">Mis datos</button>
+                <button class="tab-btn" id="tabTrayectoria" onclick="app.perfil.switchTab('trayectoria')">Trayectoria</button>
                 <button class="tab-btn" id="tabCv" onclick="app.perfil.switchTab('cv')">Mi CV</button>
                 <button class="tab-btn" id="tabPortfolio" onclick="app.perfil.switchTab('portfolio')">Portfolio</button>
                 <button class="tab-btn" id="tabFotos" onclick="app.perfil.switchTab('fotos')">Fotos</button>
@@ -586,6 +587,83 @@
                 <div id="misDatosContainer">
                     <p style="text-align: center; color: #999;">Cargando...</p>
                 </div>
+            </div>
+
+            <!-- Tab: Trayectoria profesional -->
+            <div id="tab-trayectoria" class="tab-content">
+                <h4 style="color: #0f4c75; margin: 0 0 1rem 0;">💼 Experiencia laboral</h4>
+                <div id="trayectoriaExperienciaLista" style="margin-bottom: 1rem;"></div>
+                <form onsubmit="event.preventDefault(); app.trayectoria.crearExperiencia();" style="margin-bottom: 2rem;">
+                    <div class="form-group">
+                        <label for="expPuesto">Puesto *</label>
+                        <input id="expPuesto" type="text" placeholder="Ej: Odontóloga generalista" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="expLugar">Clínica / lugar</label>
+                        <input id="expLugar" type="text" placeholder="Ej: Clínica Dental Sonrisa, Barcelona">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label for="expInicio">Inicio</label>
+                            <input id="expInicio" type="month">
+                        </div>
+                        <div class="form-group">
+                            <label for="expFin">Fin</label>
+                            <input id="expFin" type="month">
+                        </div>
+                    </div>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.8rem;">
+                        <input type="checkbox" id="expActual" onchange="document.getElementById('expFin').disabled = this.checked;">
+                        Trabajo aquí actualmente
+                    </label>
+                    <div class="form-group">
+                        <label for="expDescripcion">Descripción</label>
+                        <textarea id="expDescripcion" placeholder="Funciones, logros, especialización..."></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%;">Añadir experiencia</button>
+                </form>
+
+                <h4 style="color: #0f4c75; margin: 0 0 1rem 0;">🎓 Formación</h4>
+                <div id="trayectoriaFormacionLista" style="margin-bottom: 1rem;"></div>
+                <form onsubmit="event.preventDefault(); app.trayectoria.crearFormacion();" style="margin-bottom: 2rem;">
+                    <div class="form-group">
+                        <label for="formTitulo">Título *</label>
+                        <input id="formTitulo" type="text" placeholder="Ej: Grado en Odontología" required>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label for="formCentro">Centro</label>
+                            <input id="formCentro" type="text" placeholder="Ej: Universidad de Barcelona">
+                        </div>
+                        <div class="form-group">
+                            <label for="formAnyo">Año</label>
+                            <input id="formAnyo" type="text" placeholder="2018">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%;">Añadir formación</button>
+                </form>
+
+                <h4 style="color: #0f4c75; margin: 0 0 1rem 0;">🌐 Idiomas</h4>
+                <div id="trayectoriaIdiomasLista" style="margin-bottom: 1rem;"></div>
+                <form onsubmit="event.preventDefault(); app.trayectoria.crearIdioma();">
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label for="idiomaNombre">Idioma *</label>
+                            <input id="idiomaNombre" type="text" placeholder="Ej: Inglés" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="idiomaNivel">Nivel *</label>
+                            <select id="idiomaNivel" required>
+                                <option value="">Elegir…</option>
+                                <option value="Básico">Básico</option>
+                                <option value="Intermedio">Intermedio</option>
+                                <option value="Avanzado">Avanzado</option>
+                                <option value="Nativo">Nativo</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%;">Añadir idioma</button>
+                </form>
             </div>
 
             <!-- Tab: CV -->

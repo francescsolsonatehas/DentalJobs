@@ -2835,8 +2835,10 @@ const app = {
 
       // Datos públicos (años de experiencia, descripción)
       let publico = null;
+      let trayectoria = null;
       if (dentista.usuario_id) {
         try { publico = await utils.request(`/usuarios/${dentista.usuario_id}/publico`); } catch (e) { /* opcional */ }
+        try { trayectoria = await utils.request(`/usuarios/${dentista.usuario_id}/trayectoria`); } catch (e) { /* opcional */ }
       }
 
       // Obtener especialidades del dentista si existen
@@ -2912,6 +2914,30 @@ const app = {
         <div style="background: #F8FAFF; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
           <h4 style="margin: 0 0 0.75rem 0; color: #0F4C75; font-weight: 700;">👤 Sobre mí</h4>
           <p style="margin: 0; line-height: 1.6; white-space: pre-wrap;">${utils.escapeHtml(publico.descripcion)}</p>
+        </div>
+        ` : ''}
+        ${trayectoria && trayectoria.experiencia.length > 0 ? `
+        <div style="background: #F8FAFF; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+          <h4 style="margin: 0 0 0.75rem 0; color: #0F4C75; font-weight: 700;">💼 Experiencia laboral</h4>
+          ${trayectoria.experiencia.map(e => `
+            <div style="margin-bottom: 0.9rem;">
+              <strong>${utils.escapeHtml(e.puesto)}</strong>${e.lugar ? ` · ${utils.escapeHtml(e.lugar)}` : ''}
+              <p style="margin: 0.2rem 0; font-size: 0.85rem; color: #6b7280;">${utils.escapeHtml(app.trayectoria.formatearRango(e.fecha_inicio, e.fecha_fin, e.actual))}</p>
+              ${e.descripcion ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.9rem; white-space: pre-wrap;">${utils.escapeHtml(e.descripcion)}</p>` : ''}
+            </div>
+          `).join('')}
+        </div>
+        ` : ''}
+        ${trayectoria && trayectoria.formacion.length > 0 ? `
+        <div style="background: #F8FAFF; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+          <h4 style="margin: 0 0 0.75rem 0; color: #0F4C75; font-weight: 700;">🎓 Formación</h4>
+          ${trayectoria.formacion.map(f => `<p style="margin: 0.3rem 0;">${utils.escapeHtml(f.titulo)}${f.centro ? ` · ${utils.escapeHtml(f.centro)}` : ''}${f.anyo ? ` (${utils.escapeHtml(f.anyo)})` : ''}</p>`).join('')}
+        </div>
+        ` : ''}
+        ${trayectoria && trayectoria.idiomas.length > 0 ? `
+        <div style="background: #F8FAFF; border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+          <h4 style="margin: 0 0 0.75rem 0; color: #0F4C75; font-weight: 700;">🌐 Idiomas</h4>
+          <p style="margin: 0;">${trayectoria.idiomas.map(i => `${utils.escapeHtml(i.idioma)} (${utils.escapeHtml(i.nivel)})`).join('  ·  ')}</p>
         </div>
         ` : ''}
       `;
@@ -3128,6 +3154,7 @@ const app = {
       // Mostrar/ocultar tabs según tipo de usuario
       if (estadoApp.tipoUsuario === 'clinica') {
         document.getElementById("tabDatos").style.display = "inline-block";
+        document.getElementById("tabTrayectoria").style.display = "none";
         document.getElementById("tabCv").style.display = "none";
         document.getElementById("tabPortfolio").style.display = "none";
         document.getElementById("tabFotos").style.display = "inline-block";
@@ -3136,11 +3163,13 @@ const app = {
         app.sedes.cargar();
       } else {
         document.getElementById("tabDatos").style.display = "inline-block";
+        document.getElementById("tabTrayectoria").style.display = "inline-block";
         document.getElementById("tabCv").style.display = "inline-block";
         document.getElementById("tabPortfolio").style.display = "inline-block";
         document.getElementById("tabFotos").style.display = "none";
         document.getElementById("tabSedes").style.display = "none";
         document.getElementById("perfilTitle").textContent = "Mi perfil";
+        app.trayectoria.cargar();
       }
 
       app.perfil.mostrarFormularioEdicion();
@@ -4273,6 +4302,164 @@ const app = {
           </div>
         </div>
       `;
+    }
+  },
+
+  // ============================================
+  // Módulo: Trayectoria profesional
+  // ============================================
+
+  trayectoria: {
+    async cargar() {
+      if (!estadoApp.usuario) return;
+      try {
+        const data = await utils.request(`/usuarios/${estadoApp.usuario.id}/trayectoria`);
+        this.renderExperiencia(data.experiencia || []);
+        this.renderFormacion(data.formacion || []);
+        this.renderIdiomas(data.idiomas || []);
+      } catch (error) {
+        console.error("Error al cargar trayectoria:", error);
+      }
+    },
+
+    formatearRango(inicio, fin, actual) {
+      const partes = [inicio, actual ? "Actualidad" : fin].filter(Boolean);
+      return partes.join(" – ");
+    },
+
+    renderExperiencia(lista) {
+      const contenedor = document.getElementById("trayectoriaExperienciaLista");
+      if (!contenedor) return;
+      if (lista.length === 0) {
+        contenedor.innerHTML = `<p style="color: #9ca3af; font-size: 0.9rem;">Aún no has añadido experiencia laboral.</p>`;
+        return;
+      }
+      contenedor.innerHTML = lista.map(e => `
+        <div style="background: #f8faff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; gap: 1rem;">
+          <div>
+            <strong style="color: #0f4c75;">${utils.escapeHtml(e.puesto)}</strong>${e.lugar ? ` · ${utils.escapeHtml(e.lugar)}` : ''}
+            <p style="margin: 0.2rem 0; font-size: 0.85rem; color: #6b7280;">${utils.escapeHtml(this.formatearRango(e.fecha_inicio, e.fecha_fin, e.actual))}</p>
+            ${e.descripcion ? `<p style="margin: 0.3rem 0 0 0; font-size: 0.9rem; color: #374151; white-space: pre-wrap;">${utils.escapeHtml(e.descripcion)}</p>` : ''}
+          </div>
+          <button class="btn-text btn-small" onclick="app.trayectoria.eliminarExperiencia(${e.id})" style="white-space: nowrap;">Eliminar</button>
+        </div>
+      `).join('');
+    },
+
+    renderFormacion(lista) {
+      const contenedor = document.getElementById("trayectoriaFormacionLista");
+      if (!contenedor) return;
+      if (lista.length === 0) {
+        contenedor.innerHTML = `<p style="color: #9ca3af; font-size: 0.9rem;">Aún no has añadido formación.</p>`;
+        return;
+      }
+      contenedor.innerHTML = lista.map(f => `
+        <div style="background: #f8faff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; gap: 1rem;">
+          <div>
+            <strong style="color: #0f4c75;">${utils.escapeHtml(f.titulo)}</strong>
+            <p style="margin: 0.2rem 0; font-size: 0.85rem; color: #6b7280;">${[f.centro, f.anyo].filter(Boolean).map(x => utils.escapeHtml(x)).join(' · ')}</p>
+          </div>
+          <button class="btn-text btn-small" onclick="app.trayectoria.eliminarFormacion(${f.id})" style="white-space: nowrap;">Eliminar</button>
+        </div>
+      `).join('');
+    },
+
+    renderIdiomas(lista) {
+      const contenedor = document.getElementById("trayectoriaIdiomasLista");
+      if (!contenedor) return;
+      if (lista.length === 0) {
+        contenedor.innerHTML = `<p style="color: #9ca3af; font-size: 0.9rem;">Aún no has añadido idiomas.</p>`;
+        return;
+      }
+      contenedor.innerHTML = `<div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">` + lista.map(i => `
+        <span style="background: #eef2ff; color: #3730a3; padding: 0.4rem 0.8rem; border-radius: 999px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.5rem;">
+          ${utils.escapeHtml(i.idioma)} · ${utils.escapeHtml(i.nivel)}
+          <button onclick="app.trayectoria.eliminarIdioma(${i.id})" style="background: none; border: none; cursor: pointer; color: #6366f1; font-weight: bold; padding: 0;">✕</button>
+        </span>
+      `).join('') + `</div>`;
+    },
+
+    async crearExperiencia() {
+      const datos = {
+        puesto: document.getElementById("expPuesto").value,
+        lugar: document.getElementById("expLugar").value || null,
+        fecha_inicio: document.getElementById("expInicio").value || null,
+        fecha_fin: document.getElementById("expFin").value || null,
+        actual: document.getElementById("expActual").checked
+      };
+      datos.descripcion = document.getElementById("expDescripcion").value || null;
+
+      try {
+        await utils.request("/experiencia-laboral", { method: "POST", body: JSON.stringify(datos) });
+        ["expPuesto", "expLugar", "expInicio", "expFin", "expDescripcion"].forEach(id => document.getElementById(id).value = "");
+        document.getElementById("expActual").checked = false;
+        document.getElementById("expFin").disabled = false;
+        utils.mostrarAlerta("✅ Experiencia añadida", "success");
+        await this.cargar();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async eliminarExperiencia(id) {
+      if (!confirm("¿Eliminar esta experiencia?")) return;
+      try {
+        await utils.request(`/experiencia-laboral/${id}`, { method: "DELETE" });
+        await this.cargar();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async crearFormacion() {
+      const datos = {
+        titulo: document.getElementById("formTitulo").value,
+        centro: document.getElementById("formCentro").value || null,
+        anyo: document.getElementById("formAnyo").value || null
+      };
+      try {
+        await utils.request("/formacion", { method: "POST", body: JSON.stringify(datos) });
+        ["formTitulo", "formCentro", "formAnyo"].forEach(id => document.getElementById(id).value = "");
+        utils.mostrarAlerta("✅ Formación añadida", "success");
+        await this.cargar();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async eliminarFormacion(id) {
+      if (!confirm("¿Eliminar esta formación?")) return;
+      try {
+        await utils.request(`/formacion/${id}`, { method: "DELETE" });
+        await this.cargar();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async crearIdioma() {
+      const datos = {
+        idioma: document.getElementById("idiomaNombre").value,
+        nivel: document.getElementById("idiomaNivel").value
+      };
+      try {
+        await utils.request("/idiomas", { method: "POST", body: JSON.stringify(datos) });
+        document.getElementById("idiomaNombre").value = "";
+        document.getElementById("idiomaNivel").value = "";
+        utils.mostrarAlerta("✅ Idioma añadido", "success");
+        await this.cargar();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async eliminarIdioma(id) {
+      try {
+        await utils.request(`/idiomas/${id}`, { method: "DELETE" });
+        await this.cargar();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
     }
   },
 
