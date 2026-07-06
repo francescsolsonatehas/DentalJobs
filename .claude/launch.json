@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["start", "--prefix", "backend"],
       "port": 3000
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["http-server", "frontend", "-p", "8080"],
+      "port": 8080
     }
   ]
 }
