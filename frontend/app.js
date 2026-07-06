@@ -475,6 +475,8 @@ const app = {
     },
 
     logout() {
+      app.ui.detenerActualizacionAutomatica();
+
       localStorage.removeItem("token");
       localStorage.removeItem("usuario");
       localStorage.removeItem("tipoUsuario");
