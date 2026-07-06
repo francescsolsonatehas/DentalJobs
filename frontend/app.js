@@ -3917,8 +3917,11 @@ const app = {
         clearInterval(this.statsPollingInterval);
       }
 
-      // Actualizar stats cada 30 segundos
+      // Actualizar stats cada 3 minutos; no son datos que cambien al segundo,
+      // así que no hace falta más frecuencia y se ahorran peticiones al backend
       this.statsPollingInterval = setInterval(async () => {
+        // Con la pestaña en segundo plano, esperar a que vuelva a estar visible
+        if (document.visibilityState !== "visible") return;
         try {
           await app.ui.actualizarStats();
           await app.alertas.actualizarContador();
@@ -3926,7 +3929,7 @@ const app = {
         } catch (error) {
           console.error("Error al actualizar stats:", error);
         }
-      }, 30000);
+      }, 180000);
     },
 
     detenerActualizacionAutomatica() {
