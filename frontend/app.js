@@ -4033,6 +4033,8 @@ const app = {
 
     async actualizarStats() {
       try {
+        if (!estadoApp.usuario) return; // el usuario pudo cerrar sesión mientras esto cargaba
+
         const statsGrid = document.getElementById("statsGrid");
 
         if (estadoApp.tipoUsuario === 'clinica') {
