@@ -10,7 +10,7 @@
     {
       "name": "frontend",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["http-server", "frontend", "-p", "8080"],
+      "runtimeArgs": ["http-server", "frontend", "-p", "8080", "-c-1"],
       "port": 8080
     }
   ]

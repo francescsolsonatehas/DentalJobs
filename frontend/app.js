@@ -1068,6 +1068,7 @@ const app = {
         document.getElementById("tabBtnSolicitud").classList.add("active");
         app.publicaciones.cargarEspecialidadesPublicar('solicitud');
         app.plantillas.cargar('solicitud');
+        document.getElementById("modalPublicarTitle").textContent = "Publicar nueva solicitud";
       }
 
       document.getElementById("modalPublicar").classList.add("active");
