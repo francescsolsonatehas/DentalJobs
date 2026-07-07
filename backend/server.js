@@ -310,8 +310,6 @@ app.delete("/auth/mi-cuenta", verifyToken, (req, res) => {
       ["DELETE FROM candidaturas WHERE usuario_id = ? AND id NOT IN (SELECT candidatura_id FROM resenyas)", [usuarioId]],
       ["DELETE FROM archivos WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM favoritos WHERE usuario_id = ?", [usuarioId]],
-      ["DELETE FROM alertas WHERE usuario_id = ?", [usuarioId]],
-      ["DELETE FROM busquedas_guardadas WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM tokens_verificacion WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM confirmacion_email WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM plantillas_publicacion WHERE usuario_id = ?", [usuarioId]],
@@ -1560,56 +1558,6 @@ app.get("/publicaciones/usuario/:usuario_id/candidatos", verifyToken, (req, res)
   );
 });
 
-// Comprueba las búsquedas guardadas del mismo tipo que la publicación recién creada
-// y genera una alerta para cada una cuyos criterios coincidan.
-function generarAlertasParaPublicacion(publicacionId, tipo, ciudad, especialidadIds, contrato, jornada, salarioMin, experienciaMinima) {
-  db.all(
-    "SELECT * FROM busquedas_guardadas WHERE tipo = ?",
-    [tipo],
-    (err, busquedas) => {
-      if (err || !busquedas) {
-        if (err) console.error(err);
-        return;
-      }
-
-      const coinciden = busquedas.filter(b => {
-        if (b.ciudad && !(ciudad.toLowerCase().includes(b.ciudad.toLowerCase()) || b.ciudad.toLowerCase().includes(ciudad.toLowerCase()))) {
-          return false;
-        }
-        if (b.especialidad_id && !especialidadIds.includes(b.especialidad_id)) {
-          return false;
-        }
-        if (b.contrato && b.contrato !== contrato) {
-          return false;
-        }
-        if (b.jornada && b.jornada !== jornada) {
-          return false;
-        }
-        if (b.salario_min && (salarioMin === null || salarioMin < b.salario_min)) {
-          return false;
-        }
-        if (b.experiencia_minima !== null && b.experiencia_minima !== undefined && experienciaMinima !== null) {
-          if (tipo === 'oferta' && experienciaMinima > b.experiencia_minima) {
-            return false; // la oferta exige más experiencia de la que tiene quien busca
-          }
-          if (tipo === 'solicitud' && experienciaMinima < b.experiencia_minima) {
-            return false; // el dentista tiene menos experiencia de la buscada
-          }
-        }
-        return true;
-      });
-
-      if (coinciden.length === 0) return;
-
-      const stmt = db.prepare("INSERT INTO alertas (usuario_id, busqueda_guardada_id, publicacion_id) VALUES (?, ?, ?)");
-      coinciden.forEach(b => {
-        stmt.run(b.usuario_id, b.id, publicacionId);
-      });
-      stmt.finalize();
-    }
-  );
-}
-
 app.post("/publicaciones", verifyToken, (req, res) => {
   const { tipo, descripcion, ciudad, especialidades, contrato, jornada, salario, salarioDesde, salarioHasta, experiencia, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente, retribucionTipo, retribucionPorcentaje, equipamiento } = req.body;
 
@@ -1673,8 +1621,6 @@ app.post("/publicaciones", verifyToken, (req, res) => {
           equipamientoValido.forEach(eq => stmt.run(publicacionId, eq));
           stmt.finalize();
         }
-
-        generarAlertasParaPublicacion(publicacionId, tipo, ciudad, especialidades || [], contrato, jornada, salarioMin, experienciaMinima);
 
         res.json({
           mensaje: "Publicación creada",
@@ -3817,100 +3763,6 @@ app.delete("/favoritos/:publicacion_id", verifyToken, (req, res) => {
         return res.status(500).json({ error: "Error al quitar de favoritos" });
       }
       res.json({ mensaje: "Quitado de favoritos" });
-    }
-  );
-});
-
-/* ===========================
-   🔹 BÚSQUEDAS GUARDADAS Y ALERTAS
-=========================== */
-
-app.post("/busquedas-guardadas", verifyToken, (req, res) => {
-  const { nombre, tipo, ciudad, especialidad_id, contrato, jornada, salarioMin, experienciaMin } = req.body;
-  const usuario_id = req.usuario.id;
-
-  if (!tipo) {
-    return res.status(400).json({ error: "tipo requerido" });
-  }
-
-  db.run(
-    `INSERT INTO busquedas_guardadas
-     (usuario_id, nombre, tipo, ciudad, especialidad_id, contrato, jornada, salario_min, experiencia_minima)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [usuario_id, nombre || null, tipo, ciudad || null, especialidad_id || null, contrato || null, jornada || null,
-     salarioMin || null, experienciaMin !== undefined && experienciaMin !== '' ? experienciaMin : null],
-    function(err) {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al guardar búsqueda" });
-      }
-      res.json({ mensaje: "Búsqueda guardada", id: this.lastID });
-    }
-  );
-});
-
-app.get("/busquedas-guardadas", verifyToken, (req, res) => {
-  db.all(
-    "SELECT * FROM busquedas_guardadas WHERE usuario_id = ? ORDER BY creado_en DESC",
-    [req.usuario.id],
-    (err, busquedas) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener búsquedas guardadas" });
-      }
-      res.json(busquedas || []);
-    }
-  );
-});
-
-app.delete("/busquedas-guardadas/:id", verifyToken, (req, res) => {
-  db.get("SELECT usuario_id FROM busquedas_guardadas WHERE id = ?", [req.params.id], (err, busqueda) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Error al eliminar búsqueda guardada" });
-    }
-    if (!busqueda || busqueda.usuario_id !== req.usuario.id) {
-      return res.status(403).json({ error: "No tienes permiso para eliminar esta búsqueda" });
-    }
-    db.run("DELETE FROM busquedas_guardadas WHERE id = ?", [req.params.id], (err) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al eliminar búsqueda guardada" });
-      }
-      res.json({ mensaje: "Búsqueda guardada eliminada" });
-    });
-  });
-});
-
-app.get("/alertas", verifyToken, (req, res) => {
-  db.all(
-    `SELECT a.id as alerta_id, a.leido, a.creado_en as alerta_creado_en, p.*
-     FROM alertas a
-     INNER JOIN publicaciones p ON a.publicacion_id = p.id
-     WHERE a.usuario_id = ?
-     ORDER BY a.creado_en DESC`,
-    [req.usuario.id],
-    (err, alertas) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener alertas" });
-      }
-      db.run("UPDATE alertas SET leido = 1 WHERE usuario_id = ? AND leido = 0", [req.usuario.id]);
-      res.json(alertas || []);
-    }
-  );
-});
-
-app.get("/alertas/no-leidas/count", verifyToken, (req, res) => {
-  db.get(
-    "SELECT COUNT(*) as total FROM alertas WHERE usuario_id = ? AND leido = 0",
-    [req.usuario.id],
-    (err, result) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener alertas sin leer" });
-      }
-      res.json({ total: result.total || 0 });
     }
   );
 });

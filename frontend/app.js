@@ -3924,7 +3924,6 @@ const app = {
         if (document.visibilityState !== "visible") return;
         try {
           await app.ui.actualizarStats();
-          await app.alertas.actualizarContador();
           await app.chat.actualizarContador();
         } catch (error) {
           console.error("Error al actualizar stats:", error);
@@ -3973,12 +3972,9 @@ const app = {
       document.getElementById("btnPublicar").style.display = "inline-block";
       document.getElementById("btnPerfil").style.display = "inline-block";
       document.getElementById("btnLogout").style.display = "inline-block";
-      document.getElementById("btnGuardarBusqueda").style.display = "inline-block";
       document.getElementById("btnExportarCsv").style.display = "inline-block";
       document.getElementById("btnFavoritos").style.display = "inline-block";
-      document.getElementById("btnAlertas").style.display = "inline-block";
       document.getElementById("btnChat").style.display = "inline-block";
-      app.alertas.actualizarContador();
       app.chat.actualizarContador();
       app.recordatorios.comprobar();
 
@@ -4328,93 +4324,6 @@ const app = {
           btn.textContent = "⭐";
           btn.title = "Quitar de favoritos";
         }
-      } catch (error) {
-        utils.mostrarAlerta(error.message, "error");
-      }
-    }
-  },
-
-  // ============================================
-  // Módulo: Búsquedas guardadas
-  // ============================================
-
-  busquedas: {
-    async guardarActual() {
-      if (!estadoApp.usuario) {
-        utils.mostrarAlerta("Debes iniciar sesión", "error");
-        return;
-      }
-
-      const f = estadoApp.filtros;
-      const tipo = f.tipo || (estadoApp.tipoUsuario === 'clinica' ? 'solicitud' : 'oferta');
-
-      try {
-        await utils.request("/busquedas-guardadas", {
-          method: "POST",
-          body: JSON.stringify({
-            tipo,
-            ciudad: f.ciudad || null,
-            especialidad_id: f.especialidad || null,
-            contrato: f.contrato || null,
-            jornada: f.jornada || null,
-            salarioMin: f.salarioMin || null,
-            experienciaMin: f.experienciaMin || null
-          })
-        });
-        utils.mostrarAlerta("Búsqueda guardada. Te avisaremos con la campana 🔔 cuando haya novedades.", "success");
-      } catch (error) {
-        utils.mostrarAlerta(error.message, "error");
-      }
-    }
-  },
-
-  // ============================================
-  // Módulo: Alertas
-  // ============================================
-
-  alertas: {
-    async actualizarContador() {
-      if (!estadoApp.usuario) return;
-      try {
-        const data = await utils.request("/alertas/no-leidas/count");
-        const badge = document.getElementById("alertasBadge");
-        if (data.total > 0) {
-          badge.textContent = data.total;
-          badge.style.display = "inline-block";
-        } else {
-          badge.style.display = "none";
-        }
-      } catch (error) {
-        console.error("Error al obtener alertas:", error);
-      }
-    },
-
-    async mostrar() {
-      try {
-        const alertas = await utils.request("/alertas");
-
-        if (alertas.length === 0) {
-          utils.mostrarAlerta("No tienes alertas todavía", "info");
-        } else {
-          let html = `<div class="candidatos-list">`;
-          alertas.forEach(a => {
-            html += `
-              <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
-                <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">${utils.escapeHtml(a.descripcion || a.ciudad)}</h4>
-                <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📍 Ciudad:</strong> ${utils.escapeHtml(a.ciudad)}</p>
-                ${a.salario ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>💰 Salario:</strong> ${utils.escapeHtml(a.salario)}</p>` : ''}
-                <p style="margin: 0.5rem 0 0 0; font-size: 0.8rem; color: #9ca3af;">${utils.formatearFecha(a.alerta_creado_en)}</p>
-              </div>
-            `;
-          });
-          html += "</div>";
-          document.getElementById("interesadosBody").innerHTML = html;
-          document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = `Alertas (${alertas.length})`;
-          document.getElementById("modalInteresados").classList.add("active");
-        }
-
-        // El propio GET /alertas ya las marca como leídas en el backend
-        document.getElementById("alertasBadge").style.display = "none";
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }

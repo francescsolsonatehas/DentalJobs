@@ -230,33 +230,6 @@ db.serialize(() => {
     )
   `);
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS busquedas_guardadas (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
-      nombre TEXT,
-      tipo TEXT NOT NULL,
-      ciudad TEXT,
-      especialidad_id INTEGER REFERENCES especialidades(id),
-      contrato TEXT,
-      jornada TEXT,
-      salario_min INTEGER,
-      experiencia_minima INTEGER,
-      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS alertas (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
-      busqueda_guardada_id INTEGER REFERENCES busquedas_guardadas(id),
-      publicacion_id INTEGER REFERENCES publicaciones(id),
-      leido INTEGER DEFAULT 0,
-      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
   db.run(`ALTER TABLE usuarios ADD COLUMN email_verificado INTEGER DEFAULT 0`, (err) => {
     // Ignorar error si la columna ya existe
   });

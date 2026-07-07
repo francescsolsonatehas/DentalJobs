@@ -13,9 +13,6 @@
             <div class="logo">🦷 DentalJobs</div>
             <div class="nav-buttons" id="navButtonsLogueado">
                 <button class="btn-primary btn-small" id="btnPublicar" onclick="app.modal.abrirPublicar()" style="display: none;">Publicar</button>
-                <button class="btn-outline btn-small" id="btnAlertas" onclick="app.alertas.mostrar()" style="display: none; position: relative;">
-                    🔔 <span id="alertasBadge" style="display: none; background: #ef4444; color: white; border-radius: 50%; padding: 0.1rem 0.4rem; font-size: 0.7rem; position: absolute; top: -4px; right: -4px;">0</span>
-                </button>
                 <button class="btn-outline btn-small" id="btnChat" onclick="app.chat.abrir()" style="display: none; position: relative;">
                     💬 <span id="chatBadge" style="display: none; background: #ef4444; color: white; border-radius: 50%; padding: 0.1rem 0.4rem; font-size: 0.7rem; position: absolute; top: -4px; right: -4px;">0</span>
                 </button>
@@ -261,7 +258,6 @@
                 </div>
             </div>
             <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <button class="btn-outline btn-small" id="btnGuardarBusqueda" onclick="app.busquedas.guardarActual()" style="display: none;">💾 Guardar esta búsqueda</button>
                 <button class="btn-outline btn-small" id="btnExportarCsv" onclick="app.exportar.postulacionesCsv()" style="display: none;">⬇️ Exportar postulaciones (CSV)</button>
             </div>
         </div>
