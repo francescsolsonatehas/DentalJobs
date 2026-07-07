@@ -5137,7 +5137,7 @@ const app = {
           document.getElementById("chatBody").innerHTML = `
             <div style="padding: 2rem; text-align: center; color: #6b7280;">
               <p>No tienes conversaciones todavía.</p>
-              <p style="font-size: 0.9rem;">Abre una publicación y pulsa "💬 Enviar mensaje" para empezar a hablar.</p>
+              <p style="font-size: 0.9rem;">El chat se activa cuando una postulación es aceptada: entra en la publicación correspondiente y pulsa "💬 Enviar mensaje".</p>
             </div>
           `;
           return;
@@ -5463,13 +5463,22 @@ const app = {
       try {
         await utils.request(`/candidaturas/${candidaturaId}`, { method: "DELETE" });
         utils.mostrarAlerta("✅ Postulación retirada", "success");
-        // Cerrar modal de detalles si está abierto
-        const modalDetalle = document.getElementById("modalDetalle");
-        if (modalDetalle) {
-          modalDetalle.classList.remove("active");
+
+        // Cerrar modales que pudieran mostrar la postulación ya retirada
+        ["modalDetalle", "modalInteresados"].forEach(id => {
+          document.getElementById(id)?.classList.remove("active");
+        });
+
+        // Refrescar solo la vista donde estaba este botón, sin recargar toda
+        // la página (eso perdía filtros y scroll, y cortaba el aviso de éxito)
+        if (document.getElementById("misPostulacionesContainer")) {
+          await app.candidaturas.cargarMisPostulaciones();
+        } else if (document.querySelector("#publicacionesContainer .kanban-board")) {
+          await app.kanban.render();
+        } else if (document.getElementById("publicacionesContainer")) {
+          await app.publicaciones.cargar();
         }
-        // Forzar recarga completa de página
-        location.reload();
+        await app.ui.actualizarStats();
       } catch (error) {
         utils.mostrarAlerta("❌ " + error.message, "error");
       }
