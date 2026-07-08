@@ -9,11 +9,16 @@ function obtenerTransporter() {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return null;
   if (!transporter) {
     transporter = nodemailer.createTransport({
-      service: "gmail",
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
       auth: {
         user: process.env.GMAIL_USER,
         pass: process.env.GMAIL_APP_PASSWORD
-      }
+      },
+      // Render no resuelve bien IPv6 hacia los servidores de Gmail y la conexión
+      // se queda colgada hasta el timeout; forzar IPv4 lo evita.
+      family: 4
     });
   }
   return transporter;
