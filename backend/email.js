@@ -2,20 +2,21 @@
 // Sin GMAIL_USER/GMAIL_APP_PASSWORD configurados, los correos se imprimen por
 // consola: el resto del código no nota la diferencia (modo desarrollo/tests).
 const nodemailer = require("nodemailer");
-
-// Node 18+ resuelve DNS en orden "verbatim" (como lo devuelva el sistema, que
-// suele poner IPv6 primero). En Render la salida IPv6 no funciona, así que la
-// conexión SMTP se queda colgada hasta ENETUNREACH/timeout. Forzar IPv4 primero
-// a nivel global lo evita (la opción family de nodemailer no basta por sí sola).
-require("dns").setDefaultResultOrder("ipv4first");
+const dnsPromises = require("dns").promises;
 
 let transporter = null;
 
-function obtenerTransporter() {
+// Render no tiene salida IPv6 funcional, y ni family:4 ni
+// dns.setDefaultResultOrder("ipv4first") evitan que Node intente conectar
+// por IPv6 primero (ENETUNREACH). La única forma fiable es resolver
+// smtp.gmail.com a una IP v4 nosotros mismos y conectar contra esa IP
+// literal, así Node no vuelve a resolver ni a elegir familia.
+async function obtenerTransporter() {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return null;
   if (!transporter) {
+    const [ipv4] = await dnsPromises.resolve4("smtp.gmail.com");
     transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
+      host: ipv4,
       port: 587,
       secure: false,
       requireTLS: true,
@@ -23,14 +24,15 @@ function obtenerTransporter() {
         user: process.env.GMAIL_USER,
         pass: process.env.GMAIL_APP_PASSWORD
       },
-      family: 4
+      // El certificado TLS es para el nombre de host, no para la IP literal
+      tls: { servername: "smtp.gmail.com" }
     });
   }
   return transporter;
 }
 
 async function enviarEmail(para, asunto, html) {
-  const t = obtenerTransporter();
+  const t = await obtenerTransporter();
 
   if (!t) {
     console.log("📧 [email en modo consola] ─────────────────────");
