@@ -3,6 +3,12 @@
 // consola: el resto del código no nota la diferencia (modo desarrollo/tests).
 const nodemailer = require("nodemailer");
 
+// Node 18+ resuelve DNS en orden "verbatim" (como lo devuelva el sistema, que
+// suele poner IPv6 primero). En Render la salida IPv6 no funciona, así que la
+// conexión SMTP se queda colgada hasta ENETUNREACH/timeout. Forzar IPv4 primero
+// a nivel global lo evita (la opción family de nodemailer no basta por sí sola).
+require("dns").setDefaultResultOrder("ipv4first");
+
 let transporter = null;
 
 function obtenerTransporter() {
@@ -35,12 +41,14 @@ async function enviarEmail(para, asunto, html) {
     return { simulado: true };
   }
 
-  return t.sendMail({
+  const info = await t.sendMail({
     from: `"DentalJobs" <${process.env.GMAIL_USER}>`,
     to: para,
     subject: asunto,
     html
   });
+  console.log(`📧 Email enviado a ${para}: messageId=${info.messageId} accepted=${JSON.stringify(info.accepted)} rejected=${JSON.stringify(info.rejected)}`);
+  return info;
 }
 
 // Plantilla sencilla y consistente para todos los correos
