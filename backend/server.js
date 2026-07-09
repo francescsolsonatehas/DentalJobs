@@ -86,7 +86,8 @@ function listarClinicasPotencialesParaDentista(usuarioId, callback) {
      SELECT DISTINCT s.id as publicacion_id, o.usuario_id, u.nombre, u.email, o.ciudad
      FROM publicaciones o
      INNER JOIN usuarios u ON o.usuario_id = u.id
-     INNER JOIN publicaciones s ON s.usuario_id = ? AND s.tipo = 'solicitud' AND s.activo = 1 AND o.ciudad = s.ciudad
+     INNER JOIN publicaciones s ON s.usuario_id = ? AND s.tipo = 'solicitud' AND s.activo = 1
+       AND (o.ciudad = s.ciudad OR s.ciudad LIKE '%' || o.ciudad || '%' OR o.ciudad LIKE '%' || s.ciudad || '%')
      WHERE o.tipo = 'oferta' AND o.activo = 1
      AND (
        NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = o.id)
@@ -2095,7 +2096,8 @@ app.get("/stats/clinicas-potenciales/:usuario_id", verifyToken, (req, res) => {
      FROM (
        SELECT DISTINCT s.id as publicacion_id, o.usuario_id
        FROM publicaciones o
-       INNER JOIN publicaciones s ON s.usuario_id = ? AND s.tipo = 'solicitud' AND s.activo = 1 AND o.ciudad = s.ciudad
+       INNER JOIN publicaciones s ON s.usuario_id = ? AND s.tipo = 'solicitud' AND s.activo = 1
+         AND (o.ciudad = s.ciudad OR s.ciudad LIKE '%' || o.ciudad || '%' OR o.ciudad LIKE '%' || s.ciudad || '%')
        WHERE o.tipo = 'oferta' AND o.activo = 1
        AND (
          NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = o.id)
@@ -2129,7 +2131,8 @@ app.get("/stats/clinicas-potenciales-lista/:usuario_id", verifyToken, (req, res)
      SELECT DISTINCT s.id as publicacion_id, o.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, o.ciudad
      FROM publicaciones o
      INNER JOIN usuarios u ON o.usuario_id = u.id
-     INNER JOIN publicaciones s ON s.usuario_id = ? AND s.tipo = 'solicitud' AND s.activo = 1 AND o.ciudad = s.ciudad
+     INNER JOIN publicaciones s ON s.usuario_id = ? AND s.tipo = 'solicitud' AND s.activo = 1
+       AND (o.ciudad = s.ciudad OR s.ciudad LIKE '%' || o.ciudad || '%' OR o.ciudad LIKE '%' || s.ciudad || '%')
      WHERE o.tipo = 'oferta' AND o.activo = 1
      AND (
        NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = o.id)
