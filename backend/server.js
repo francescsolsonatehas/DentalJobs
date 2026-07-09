@@ -2208,15 +2208,16 @@ app.get("/stats/dentistas-por-especialidad", (req, res) => {
      WHERE s.tipo = 'solicitud' AND s.activo = 1
      GROUP BY e.id, e.nombre
      UNION ALL
-     SELECT 'Sin especialidad' as especialidad, COUNT(DISTINCT s.usuario_id) as total
-     FROM publicaciones s
-     WHERE s.tipo = 'solicitud' AND s.activo = 1
-     AND NOT EXISTS (
-       SELECT 1 FROM pub_esp pe2
-       INNER JOIN publicaciones s2 ON s2.id = pe2.publicacion_id
-       WHERE s2.usuario_id = s.usuario_id AND s2.tipo = 'solicitud' AND s2.activo = 1
-     )
-     HAVING COUNT(DISTINCT s.usuario_id) > 0
+     SELECT * FROM (
+       SELECT 'Sin especialidad' as especialidad, COUNT(DISTINCT s.usuario_id) as total
+       FROM publicaciones s
+       WHERE s.tipo = 'solicitud' AND s.activo = 1
+       AND NOT EXISTS (
+         SELECT 1 FROM pub_esp pe2
+         INNER JOIN publicaciones s2 ON s2.id = pe2.publicacion_id
+         WHERE s2.usuario_id = s.usuario_id AND s2.tipo = 'solicitud' AND s2.activo = 1
+       )
+     ) WHERE total > 0
      ORDER BY total DESC`,
     (err, resultado) => {
       if (err) {
@@ -2490,15 +2491,16 @@ app.get("/stats/clinicas-por-especialidad", (req, res) => {
      WHERE o.tipo = 'oferta' AND o.activo = 1
      GROUP BY e.id, e.nombre
      UNION ALL
-     SELECT 'Sin especialidad' as especialidad, COUNT(DISTINCT o.usuario_id) as total
-     FROM publicaciones o
-     WHERE o.tipo = 'oferta' AND o.activo = 1
-     AND NOT EXISTS (
-       SELECT 1 FROM pub_esp pe2
-       INNER JOIN publicaciones o2 ON o2.id = pe2.publicacion_id
-       WHERE o2.usuario_id = o.usuario_id AND o2.tipo = 'oferta' AND o2.activo = 1
-     )
-     HAVING COUNT(DISTINCT o.usuario_id) > 0
+     SELECT * FROM (
+       SELECT 'Sin especialidad' as especialidad, COUNT(DISTINCT o.usuario_id) as total
+       FROM publicaciones o
+       WHERE o.tipo = 'oferta' AND o.activo = 1
+       AND NOT EXISTS (
+         SELECT 1 FROM pub_esp pe2
+         INNER JOIN publicaciones o2 ON o2.id = pe2.publicacion_id
+         WHERE o2.usuario_id = o.usuario_id AND o2.tipo = 'oferta' AND o2.activo = 1
+       )
+     ) WHERE total > 0
      ORDER BY total DESC`,
     (err, resultado) => {
       if (err) {
