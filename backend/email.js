@@ -1,40 +1,15 @@
-// Envío de correos vía Gmail (SMTP con contraseña de aplicación).
-// Sin GMAIL_USER/GMAIL_APP_PASSWORD configurados, los correos se imprimen por
-// consola: el resto del código no nota la diferencia (modo desarrollo/tests).
-const nodemailer = require("nodemailer");
-const dnsPromises = require("dns").promises;
-
-let transporter = null;
-
-// Render no tiene salida IPv6 funcional, y ni family:4 ni
-// dns.setDefaultResultOrder("ipv4first") evitan que Node intente conectar
-// por IPv6 primero (ENETUNREACH). La única forma fiable es resolver
-// smtp.gmail.com a una IP v4 nosotros mismos y conectar contra esa IP
-// literal, así Node no vuelve a resolver ni a elegir familia.
-async function obtenerTransporter() {
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return null;
-  if (!transporter) {
-    const [ipv4] = await dnsPromises.resolve4("smtp.gmail.com");
-    transporter = nodemailer.createTransport({
-      host: ipv4,
-      port: 587,
-      secure: false,
-      requireTLS: true,
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD
-      },
-      // El certificado TLS es para el nombre de host, no para la IP literal
-      tls: { servername: "smtp.gmail.com" }
-    });
-  }
-  return transporter;
-}
+// Envío de correos vía la API HTTP de Brevo (antes Sendinblue).
+// Render bloquea las conexiones salientes por los puertos SMTP (465/587,
+// probado con Gmail: timeout y ENETUNREACH incluso forzando IPv4), así que
+// el envío va por HTTPS en vez de SMTP.
+// Sin BREVO_API_KEY configurada, los correos se imprimen por consola: el
+// resto del código no nota la diferencia (modo desarrollo/tests).
+const EMAIL_REMITENTE = process.env.GMAIL_USER || "dentaljobs.avisos@gmail.com";
 
 async function enviarEmail(para, asunto, html) {
-  const t = await obtenerTransporter();
+  const apiKey = process.env.BREVO_API_KEY;
 
-  if (!t) {
+  if (!apiKey) {
     console.log("📧 [email en modo consola] ─────────────────────");
     console.log(`   Para:    ${para}`);
     console.log(`   Asunto:  ${asunto}`);
@@ -43,14 +18,28 @@ async function enviarEmail(para, asunto, html) {
     return { simulado: true };
   }
 
-  const info = await t.sendMail({
-    from: `"DentalJobs" <${process.env.GMAIL_USER}>`,
-    to: para,
-    subject: asunto,
-    html
+  const respuesta = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "api-key": apiKey
+    },
+    body: JSON.stringify({
+      sender: { name: "DentalJobs", email: EMAIL_REMITENTE },
+      to: [{ email: para }],
+      subject: asunto,
+      htmlContent: html
+    })
   });
-  console.log(`📧 Email enviado a ${para}: messageId=${info.messageId} accepted=${JSON.stringify(info.accepted)} rejected=${JSON.stringify(info.rejected)}`);
-  return info;
+
+  const datos = await respuesta.json().catch(() => ({}));
+
+  if (!respuesta.ok) {
+    throw new Error(`Brevo respondió ${respuesta.status}: ${JSON.stringify(datos)}`);
+  }
+
+  console.log(`📧 Email enviado a ${para}: messageId=${datos.messageId}`);
+  return datos;
 }
 
 // Plantilla sencilla y consistente para todos los correos
