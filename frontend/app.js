@@ -4642,28 +4642,42 @@ const app = {
       container.innerHTML = this.tarjetasHtml(perfiles, favSet);
     },
 
+    // Chip de especialidad, con el color del tipo de perfil
+    chipEspecialidad(nombre, esClinica) {
+      const fondo = esClinica ? "rgba(15,76,117,.1)" : "rgba(46,196,182,.15)";
+      const color = esClinica ? "#0f4c75" : "#0f766e";
+      return `<span class="badge" style="background:${fondo};color:${color};font-weight:600;">${utils.escapeHtml(nombre)}</span>`;
+    },
+
     // Devuelve el HTML de una rejilla de tarjetas de perfil (reutilizado en la vista de Favoritos)
     tarjetasHtml(perfiles, favSet) {
       return `<div class="publicaciones">` + perfiles.map(p => {
         const esFav = favSet.has(p.id);
-        const ciudadLabel = p.ciudad ? (p.provincia ? `${p.ciudad} (${p.provincia})` : p.ciudad) : "Sin ciudad";
-        const esp = (p.especialidades || []).join(", ") || "Sin especialidades";
+        const esClinica = p.tipo === "clinica";
+        const ciudadLabel = p.ciudad ? (p.provincia ? `${p.ciudad} (${p.provincia})` : p.ciudad) : "Ubicación no indicada";
+        const especialidades = p.especialidades || [];
+        const colegiadoOk = !esClinica && p.colegiado_estado === "verificado";
+        const chips = especialidades.slice(0, 4).map(e => this.chipEspecialidad(e, esClinica)).join("")
+          + (especialidades.length > 4 ? `<span class="badge">+${especialidades.length - 4}</span>` : "");
         return `
-          <div class="card">
+          <div class="card ${esClinica ? "type-oferta" : "type-solicitud"}">
             <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-              <span class="card-type">${p.tipo === 'dentista' ? '👨‍⚕️ Dentista' : '🏥 Clínica'}</span>
-              <button onclick="app.favoritos.togglePerfil(${p.id}, this)" data-favorito="${esFav}" style="background:none;border:none;cursor:pointer;font-size:1.3rem;padding:0;" title="${esFav ? 'Quitar de favoritos' : 'Guardar en favoritos'}">${esFav ? '⭐' : '☆'}</button>
+              <span class="card-type ${esClinica ? "type-oferta" : "type-solicitud"}">${esClinica ? "🏥 Clínica" : "👨‍⚕️ Dentista"}</span>
+              <button onclick="app.favoritos.togglePerfil(${p.id}, this)" data-favorito="${esFav}" style="background:none;border:none;cursor:pointer;font-size:1.3rem;padding:0;" title="${esFav ? "Quitar de favoritos" : "Guardar en favoritos"}">${esFav ? "⭐" : "☆"}</button>
             </div>
-            <h3>${utils.escapeHtml(p.nombre)}</h3>
+            <h3>${utils.escapeHtml(p.nombre)}${colegiadoOk ? ` <span title="Colegiación verificada" style="color:#059669;font-size:.9rem;">✓</span>` : ""}</h3>
             <div class="card-details">
               <div class="detail"><span class="detail-icon">📍</span><span>${utils.escapeHtml(ciudadLabel)}</span></div>
-              <div class="detail"><span class="detail-icon">🦷</span><span>${utils.escapeHtml(esp)}</span></div>
-              ${p.anyos_experiencia !== null && p.anyos_experiencia !== undefined ? `<div class="detail"><span class="detail-icon">🎓</span><span>${p.anyos_experiencia} años exp.</span></div>` : ''}
+              ${p.anyos_experiencia !== null && p.anyos_experiencia !== undefined ? `<div class="detail"><span class="detail-icon">🎓</span><span>${p.anyos_experiencia} años de experiencia</span></div>` : ""}
+              ${colegiadoOk ? `<div class="detail"><span class="detail-icon">✅</span><span style="color:#059669;font-weight:600;">Colegiado verificado</span></div>` : ""}
             </div>
-            ${p.descripcion ? `<p style="color:#6b7280;font-size:.9rem;margin:.5rem 0;">${utils.escapeHtml(p.descripcion.slice(0, 160))}${p.descripcion.length > 160 ? '…' : ''}</p>` : ''}
+            ${chips
+              ? `<div class="badges">${chips}</div>`
+              : `<p style="color:#9ca3af;font-size:.85rem;margin:.2rem 0 1rem;">${esClinica ? "Especialidades no indicadas" : "Sin especialidades indicadas"}</p>`}
+            ${p.descripcion ? `<p style="color:#6b7280;font-size:.9rem;margin:.2rem 0 1rem;line-height:1.5;">${utils.escapeHtml(p.descripcion.slice(0, 150))}${p.descripcion.length > 150 ? "…" : ""}</p>` : ""}
             <div class="card-footer" style="display:flex;gap:.5rem;">
               <button class="btn-primary" onclick="app.perfiles.verDetalle(${p.id})" style="flex:1;">Ver perfil</button>
-              <button class="btn-secondary" onclick="app.perfiles.contactar(${p.id}, '${utils.escapeHtml(p.nombre || 'este perfil').replace(/'/g, "\\'")}', '${p.tipo}')" style="flex:1;">✉️ Contactar</button>
+              <button class="btn-secondary" onclick="app.perfiles.contactar(${p.id}, '${utils.escapeHtml(p.nombre || "este perfil").replace(/'/g, "\\'")}', '${p.tipo}')" style="flex:1;">✉️ Contactar</button>
             </div>
           </div>`;
       }).join("") + `</div>`;
@@ -4756,76 +4770,110 @@ const app = {
       return desde || hasta || "";
     },
 
-    // Ficha pública del dentista: datos personales (profesionales) + trayectoria
+    // Estado de colegiación legible para la ficha del dentista
+    estadoColegiacion(u) {
+      if (u.colegiado_estado === "verificado" && u.num_colegiado) {
+        return `<span style="color:#059669;font-weight:600;">✓ Colegiado nº ${utils.escapeHtml(u.num_colegiado)}${u.colegio ? ` · ${utils.escapeHtml(u.colegio)}` : ""}</span>`;
+      }
+      if (u.colegiado_estado === "pendiente") return `<span style="color:#6366f1;">⏳ En verificación</span>`;
+      return `<span style="color:#9ca3af;">No indicada</span>`;
+    },
+
+    // Fila de badges de especialidades, o un aviso si no hay
+    bloqueEspecialidades(u, esClinica) {
+      if (!(u.especialidades || []).length) {
+        return `<p style="margin:.3rem 0;color:#9ca3af;">${esClinica ? "Especialidades no indicadas" : "Sin especialidades indicadas"}</p>`;
+      }
+      return `<div class="badges" style="margin-top:.4rem;">${u.especialidades.map(e => this.chipEspecialidad(e, esClinica)).join("")}</div>`;
+    },
+
+    // Ficha pública del dentista: datos personales (profesionales) + trayectoria,
+    // en secciones con estilo para que no se vea vacía aunque falten campos.
     async fichaDentista(u, id) {
       let tray = { experiencia: [], formacion: [], idiomas: [], certificaciones: [] };
       try { tray = await utils.request(`/usuarios/${id}/trayectoria`); } catch (e) { /* sin trayectoria */ }
 
-      const ciudadLabel = u.ciudad ? (u.provincia ? `${u.ciudad} (${u.provincia})` : u.ciudad) : "Sin ciudad";
-      let html = `<p style="color:#4b5563;margin:0 0 .5rem;">👨‍⚕️ Dentista · ${utils.escapeHtml(ciudadLabel)}</p>`;
-      if (u.anyos_experiencia !== null && u.anyos_experiencia !== undefined) {
-        html += `<p style="margin:.2rem 0;">🎓 ${u.anyos_experiencia} años de experiencia</p>`;
-      }
-      if (u.colegiado_estado === "verificado" && u.num_colegiado) {
-        html += `<p style="margin:.2rem 0;color:#059669;font-weight:600;">✓ Colegiado nº ${utils.escapeHtml(u.num_colegiado)}${u.colegio ? ` (${utils.escapeHtml(u.colegio)})` : ""}</p>`;
-      }
-      if ((u.especialidades || []).length) {
-        html += `<p style="margin:.4rem 0;"><strong>Especialidades:</strong> ${u.especialidades.map(e => utils.escapeHtml(e)).join(", ")}</p>`;
-      }
-      if (u.descripcion) html += `<p style="margin:.5rem 0;">${utils.escapeHtml(u.descripcion)}</p>`;
+      const ciudadLabel = u.ciudad ? (u.provincia ? `${u.ciudad} (${u.provincia})` : u.ciudad) : "No indicada";
+
+      let html = `<div class="perfil-dentista">`;
+      html += `<div class="info-section">
+        <p style="margin:.3rem 0;font-size:1.05rem;"><span class="detail-icon">👨‍⚕️</span> Dentista · <strong>${utils.escapeHtml(ciudadLabel)}</strong></p>
+        ${u.anyos_experiencia !== null && u.anyos_experiencia !== undefined ? `<p style="margin:.3rem 0;">🎓 <strong>${u.anyos_experiencia}</strong> años de experiencia</p>` : ""}
+        <p style="margin:.3rem 0;">🏅 Colegiación: ${this.estadoColegiacion(u)}</p>
+        <p style="margin:.6rem 0 .2rem;font-weight:600;color:#0f4c75;">Especialidades</p>
+        ${this.bloqueEspecialidades(u, false)}
+        <p style="margin:.7rem 0 0;color:#9ca3af;font-size:.85rem;">En DentalJobs desde ${utils.formatearFecha(u.creado_en)}</p>
+      </div>`;
+
+      html += `<div class="info-section"><h4>Sobre mí</h4><p>${u.descripcion ? utils.escapeHtml(u.descripcion) : `<span style="color:#9ca3af;">Este dentista aún no ha añadido una descripción.</span>`}</p></div>`;
+
+      const hayTray = (tray.experiencia || []).length || (tray.formacion || []).length || (tray.idiomas || []).length || (tray.certificaciones || []).length;
 
       if ((tray.experiencia || []).length) {
-        html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">💼 Experiencia</h4>` +
+        html += `<div class="info-section"><h4>💼 Experiencia</h4>` +
           tray.experiencia.map(e => {
             const fechas = this.rangoFechas(e.fecha_inicio, e.fecha_fin, e.actual);
-            return `<div style="margin-bottom:.5rem;"><strong>${utils.escapeHtml(e.puesto)}</strong>${e.lugar ? " · " + utils.escapeHtml(e.lugar) : ""}${fechas ? ` <span style="color:#6b7280;">(${fechas})</span>` : ""}${e.descripcion ? `<div style="color:#4b5563;font-size:.9rem;">${utils.escapeHtml(e.descripcion)}</div>` : ""}</div>`;
-          }).join("");
+            return `<div style="margin-bottom:.7rem;"><strong>${utils.escapeHtml(e.puesto)}</strong>${e.lugar ? " · " + utils.escapeHtml(e.lugar) : ""}${fechas ? `<div style="color:#6b7280;font-size:.85rem;">${fechas}</div>` : ""}${e.descripcion ? `<div style="color:#4b5563;font-size:.9rem;margin-top:.15rem;">${utils.escapeHtml(e.descripcion)}</div>` : ""}</div>`;
+          }).join("") + `</div>`;
       }
       if ((tray.formacion || []).length) {
-        html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">🎓 Formación</h4>` +
-          tray.formacion.map(f => `<div>${utils.escapeHtml([f.titulo, f.centro].filter(Boolean).join(" · ") + (f.anyo ? ` (${f.anyo})` : ""))}</div>`).join("");
+        html += `<div class="info-section"><h4>🎓 Formación</h4>` +
+          tray.formacion.map(f => `<div style="margin-bottom:.3rem;">${utils.escapeHtml([f.titulo, f.centro].filter(Boolean).join(" · ") + (f.anyo ? ` (${f.anyo})` : ""))}</div>`).join("") + `</div>`;
       }
       if ((tray.idiomas || []).length) {
-        html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">🌐 Idiomas</h4><p>` +
-          tray.idiomas.map(i => `${utils.escapeHtml(i.idioma)} (${utils.escapeHtml(i.nivel)})`).join("  ·  ") + `</p>`;
+        html += `<div class="info-section"><h4>🌐 Idiomas</h4><div class="badges">` +
+          tray.idiomas.map(i => `<span class="badge">${utils.escapeHtml(i.idioma)} · ${utils.escapeHtml(i.nivel)}</span>`).join("") + `</div></div>`;
       }
       if ((tray.certificaciones || []).length) {
-        html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">📜 Certificaciones</h4><p>` +
-          tray.certificaciones.map(c => utils.escapeHtml(c)).join("  ·  ") + `</p>`;
+        html += `<div class="info-section"><h4>📜 Certificaciones</h4><div class="badges">` +
+          tray.certificaciones.map(c => `<span class="badge">${utils.escapeHtml(c)}</span>`).join("") + `</div></div>`;
       }
+      if (!hayTray) {
+        html += `<div class="info-section"><p style="color:#9ca3af;">Este dentista aún no ha añadido experiencia, formación ni idiomas.</p></div>`;
+      }
+      html += `</div>`;
       return html;
     },
 
     // Ficha pública de la clínica: sus datos (sin duplicar los que ya están en la
-    // Sede) más la Sede completa. La ciudad de cuenta solo se muestra si no hay sedes.
+    // Sede) más la Sede completa, en secciones con estilo.
     fichaClinica(u) {
       const sedes = u.sedes || [];
       const ciudadLabel = u.ciudad ? (u.provincia ? `${u.ciudad} (${u.provincia})` : u.ciudad) : "";
-      let html = `<p style="color:#4b5563;margin:0 0 .5rem;">🏥 Clínica${!sedes.length && ciudadLabel ? " · " + utils.escapeHtml(ciudadLabel) : ""}</p>`;
-      if ((u.especialidades || []).length) {
-        html += `<p style="margin:.4rem 0;"><strong>Especialidades:</strong> ${u.especialidades.map(e => utils.escapeHtml(e)).join(", ")}</p>`;
-      }
-      if (u.descripcion) html += `<p style="margin:.5rem 0;">${utils.escapeHtml(u.descripcion)}</p>`;
+
+      let html = `<div class="perfil-dentista">`;
+      html += `<div class="info-section">
+        <p style="margin:.3rem 0;font-size:1.05rem;"><span class="detail-icon">🏥</span> Clínica${!sedes.length && ciudadLabel ? ` · <strong>${utils.escapeHtml(ciudadLabel)}</strong>` : ""}</p>
+        <p style="margin:.6rem 0 .2rem;font-weight:600;color:#0f4c75;">Especialidades</p>
+        ${this.bloqueEspecialidades(u, true)}
+        <p style="margin:.7rem 0 0;color:#9ca3af;font-size:.85rem;">En DentalJobs desde ${utils.formatearFecha(u.creado_en)}</p>
+      </div>`;
+
+      html += `<div class="info-section"><h4>Sobre la clínica</h4><p>${u.descripcion ? utils.escapeHtml(u.descripcion) : `<span style="color:#9ca3af;">Esta clínica aún no ha añadido una descripción.</span>`}</p></div>`;
 
       if (sedes.length) {
-        html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">📍 ${sedes.length > 1 ? "Sedes" : "Sede"}</h4>`;
+        html += `<div class="info-section"><h4>📍 ${sedes.length > 1 ? `Sedes (${sedes.length})` : "Sede"}</h4>`;
         html += sedes.map(s => {
           const cpCiudad = [s.codigo_postal, s.ciudad].filter(Boolean).join(" ");
           const localizacion = [cpCiudad, s.provincia].filter(Boolean).join(", ");
           const lineas = [];
-          if (s.direccion) lineas.push(utils.escapeHtml(s.direccion));
+          if (s.direccion) lineas.push(`📍 ${utils.escapeHtml(s.direccion)}`);
           if (localizacion) lineas.push(utils.escapeHtml(localizacion));
           if (s.telefono) lineas.push(`📞 ${utils.escapeHtml(s.telefono)}`);
           const equip = (s.equipamiento || []).length
-            ? `<div style="color:#4b5563;font-size:.9rem;margin-top:.3rem;">🦷 ${s.equipamiento.map(e => utils.escapeHtml(e)).join(", ")}</div>`
+            ? `<div class="badges" style="margin-top:.4rem;">${s.equipamiento.map(e => `<span class="badge">${utils.escapeHtml(e)}</span>`).join("")}</div>`
             : "";
-          return `<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:.75rem 1rem;margin-bottom:.5rem;">
+          return `<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:.9rem 1rem;margin-bottom:.6rem;">
                     <strong>${utils.escapeHtml(s.nombre)}</strong>
-                    ${lineas.length ? `<div style="color:#4b5563;">${lineas.join("<br>")}</div>` : ""}
+                    ${lineas.length ? `<div style="color:#4b5563;margin-top:.2rem;line-height:1.6;">${lineas.join("<br>")}</div>` : ""}
                     ${equip}
                   </div>`;
         }).join("");
+        html += `</div>`;
+      } else {
+        html += `<div class="info-section"><p style="color:#9ca3af;">Esta clínica aún no ha publicado sus sedes.</p></div>`;
       }
+      html += `</div>`;
       return html;
     }
   },
