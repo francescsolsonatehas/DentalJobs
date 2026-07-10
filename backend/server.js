@@ -788,54 +788,79 @@ app.get("/auth/mi-perfil", verifyToken, (req, res) => {
 });
 
 // CV del dentista en PDF, generado a partir de su perfil
+// Recopila todos los datos que componen el CV de un dentista.
+// Reutilizado por el PDF (/auth/mi-cv.pdf) y por la vista previa en pantalla (/auth/mi-cv).
+async function recopilarDatosCv(usuarioId) {
+  const get = (sql, params) => new Promise((resolve, reject) => db.get(sql, params, (e, r) => e ? reject(e) : resolve(r)));
+  const all = (sql, params) => new Promise((resolve, reject) => db.all(sql, params, (e, r) => e ? reject(e) : resolve(r)));
+
+  const usuario = await get(
+    "SELECT nombre, email, telefono, movil, ciudad, direccion, codigo_postal, pais, descripcion, anyos_experiencia, num_colegiado, colegio, colegiado_estado FROM usuarios WHERE id = ?",
+    [usuarioId]
+  );
+  if (!usuario) return null;
+
+  const especialidades = await all(
+    `SELECT e.nombre FROM especialidades e
+     INNER JOIN usuario_especialidades ue ON e.id = ue.especialidad_id
+     WHERE ue.usuario_id = ? ORDER BY e.nombre`,
+    [usuarioId]
+  );
+  const resenyas = await get(
+    "SELECT COUNT(*) as total, AVG(puntuacion) as media FROM resenyas WHERE destinatario_id = ?",
+    [usuarioId]
+  );
+  const solicitudes = await all(
+    `SELECT ciudad, descripcion, contrato, jornada, creado_en FROM publicaciones
+     WHERE usuario_id = ? AND tipo = 'solicitud' AND activo = 1 ORDER BY creado_en DESC`,
+    [usuarioId]
+  );
+  const experienciaLaboral = await all(
+    "SELECT puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion FROM experiencia_laboral WHERE usuario_id = ? ORDER BY orden ASC, fecha_inicio DESC",
+    [usuarioId]
+  );
+  const formacionLista = await all(
+    "SELECT titulo, centro, anyo FROM formacion WHERE usuario_id = ? ORDER BY orden ASC, anyo DESC",
+    [usuarioId]
+  );
+  const idiomasLista = await all(
+    "SELECT idioma, nivel FROM idiomas WHERE usuario_id = ? ORDER BY id ASC",
+    [usuarioId]
+  );
+  const certificacionesLista = await all(
+    "SELECT certificacion FROM certificaciones WHERE usuario_id = ? ORDER BY certificacion ASC",
+    [usuarioId]
+  );
+
+  return { usuario, especialidades, resenyas, solicitudes, experienciaLaboral, formacionLista, idiomasLista, certificacionesLista };
+}
+
+// Vista previa del CV en JSON (misma información que el PDF, para mostrarla en pantalla)
+app.get("/auth/mi-cv", verifyToken, async (req, res) => {
+  if (req.usuario.tipo !== "dentista") {
+    return res.status(403).json({ error: "El CV solo está disponible para dentistas" });
+  }
+  try {
+    const datos = await recopilarDatosCv(req.usuario.id);
+    if (!datos) return res.status(404).json({ error: "Usuario no encontrado" });
+    res.json(datos);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al obtener el CV" });
+  }
+});
+
 app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
   if (req.usuario.tipo !== "dentista") {
     return res.status(403).json({ error: "El CV en PDF solo está disponible para dentistas" });
   }
 
-  const get = (sql, params) => new Promise((resolve, reject) => db.get(sql, params, (e, r) => e ? reject(e) : resolve(r)));
-  const all = (sql, params) => new Promise((resolve, reject) => db.all(sql, params, (e, r) => e ? reject(e) : resolve(r)));
-
   try {
-    const usuario = await get(
-      "SELECT nombre, email, telefono, movil, ciudad, direccion, codigo_postal, pais, descripcion, anyos_experiencia, num_colegiado, colegio, colegiado_estado FROM usuarios WHERE id = ?",
-      [req.usuario.id]
-    );
-    if (!usuario) {
+    const datos = await recopilarDatosCv(req.usuario.id);
+    if (!datos) {
       return res.status(404).json({ error: "Usuario no encontrado" });
     }
-
-    const especialidades = await all(
-      `SELECT e.nombre FROM especialidades e
-       INNER JOIN usuario_especialidades ue ON e.id = ue.especialidad_id
-       WHERE ue.usuario_id = ? ORDER BY e.nombre`,
-      [req.usuario.id]
-    );
-    const resenyas = await get(
-      "SELECT COUNT(*) as total, AVG(puntuacion) as media FROM resenyas WHERE destinatario_id = ?",
-      [req.usuario.id]
-    );
-    const solicitudes = await all(
-      `SELECT ciudad, descripcion, contrato, jornada, creado_en FROM publicaciones
-       WHERE usuario_id = ? AND tipo = 'solicitud' AND activo = 1 ORDER BY creado_en DESC`,
-      [req.usuario.id]
-    );
-    const experienciaLaboral = await all(
-      "SELECT puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion FROM experiencia_laboral WHERE usuario_id = ? ORDER BY orden ASC, fecha_inicio DESC",
-      [req.usuario.id]
-    );
-    const formacionLista = await all(
-      "SELECT titulo, centro, anyo FROM formacion WHERE usuario_id = ? ORDER BY orden ASC, anyo DESC",
-      [req.usuario.id]
-    );
-    const idiomasLista = await all(
-      "SELECT idioma, nivel FROM idiomas WHERE usuario_id = ? ORDER BY id ASC",
-      [req.usuario.id]
-    );
-    const certificacionesLista = await all(
-      "SELECT certificacion FROM certificaciones WHERE usuario_id = ? ORDER BY certificacion ASC",
-      [req.usuario.id]
-    );
+    const { usuario, especialidades, resenyas, solicitudes, experienciaLaboral, formacionLista, idiomasLista, certificacionesLista } = datos;
 
     const PDFDocument = require("pdfkit");
     const doc = new PDFDocument({ margin: 50, size: "A4" });

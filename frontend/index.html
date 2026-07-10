@@ -177,7 +177,7 @@
             <div class="tipo-toggle">
                 <button class="active" id="btnTodas" onclick="app.filtros.mostrarTodas(this)">Clínicas</button>
                 <button id="btnMias" onclick="app.filtros.mostrarMias(this)" style="display: none;">Mis publicaciones</button>
-                <button id="btnPublicaciones" onclick="app.filtros.mostrarMisPublicaciones(this)" style="display: none;">Publicaciones</button>
+                <button id="btnPublicaciones" onclick="app.filtros.mostrarMisPublicaciones(this)" style="display: none;">Mis Publicaciones</button>
                 <button id="btnContactadas" onclick="app.filtros.mostrarContactadas(this)" style="display: none;">Contactadas</button>
                 <button id="btnFavoritos" onclick="app.filtros.mostrarFavoritos(this)" style="display: none;">⭐ Favoritos</button>
                 <button id="btnKanban" onclick="app.filtros.mostrarKanban(this)" style="display: none;">📌 Mis Postulaciones</button>
@@ -448,15 +448,15 @@
                         <textarea id="solicitudDescripcion" required placeholder="Cuéntanos sobre tu experiencia, especialización, habilidades..."></textarea>
                     </div>
                     <div class="form-group">
-                        <label for="solicitudNombreContacto">Tu nombre *</label>
+                        <label for="solicitudNombreContacto">Nombre *</label>
                         <input id="solicitudNombreContacto" type="text" required>
                     </div>
                     <div class="form-group">
-                        <label for="solicitudEmailContacto">Tu email *</label>
+                        <label for="solicitudEmailContacto">email *</label>
                         <input id="solicitudEmailContacto" type="email" required>
                     </div>
                     <div class="form-group">
-                        <label for="solicitudTelefonoContacto">Tu teléfono</label>
+                        <label for="solicitudTelefonoContacto">Teléfono</label>
                         <input id="solicitudTelefonoContacto" type="tel" placeholder="+34 xxx xxx xxx">
                     </div>
                     <button type="submit" class="btn-primary" style="width: 100%;">Publicar solicitud</button>
@@ -794,6 +794,7 @@
                     <p style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: #0c4a6e;">¿No tienes CV a mano? Genera uno automáticamente con los datos de tu perfil (experiencia, especialidades y valoraciones).</p>
                     <button class="btn-outline" style="width: 100%;" onclick="app.perfil.descargarCvPdf()">⬇️ Descargar mi CV en PDF</button>
                 </div>
+                <div id="cvPreview" style="margin-bottom: 1.5rem;"></div>
                 <div id="cvContainer">
                     <div class="drag-drop-zone" id="cvDropZone" ondrop="event.preventDefault(); app.archivos.manejarDrop(event, 'cv')" ondragover="event.preventDefault(); document.getElementById('cvDropZone').classList.add('dragover')" ondragleave="document.getElementById('cvDropZone').classList.remove('dragover')">
                         <p>📄 Sube tu CV (PDF, máx 5 MB)</p>

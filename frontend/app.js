@@ -3335,6 +3335,11 @@ const app = {
 
       document.getElementById(`tab-${tab}`).classList.add("active");
       event.target.classList.add("active");
+
+      // La pestaña de CV muestra una vista previa generada a partir de Mis datos + Trayectoria
+      if (tab === 'cv' && estadoApp.tipoUsuario === 'dentista') {
+        app.perfil.renderPreviewCv();
+      }
     },
 
     async mostrarFormularioEdicion() {
@@ -3875,6 +3880,69 @@ const app = {
       }
     },
 
+    // Vista previa en pantalla del CV, con los mismos datos que el PDF (Mis datos + Trayectoria)
+    async renderPreviewCv() {
+      const cont = document.getElementById("cvPreview");
+      if (!cont) return;
+      try {
+        const cv = await utils.request("/auth/mi-cv");
+        const u = cv.usuario || {};
+        const seccion = (titulo, cuerpo) => cuerpo
+          ? `<h4 style="color: #0f4c75; margin: 1rem 0 0.4rem;">${titulo}</h4>${cuerpo}`
+          : "";
+
+        const contacto = [u.email, u.movil || u.telefono, [u.ciudad, u.pais].filter(Boolean).join(", ")]
+          .filter(Boolean).map(utils.escapeHtml).join("  ·  ");
+
+        const colegiado = (u.colegiado_estado === "verificado" && u.num_colegiado)
+          ? `<p style="color: #059669; font-size: 0.85rem; margin: 0.3rem 0;">✓ Colegiado nº ${utils.escapeHtml(u.num_colegiado)}${u.colegio ? " — " + utils.escapeHtml(u.colegio) : ""} (verificado)</p>`
+          : "";
+        const valoracion = (cv.resenyas && cv.resenyas.total > 0)
+          ? `<p style="color: #b45309; font-size: 0.85rem; margin: 0.3rem 0;">Valoración media: ${Math.round(cv.resenyas.media * 10) / 10}/5 (${cv.resenyas.total} reseña${cv.resenyas.total === 1 ? "" : "s"})</p>`
+          : "";
+
+        const experiencia = (u.anyos_experiencia !== null && u.anyos_experiencia !== undefined)
+          ? `<p style="margin: 0.2rem 0;">${u.anyos_experiencia} año${u.anyos_experiencia === 1 ? "" : "s"} de experiencia profesional</p>` : "";
+
+        const expLaboral = (cv.experienciaLaboral || []).map(e => {
+          const rango = [e.fecha_inicio, e.actual ? "Actualidad" : e.fecha_fin].filter(Boolean).join(" – ");
+          return `<div style="margin-bottom: 0.5rem;">
+            <strong>${utils.escapeHtml(e.puesto)}${e.lugar ? " · " + utils.escapeHtml(e.lugar) : ""}</strong>
+            ${rango ? `<div style="color: #6b7280; font-size: 0.85rem;">${utils.escapeHtml(rango)}</div>` : ""}
+            ${e.descripcion ? `<div style="color: #6b7280; font-size: 0.9rem;">${utils.escapeHtml(e.descripcion)}</div>` : ""}
+          </div>`;
+        }).join("");
+
+        const formacion = (cv.formacionLista || [])
+          .map(f => `<div>${utils.escapeHtml([f.titulo, f.centro].filter(Boolean).join(" · ") + (f.anyo ? ` (${f.anyo})` : ""))}</div>`).join("");
+        const idiomas = (cv.idiomasLista || []).length
+          ? `<p style="margin: 0.2rem 0;">${cv.idiomasLista.map(i => `${utils.escapeHtml(i.idioma)} (${utils.escapeHtml(i.nivel)})`).join("  ·  ")}</p>` : "";
+        const especialidades = (cv.especialidades || [])
+          .map(e => `<div>•  ${utils.escapeHtml(e.nombre)}</div>`).join("");
+        const certificaciones = (cv.certificacionesLista || [])
+          .map(c => `<div>•  ${utils.escapeHtml(c.certificacion)}</div>`).join("");
+
+        cont.innerHTML = `
+          <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.25rem; background: white;">
+            <h3 style="color: #0f4c75; margin: 0;">${utils.escapeHtml(u.nombre || "")}</h3>
+            <p style="color: #4b5563; margin: 0.1rem 0;">Dentista</p>
+            ${contacto ? `<p style="font-size: 0.85rem; color: #4b5563; margin: 0.3rem 0;">${contacto}</p>` : ""}
+            ${colegiado}
+            ${valoracion}
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 0.75rem 0;">
+            ${seccion("Perfil", u.descripcion ? `<p style="margin: 0.2rem 0;">${utils.escapeHtml(u.descripcion)}</p>` : "")}
+            ${seccion("Experiencia", experiencia)}
+            ${seccion("Experiencia laboral", expLaboral)}
+            ${seccion("Formación", formacion)}
+            ${seccion("Idiomas", idiomas)}
+            ${seccion("Especialidades", especialidades)}
+            ${seccion("Certificaciones", certificaciones)}
+          </div>`;
+      } catch (error) {
+        cont.innerHTML = `<p style="color: #ef4444;">${utils.escapeHtml(error.message)}</p>`;
+      }
+    },
+
     async cargarEspecialidades() {
       // Funciona tanto para candidatos como para empresas
       if (!['dentista', 'clinica'].includes(estadoApp.tipoUsuario)) return;
@@ -3994,7 +4062,9 @@ const app = {
         btnMias.style.display = "none";
         document.getElementById("btnPublicaciones").style.display = "inline-block";
         btnContactadas.style.display = "none";
-        document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
+        const btnMisPostClinica = document.getElementById("btnMisPostulacionesDentistas");
+        btnMisPostClinica.style.display = "inline-block";
+        btnMisPostClinica.textContent = "📌 Mis Postulaciones";
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
         document.getElementById("btnKanban").style.display = "none";
         document.getElementById("btnSuplencias").style.display = "none";
@@ -4298,7 +4368,23 @@ const app = {
            </div>`
         : "";
 
-      container.innerHTML = `<div class="publicaciones">${html.join("")}</div>${botonCargarMas}`;
+      // En "Mis Publicaciones" de una clínica, separar visualmente Ofertas de Empleo y Suplencia
+      let cuerpo;
+      if (estadoApp.filtros.soloMias && estadoApp.tipoUsuario === 'clinica') {
+        const ofertas = [];
+        const suplencias = [];
+        estadoApp.publicaciones.forEach((pub, i) => {
+          (pub.tipo === 'suplencia' ? suplencias : ofertas).push(html[i]);
+        });
+        const encabezado = (texto) => `<h3 style="margin: 1.5rem 0 1rem; color: #0f4c75;">${texto}</h3>`;
+        cuerpo = "";
+        if (ofertas.length) cuerpo += `${encabezado("Ofertas de Empleo")}<div class="publicaciones">${ofertas.join("")}</div>`;
+        if (suplencias.length) cuerpo += `${encabezado("Suplencia")}<div class="publicaciones">${suplencias.join("")}</div>`;
+      } else {
+        cuerpo = `<div class="publicaciones">${html.join("")}</div>`;
+      }
+
+      container.innerHTML = `${cuerpo}${botonCargarMas}`;
     }
   },
 
