@@ -695,7 +695,7 @@ const app = {
         };
       }
 
-      if (!formData.ciudad || !formData.descripcion || !formData.nombre_contacto || !formData.email_contacto) {
+      if (!formData.descripcion || !formData.nombre_contacto || !formData.email_contacto || (tipo !== 'solicitud' && !formData.ciudad)) {
         utils.mostrarAlerta("Por favor completa todos los campos obligatorios", "error");
         return;
       }
@@ -733,6 +733,29 @@ const app = {
         if (tipo === "oferta" || tipo === "suplencia") app.publicaciones.toggleRetribucion(tipo);
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    // Rellena (solo lectura) la ciudad y provincia de la solicitud a partir del perfil del dentista
+    async rellenarCiudadSolicitudDesdePerfil() {
+      const inputCiudad = document.getElementById("solicitudCiudad");
+      const inputProvincia = document.getElementById("solicitudProvincia");
+      const hint = document.getElementById("solicitudCiudadHint");
+      if (!inputCiudad) return;
+      try {
+        const u = await utils.request("/auth/mi-perfil");
+        const ciudad = u.ciudad || "";
+        const provincia = u.provincia || "";
+        inputCiudad.value = provincia ? `${ciudad} (${provincia})` : ciudad;
+        if (inputProvincia) inputProvincia.value = provincia;
+        if (hint) {
+          hint.textContent = ciudad
+            ? 'Se toma de tu perfil. Para cambiarla ve a "Mi perfil" → Mis datos.'
+            : '⚠️ No tienes ciudad en tu perfil. Defínela en "Mi perfil" → Mis datos antes de publicar.';
+          hint.style.color = ciudad ? "" : "#b45309";
+        }
+      } catch (error) {
+        console.error("Error al cargar la ciudad del perfil:", error);
       }
     },
 
@@ -1071,6 +1094,8 @@ const app = {
         app.publicaciones.cargarEspecialidadesPublicar('solicitud');
         app.plantillas.cargar('solicitud');
         document.getElementById("modalPublicarTitle").textContent = "Publicar nueva solicitud";
+        // La ciudad de la solicitud se hereda del perfil (no editable)
+        app.publicaciones.rellenarCiudadSolicitudDesdePerfil();
       }
 
       document.getElementById("modalPublicar").classList.add("active");
@@ -3280,6 +3305,54 @@ const app = {
   },
 
   // ============================================
+  // Módulo: Selector de municipio + provincia (dataset window.MUNICIPIOS_ES)
+  // ============================================
+
+  ciudades: {
+    lista() { return window.MUNICIPIOS_ES || []; },
+
+    // Monta un autocompletado sobre un input de ciudad que, al elegir un municipio,
+    // rellena el input (oculto) de provincia y un span opcional con su etiqueta.
+    montar(inputCiudad, inputProvincia, labelProvincia) {
+      if (!inputCiudad || inputCiudad.dataset.autocompleteMontado) return;
+      inputCiudad.dataset.autocompleteMontado = "1";
+      const cont = inputCiudad.parentElement;
+      cont.style.position = "relative";
+
+      const drop = document.createElement("div");
+      drop.style.cssText = "position:absolute;left:0;right:0;top:100%;z-index:60;background:white;border:1px solid #e5e7eb;border-radius:6px;max-height:220px;overflow:auto;display:none;box-shadow:0 4px 12px rgba(0,0,0,.12);";
+      cont.appendChild(drop);
+      const cerrar = () => { drop.style.display = "none"; };
+      const fijarProvincia = (valor) => {
+        if (inputProvincia) inputProvincia.value = valor || "";
+        if (labelProvincia) labelProvincia.textContent = valor ? `· Provincia: ${valor}` : "";
+      };
+
+      inputCiudad.addEventListener("input", () => {
+        const q = inputCiudad.value.trim().toLowerCase();
+        fijarProvincia(""); // hasta que se elija un municipio válido, no hay provincia
+        if (q.length < 2) { cerrar(); return; }
+        const res = this.lista().filter(m => m.m.toLowerCase().includes(q)).slice(0, 20);
+        if (!res.length) { cerrar(); return; }
+        drop.innerHTML = res.map(m =>
+          `<div class="ciudad-op" data-m="${utils.escapeHtml(m.m)}" data-p="${utils.escapeHtml(m.p)}" style="padding:.5rem .75rem;cursor:pointer;">${utils.escapeHtml(m.m)} <span style="color:#9ca3af;">(${utils.escapeHtml(m.p)})</span></div>`
+        ).join("");
+        drop.style.display = "block";
+      });
+
+      drop.addEventListener("mousedown", (e) => {
+        const op = e.target.closest(".ciudad-op");
+        if (!op) return;
+        inputCiudad.value = op.dataset.m;
+        fijarProvincia(op.dataset.p);
+        cerrar();
+      });
+
+      inputCiudad.addEventListener("blur", () => setTimeout(cerrar, 150));
+    }
+  },
+
+  // ============================================
   // Módulo: Perfil
   // ============================================
 
@@ -3498,7 +3571,9 @@ const app = {
 
             <div class="form-group">
               <label>Ciudad</label>
-              <input type="text" id="perfilCiudad" value="${utils.escapeHtml(u.ciudad || '')}">
+              <input type="text" id="perfilCiudad" value="${utils.escapeHtml(u.ciudad || '')}" autocomplete="off" placeholder="Escribe tu municipio…">
+              <input type="hidden" id="perfilProvincia" value="${utils.escapeHtml(u.provincia || '')}">
+              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Elige un municipio de la lista para fijar la provincia. <span id="perfilProvinciaLabel">${u.provincia ? '· Provincia: ' + utils.escapeHtml(u.provincia) : ''}</span></small>
             </div>
 
             <div class="form-group">
@@ -3570,6 +3645,13 @@ const app = {
         // Cargar especialidades y certificaciones para candidatos
         await app.perfil.cargarEspecialidades();
         await app.perfil.cargarCertificaciones();
+
+        // Autocompletado de municipio + provincia
+        app.ciudades.montar(
+          document.getElementById("perfilCiudad"),
+          document.getElementById("perfilProvincia"),
+          document.getElementById("perfilProvinciaLabel")
+        );
       }
       } catch (error) {
         utils.mostrarAlerta("Error al cargar perfil: " + error.message, "error");
@@ -3606,6 +3688,7 @@ const app = {
         telefono: document.getElementById("perfilTelefono").value || null,
         movil: document.getElementById("perfilMovil").value || null,
         ciudad: document.getElementById("perfilCiudad").value || null,
+        provincia: document.getElementById("perfilProvincia")?.value || null,
         direccion: document.getElementById("perfilDireccion").value || null,
         codigo_postal: document.getElementById("perfilCodigoPostal").value || null,
         pais: document.getElementById("perfilPais").value || null,
@@ -4262,11 +4345,12 @@ const app = {
         } catch (error) {
           console.error("Error al obtener especialidades:", error);
         }
+        const ciudadLabel = utils.escapeHtml(pub.provincia ? `${pub.ciudad} (${pub.provincia})` : pub.ciudad);
         const generatedTitle = pub.tipo === 'solicitud'
-          ? `${utils.escapeHtml(pub.ciudad)} - ${pub.usuario_nombre || 'Dentista'}`
+          ? `${ciudadLabel} - ${pub.usuario_nombre || 'Dentista'}`
           : pub.tipo === 'suplencia'
-            ? `Suplencia en ${utils.escapeHtml(pub.ciudad)} - ${pub.usuario_nombre || 'Clínica'}`
-            : `${utils.escapeHtml(pub.ciudad)} - ${pub.usuario_nombre || 'Clínica'}`;
+            ? `Suplencia en ${ciudadLabel} - ${pub.usuario_nombre || 'Clínica'}`
+            : `${ciudadLabel} - ${pub.usuario_nombre || 'Clínica'}`;
         let tipoBadge, tipoClase;
         if (pub.tipo === "oferta") {
           tipoBadge = "";

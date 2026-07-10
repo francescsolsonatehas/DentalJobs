@@ -498,7 +498,7 @@ app.post("/auth/reenviar-verificacion", verifyToken, (req, res) => {
 });
 
 app.put("/auth/actualizar-perfil", verifyToken, (req, res) => {
-  const { nombre, telefono, movil, direccion, codigo_postal, pais, ciudad, descripcion, anyos_experiencia, num_colegiado, colegio } = req.body;
+  const { nombre, telefono, movil, direccion, codigo_postal, pais, ciudad, provincia, descripcion, anyos_experiencia, num_colegiado, colegio } = req.body;
   const usuarioId = req.usuario.id;
 
   if (!nombre) {
@@ -512,12 +512,12 @@ app.put("/auth/actualizar-perfil", verifyToken, (req, res) => {
   // Preferencia de avisos por email: si el cliente no la envía, se mantiene activada
   const recibirEmails = req.body.recibir_emails === false || req.body.recibir_emails === 0 ? 0 : 1;
 
-  const datosComunes = [nombre, telefono || null, movil || null, direccion || null, codigo_postal || null, pais || null, ciudad || null, (descripcion || "").trim() || null, experiencia, recibirEmails];
+  const datosComunes = [nombre, telefono || null, movil || null, direccion || null, codigo_postal || null, pais || null, ciudad || null, provincia || null, (descripcion || "").trim() || null, experiencia, recibirEmails];
 
   if (req.usuario.tipo !== 'dentista') {
     // La colegiación solo aplica a dentistas; en clínicas se ignora cualquier valor recibido
     db.run(
-      "UPDATE usuarios SET nombre = ?, telefono = ?, movil = ?, direccion = ?, codigo_postal = ?, pais = ?, ciudad = ?, descripcion = ?, anyos_experiencia = ?, recibir_emails = ? WHERE id = ?",
+      "UPDATE usuarios SET nombre = ?, telefono = ?, movil = ?, direccion = ?, codigo_postal = ?, pais = ?, ciudad = ?, provincia = ?, descripcion = ?, anyos_experiencia = ?, recibir_emails = ? WHERE id = ?",
       [...datosComunes, usuarioId],
       (err) => {
         if (err) {
@@ -547,7 +547,7 @@ app.put("/auth/actualizar-perfil", verifyToken, (req, res) => {
       : actual.colegiado_estado;
 
     db.run(
-      `UPDATE usuarios SET nombre = ?, telefono = ?, movil = ?, direccion = ?, codigo_postal = ?, pais = ?, ciudad = ?, descripcion = ?, anyos_experiencia = ?, recibir_emails = ?,
+      `UPDATE usuarios SET nombre = ?, telefono = ?, movil = ?, direccion = ?, codigo_postal = ?, pais = ?, ciudad = ?, provincia = ?, descripcion = ?, anyos_experiencia = ?, recibir_emails = ?,
        num_colegiado = ?, colegio = ?, colegiado_estado = ? WHERE id = ?`,
       [...datosComunes, nuevoNumero, nuevoColegio, nuevoEstado, usuarioId],
       (err) => {
@@ -770,7 +770,7 @@ app.get("/auth/mi-perfil", verifyToken, (req, res) => {
   const usuarioId = req.usuario.id;
 
   db.get(
-    "SELECT id, nombre, email, tipo, telefono, movil, direccion, codigo_postal, pais, ciudad, descripcion, anyos_experiencia, email_verificado, recibir_emails, num_colegiado, colegio, colegiado_estado, creado_en FROM usuarios WHERE id = ?",
+    "SELECT id, nombre, email, tipo, telefono, movil, direccion, codigo_postal, pais, ciudad, provincia, descripcion, anyos_experiencia, email_verificado, recibir_emails, num_colegiado, colegio, colegiado_estado, creado_en FROM usuarios WHERE id = ?",
     [usuarioId],
     (err, usuario) => {
       if (err) {
@@ -1585,9 +1585,10 @@ app.get("/publicaciones/usuario/:usuario_id/candidatos", verifyToken, (req, res)
 });
 
 app.post("/publicaciones", verifyToken, (req, res) => {
-  const { tipo, descripcion, ciudad, especialidades, contrato, jornada, salario, salarioDesde, salarioHasta, experiencia, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente, retribucionTipo, retribucionPorcentaje, equipamiento } = req.body;
+  const { tipo, descripcion, ciudad, provincia, especialidades, contrato, jornada, salario, salarioDesde, salarioHasta, experiencia, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente, retribucionTipo, retribucionPorcentaje, equipamiento } = req.body;
 
-  if (!tipo || !ciudad) {
+  // La ciudad de las solicitudes se hereda del perfil del dentista (no editable), así que aquí no es obligatoria
+  if (!tipo || (tipo !== 'solicitud' && !ciudad)) {
     return res.status(400).json({ error: "Faltan datos obligatorios" });
   }
 
@@ -1619,12 +1620,12 @@ app.post("/publicaciones", verifyToken, (req, res) => {
     ? equipamiento.filter(e => EQUIPAMIENTO_CATALOGO.includes(e))
     : [];
 
-  const insertarPublicacion = (sedeIdValidada) => {
+  const insertarPublicacion = (sedeIdValidada, ciudadFinal, provinciaFinal) => {
     db.run(
       `INSERT INTO publicaciones
-       (tipo, descripcion, ciudad, especialidad_id, contrato, jornada, salario, salario_min, salario_max, experiencia_minima, usuario_id, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente, retribucion_tipo, retribucion_porcentaje)
-       VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [tipo, descripcion, ciudad, contrato || null, jornada || null, salario || null, salarioMin, hastaNum, experienciaMinima, req.usuario.id, nombre_contacto, email_contacto, telefono_contacto, sedeIdValidada, tipo === 'suplencia' ? (fecha_desde || null) : null, tipo === 'suplencia' ? (fecha_hasta || null) : null, tipo === 'suplencia' && urgente ? 1 : 0, retribucionTipoFinal, retribucionPorcentajeFinal],
+       (tipo, descripcion, ciudad, provincia, especialidad_id, contrato, jornada, salario, salario_min, salario_max, experiencia_minima, usuario_id, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente, retribucion_tipo, retribucion_porcentaje)
+       VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [tipo, descripcion, ciudadFinal, provinciaFinal, contrato || null, jornada || null, salario || null, salarioMin, hastaNum, experienciaMinima, req.usuario.id, nombre_contacto, email_contacto, telefono_contacto, sedeIdValidada, tipo === 'suplencia' ? (fecha_desde || null) : null, tipo === 'suplencia' ? (fecha_hasta || null) : null, tipo === 'suplencia' && urgente ? 1 : 0, retribucionTipoFinal, retribucionPorcentajeFinal],
       function(err) {
         if (err) {
           console.error(err);
@@ -1656,19 +1657,40 @@ app.post("/publicaciones", verifyToken, (req, res) => {
     );
   };
 
-  if (sede_id) {
-    db.get("SELECT usuario_id FROM sedes WHERE id = ?", [sede_id], (err, sede) => {
+  const proceder = (ciudadFinal, provinciaFinal) => {
+    if (sede_id) {
+      db.get("SELECT usuario_id FROM sedes WHERE id = ?", [sede_id], (err, sede) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al crear publicación" });
+        }
+        if (!sede || sede.usuario_id !== req.usuario.id) {
+          return res.status(403).json({ error: "La sede indicada no es tuya" });
+        }
+        insertarPublicacion(sede_id, ciudadFinal, provinciaFinal);
+      });
+    } else {
+      insertarPublicacion(null, ciudadFinal, provinciaFinal);
+    }
+  };
+
+  if (tipo === 'solicitud') {
+    // La ciudad y provincia de una solicitud se heredan del perfil del dentista (no editable en el
+    // formulario). Si el perfil aún no tiene ciudad, se acepta la que llegue en el cuerpo como respaldo.
+    db.get("SELECT ciudad, provincia FROM usuarios WHERE id = ?", [req.usuario.id], (err, u) => {
       if (err) {
         console.error(err);
         return res.status(500).json({ error: "Error al crear publicación" });
       }
-      if (!sede || sede.usuario_id !== req.usuario.id) {
-        return res.status(403).json({ error: "La sede indicada no es tuya" });
+      const ciudadFinal = (u && u.ciudad) ? u.ciudad : (ciudad || null);
+      const provinciaFinal = (u && u.ciudad) ? (u.provincia || null) : (provincia || null);
+      if (!ciudadFinal) {
+        return res.status(400).json({ error: "Define tu ciudad en el perfil antes de publicar una solicitud" });
       }
-      insertarPublicacion(sede_id);
+      proceder(ciudadFinal, provinciaFinal);
     });
   } else {
-    insertarPublicacion(null);
+    proceder(ciudad, provincia || null);
   }
 });
 

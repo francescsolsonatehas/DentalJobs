@@ -168,4 +168,25 @@ test("publicaciones", async (t) => {
     assert.equal(res.body[0].salario_min, 50000);
     assert.equal(res.body[0].experiencia_minima, 4);
   });
+
+  await t.test("una solicitud hereda ciudad y provincia del perfil del dentista (ignora la del cuerpo)", async () => {
+    // El dentista fija su ciudad/provincia en el perfil
+    await request(app)
+      .put("/auth/actualizar-perfil")
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .send({ nombre: "Dentista Test", ciudad: "Girona", provincia: "Girona" });
+
+    // Publica una solicitud enviando OTRA ciudad en el cuerpo: debe ignorarse
+    const crear = await request(app)
+      .post("/publicaciones")
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .send({ tipo: "solicitud", ciudad: "OtraCiudadIgnorada", descripcion: "Busco trabajo" });
+    assert.equal(crear.status, 200);
+
+    const listado = await request(app).get("/publicaciones?tipo=solicitud&ciudad=Girona");
+    const pub = listado.body.find((p) => p.id === crear.body.id);
+    assert.ok(pub, "la solicitud debería listarse por la ciudad del perfil");
+    assert.equal(pub.ciudad, "Girona");
+    assert.equal(pub.provincia, "Girona");
+  });
 });

@@ -127,6 +127,10 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
+  db.run(`ALTER TABLE usuarios ADD COLUMN provincia TEXT`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
   db.run(`ALTER TABLE usuarios ADD COLUMN movil TEXT`, (err) => {
     // Ignorar error si la columna ya existe
   });
@@ -144,6 +148,10 @@ db.serialize(() => {
   });
 
   db.run(`ALTER TABLE publicaciones ADD COLUMN salario_max INTEGER`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
+  db.run(`ALTER TABLE publicaciones ADD COLUMN provincia TEXT`, (err) => {
     // Ignorar error si la columna ya existe
   });
 
@@ -293,6 +301,10 @@ db.serialize(() => {
   `);
 
   db.run(`ALTER TABLE publicaciones ADD COLUMN sede_id INTEGER REFERENCES sedes(id)`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
+  db.run(`ALTER TABLE sedes ADD COLUMN provincia TEXT`, (err) => {
     // Ignorar error si la columna ya existe
   });
 
