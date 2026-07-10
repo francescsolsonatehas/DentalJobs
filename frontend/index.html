@@ -1019,6 +1019,25 @@
         </div>
     </div>
 
+    <!-- Modal: Contactar un perfil con mensaje -->
+    <div id="modalContactarPerfil" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="contactarPerfilTitulo">Contactar</h2>
+                <button class="close-btn" onclick="app.perfiles.cerrarContactarModal()">✕</button>
+            </div>
+            <div id="contactarPerfilError" style="background: #fee2e2; color: #991b1b; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; display: none; border-left: 4px solid #dc2626;"></div>
+            <form onsubmit="event.preventDefault(); app.perfiles.enviarContacto();">
+                <div class="form-group">
+                    <label for="contactarPerfilMensaje">Mensaje</label>
+                    <textarea id="contactarPerfilMensaje" placeholder="Escribe el mensaje que recibirá con tu solicitud de contacto..." style="min-height: 120px;"></textarea>
+                    <small style="color: #6b7280;">Verá este mensaje junto a tu solicitud. Podréis chatear cuando la acepte.</small>
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%;">Enviar</button>
+            </form>
+        </div>
+    </div>
+
     <!-- Footer legal -->
     <footer class="footer-legal">
         <div>

@@ -20,7 +20,8 @@ let estadoApp = {
     contactadas: false
   },
   publicacionActual: null,
-  vistaActual: "publicaciones" // vista visible del listado (determina qué exporta el CSV)
+  vistaActual: "publicaciones", // vista visible del listado (determina qué exporta el CSV)
+  perfilContactoActual: null // perfil al que se está enviando una solicitud de contacto
 };
 
 // ============================================
@@ -1091,7 +1092,8 @@ const app = {
         "modalInteresados",
         "modalOpcionesStats",
         "modalOpcionesClinicas",
-        "modalOpcionesClinicasPotenciales"
+        "modalOpcionesClinicasPotenciales",
+        "modalContactarPerfil"
       ];
       modales.forEach(id => {
         const modal = document.getElementById(id);
@@ -4661,25 +4663,67 @@ const app = {
             ${p.descripcion ? `<p style="color:#6b7280;font-size:.9rem;margin:.5rem 0;">${utils.escapeHtml(p.descripcion.slice(0, 160))}${p.descripcion.length > 160 ? '…' : ''}</p>` : ''}
             <div class="card-footer" style="display:flex;gap:.5rem;">
               <button class="btn-primary" onclick="app.perfiles.verDetalle(${p.id})" style="flex:1;">Ver perfil</button>
-              <button class="btn-secondary" onclick="app.perfiles.contactar(${p.id})" style="flex:1;">✉️ Contactar</button>
+              <button class="btn-secondary" onclick="app.perfiles.contactar(${p.id}, '${utils.escapeHtml(p.nombre || 'este perfil').replace(/'/g, "\\'")}', '${p.tipo}')" style="flex:1;">✉️ Contactar</button>
             </div>
           </div>`;
       }).join("") + `</div>`;
     },
 
-    async contactar(perfilId) {
+    // Abre el modal de contacto con un mensaje editable pre-rellenado, para que
+    // el usuario vea y ajuste lo que se enviará antes de pulsar "Enviar".
+    contactar(perfilId, perfilNombre, perfilTipo) {
       if (!estadoApp.usuario) {
         utils.mostrarAlerta("Debes iniciar sesión", "error");
         return;
       }
+      estadoApp.perfilContactoActual = { id: perfilId, nombre: perfilNombre || "este perfil" };
+
+      const titulo = document.getElementById("contactarPerfilTitulo");
+      if (titulo) titulo.textContent = `Contactar con ${estadoApp.perfilContactoActual.nombre}`;
+
+      const errorDiv = document.getElementById("contactarPerfilError");
+      if (errorDiv) errorDiv.style.display = "none";
+
+      const textarea = document.getElementById("contactarPerfilMensaje");
+      if (textarea) {
+        // Mensaje por defecto según quién contacta (editable)
+        textarea.value = estadoApp.tipoUsuario === "clinica"
+          ? `Hola, hemos visto tu perfil en DentalJobs y nos gustaría hablar contigo sobre una posible colaboración.`
+          : `Hola, me interesa vuestra clínica y me gustaría poder hablar con vosotros sobre posibles oportunidades.`;
+      }
+
+      document.getElementById("modalContactarPerfil").classList.add("active");
+      if (textarea) textarea.focus();
+    },
+
+    cerrarContactarModal() {
+      document.getElementById("modalContactarPerfil").classList.remove("active");
+      estadoApp.perfilContactoActual = null;
+    },
+
+    async enviarContacto() {
+      const perfil = estadoApp.perfilContactoActual;
+      if (!perfil) return;
+
+      const errorDiv = document.getElementById("contactarPerfilError");
+      const mensaje = (document.getElementById("contactarPerfilMensaje").value || "").trim();
+      if (!mensaje) {
+        errorDiv.textContent = "Escribe un mensaje antes de enviar.";
+        errorDiv.style.display = "block";
+        return;
+      }
+
       try {
         await utils.request("/contactos-perfil", {
           method: "POST",
-          body: JSON.stringify({ perfil_id: perfilId })
+          body: JSON.stringify({ perfil_id: perfil.id, mensaje })
         });
+        errorDiv.style.display = "none";
+        this.cerrarContactarModal();
         utils.mostrarAlerta("✅ Solicitud de contacto enviada. Podréis chatear cuando la acepten.", "success");
       } catch (error) {
-        utils.mostrarAlerta(error.message, "error");
+        errorDiv.textContent = error.message || "Error al enviar el contacto";
+        errorDiv.style.display = "block";
       }
     },
 
@@ -4710,7 +4754,7 @@ const app = {
             tray.idiomas.map(i => `${utils.escapeHtml(i.idioma)} (${utils.escapeHtml(i.nivel)})`).join("  ·  ") + `</p>`;
         }
 
-        html += `<div style="margin-top:1.25rem;"><button class="btn-secondary" style="width:100%;" onclick="app.perfiles.contactar(${id}); app.modal.cerrarDetalle();">✉️ Contactar</button></div>`;
+        html += `<div style="margin-top:1.25rem;"><button class="btn-secondary" style="width:100%;" onclick="app.modal.cerrarDetalle(); app.perfiles.contactar(${id}, '${utils.escapeHtml(u.nombre || 'este perfil').replace(/'/g, "\\'")}', '${u.tipo}');">✉️ Contactar</button></div>`;
 
         document.getElementById("detalleTitle").textContent = u.nombre;
         document.getElementById("detalleBody").innerHTML = html;
