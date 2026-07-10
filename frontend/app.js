@@ -19,7 +19,8 @@ let estadoApp = {
     soloMias: false,
     contactadas: false
   },
-  publicacionActual: null
+  publicacionActual: null,
+  vistaActual: "publicaciones" // vista visible del listado (determina qué exporta el CSV)
 };
 
 // ============================================
@@ -877,6 +878,8 @@ const app = {
     mostrarTodas(btn) {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.verSuplencias = false;
+      estadoApp.vistaActual = "publicaciones";
+      app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -895,6 +898,8 @@ const app = {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = false;
+      estadoApp.vistaActual = "perfiles";
+      app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -909,6 +914,8 @@ const app = {
       estadoApp.filtros.soloMias = true;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = false;
+      estadoApp.vistaActual = "mis-publicaciones";
+      app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -927,6 +934,8 @@ const app = {
       estadoApp.filtros.soloMias = true;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = false;
+      estadoApp.vistaActual = "mis-publicaciones";
+      app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -944,6 +953,8 @@ const app = {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = true;
       estadoApp.filtros.verSuplencias = false;
+      estadoApp.vistaActual = null;
+      app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -957,6 +968,8 @@ const app = {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = false;
+      estadoApp.vistaActual = "favoritos";
+      app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -970,6 +983,8 @@ const app = {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = false;
+      estadoApp.vistaActual = "mis-postulaciones";
+      app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -984,6 +999,8 @@ const app = {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = true;
+      estadoApp.vistaActual = "suplencias";
+      app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -997,6 +1014,8 @@ const app = {
     mostrarMisPostulaciones(btn) {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
+      estadoApp.vistaActual = "mis-postulaciones";
+      app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -1009,6 +1028,8 @@ const app = {
     mostrarMisAceptadas(btn) {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
+      estadoApp.vistaActual = null;
+      app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -1019,6 +1040,8 @@ const app = {
     },
 
     mostrarMisPostulacionesDentistas(btn) {
+      estadoApp.vistaActual = "mis-postulaciones";
+      app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -1029,6 +1052,8 @@ const app = {
     },
 
     mostrarMisPostulacionesDentistasAceptadas(btn) {
+      estadoApp.vistaActual = null;
+      app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -4222,6 +4247,8 @@ const app = {
       }
 
       estadoApp.filtros.soloMias = false;
+      estadoApp.vistaActual = "publicaciones";
+      app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
       document.getElementById("btnTodas").classList.add("active");
 
@@ -4699,10 +4726,62 @@ const app = {
   // ============================================
 
   exportar: {
-    // Descarga el CSV de postulaciones (recibidas para clínicas, enviadas para dentistas)
-    async postulacionesCsv() {
+    // Vistas exportables. `conFiltros` indica si envían los filtros del listado (las
+    // "mías" y las de seguimiento se muestran sin filtros, así que tampoco los envían).
+    // `etiqueta` describe lo que exporta el botón; puede depender del tipo de usuario.
+    VISTAS: {
+      "publicaciones": {
+        conFiltros: true,
+        etiqueta: () => (estadoApp.tipoUsuario === "clinica" ? "Publicaciones de dentistas" : "Publicaciones de clínicas")
+      },
+      "perfiles": {
+        conFiltros: true,
+        etiqueta: () => (estadoApp.tipoUsuario === "clinica" ? "Perfiles de dentistas" : "Perfiles de clínicas")
+      },
+      "suplencias": { conFiltros: true, etiqueta: () => "Suplencias" },
+      "mis-publicaciones": { conFiltros: false, etiqueta: () => "Mis Publicaciones" },
+      "favoritos": { conFiltros: false, etiqueta: () => "Favoritos" },
+      "mis-postulaciones": { conFiltros: false, etiqueta: () => "Mis Postulaciones" }
+    },
+
+    // Muestra u oculta el botón de exportar según la vista visible y ajusta su texto
+    // para dejar claro qué se va a descargar.
+    actualizarBoton() {
+      const btn = document.getElementById("btnExportarCsv");
+      if (!btn) return;
+      const config = this.VISTAS[estadoApp.vistaActual];
+      btn.style.display = config ? "inline-block" : "none";
+      if (config) btn.textContent = `⬇️ Exportar «${config.etiqueta()}» a CSV`;
+    },
+
+    // Reúne los filtros del listado tal como los envía app.publicaciones.cargar()
+    filtrosQuery() {
+      const params = new URLSearchParams();
+      const campos = {
+        q: "filterQ", ciudad: "filterCiudad", especialidad: "filterEspecialidad",
+        contrato: "filterContrato", jornada: "filterJornada", equipamiento: "filterEquipamiento",
+        certificacion: "filterCertificacion", retribucion: "filterRetribucion",
+        salarioMin: "filterSalarioMin", experienciaMin: "filterExperienciaMin"
+      };
+      for (const [clave, id] of Object.entries(campos)) {
+        const el = document.getElementById(id);
+        if (el && el.value) params.set(clave, el.value);
+      }
+      return params;
+    },
+
+    // Descarga el CSV de la vista actualmente visible
+    async vistaActual() {
+      const vista = estadoApp.vistaActual;
+      const config = this.VISTAS[vista];
+      if (!config) return;
+
+      const params = config.conFiltros ? this.filtrosQuery() : new URLSearchParams();
+      const cadena = params.toString();
+      const url = `${API}/exportar/${vista}.csv${cadena ? `?${cadena}` : ""}`;
+
       try {
-        const response = await fetch(`${API}/candidaturas/export.csv`, {
+        const response = await fetch(url, {
           headers: { Authorization: `Bearer ${estadoApp.token}` }
         });
         if (!response.ok) {
@@ -4711,14 +4790,14 @@ const app = {
         }
 
         const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
+        const objUrl = URL.createObjectURL(blob);
         const enlace = document.createElement("a");
-        enlace.href = url;
-        enlace.download = `postulaciones-${new Date().toISOString().slice(0, 10)}.csv`;
+        enlace.href = objUrl;
+        enlace.download = `${vista}-${new Date().toISOString().slice(0, 10)}.csv`;
         document.body.appendChild(enlace);
         enlace.click();
         enlace.remove();
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(objUrl);
         utils.mostrarAlerta("✅ CSV descargado", "success");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");

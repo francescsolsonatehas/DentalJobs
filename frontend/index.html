@@ -187,6 +187,10 @@
                 <button id="btnMisPostulacionesDentistasAceptadas" onclick="app.filtros.mostrarMisPostulacionesDentistasAceptadas(this)" style="display: none;">Mis Postulaciones a Dentistas Aceptadas</button>
             </div>
 
+            <div style="margin: 0.75rem 0 0; display: flex; justify-content: flex-end;">
+                <button class="btn-outline btn-small" id="btnExportarCsv" onclick="app.exportar.vistaActual()" style="display: none;">⬇️ Exportar a CSV</button>
+            </div>
+
             <div class="filter-row">
                 <div class="filter-group">
                     <label for="filterQ">Buscar</label>
@@ -257,9 +261,6 @@
                         <option value="relevancia">Relevancia</option>
                     </select>
                 </div>
-            </div>
-            <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <button class="btn-outline btn-small" id="btnExportarCsv" onclick="app.exportar.postulacionesCsv()" style="display: none;">⬇️ Exportar postulaciones (CSV)</button>
             </div>
         </div>
 

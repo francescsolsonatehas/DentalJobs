@@ -42,7 +42,7 @@ test("exportar postulaciones a CSV", async (t) => {
     assert.match(lineas[0], /Candidato/);
     assert.equal(lineas.length, 2);
     assert.match(lineas[1], /Dentista CSV/);
-    assert.match(lineas[1], /pendiente/);
+    assert.match(lineas[1], /Pendiente/);
     // Las comillas del mensaje deben ir escapadas como ""
     assert.match(lineas[1], /""comillas""/);
   });

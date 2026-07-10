@@ -16,6 +16,9 @@ const path = require("path");
 const db = require("./db");
 const { verifyToken, generateToken } = require("./middleware/auth");
 const { enviarEmail, plantilla, urlFrontend } = require("./email");
+const { ETIQUETAS_ESTADO } = require("./catalogos");
+const { construirFiltros } = require("./filtros-publicaciones");
+const { generarCsv } = require("./exportaciones");
 const crypto = require("crypto");
 
 // Notifica por email a un usuario, si tiene los avisos activados
@@ -105,17 +108,6 @@ function listarClinicasPotencialesParaDentista(usuarioId, callback) {
 // Catálogos fijos (sin tabla propia, como contrato/jornada)
 const EQUIPAMIENTO_CATALOGO = ["CBCT / TAC 3D", "CAD-CAM", "Microscopio", "Escáner intraoral", "Láser dental", "Sedación consciente"];
 const CERTIFICACIONES_CATALOGO = ["Invisalign", "Implantología avanzada", "Ortodoncia lingual", "Estética dental avanzada", "Sedación consciente", "Cirugía guiada"];
-
-// Etiquetas legibles de los estados de candidatura
-const ETIQUETAS_ESTADO = {
-  pendiente: "Pendiente",
-  vista: "CV visto",
-  en_proceso: "En proceso",
-  entrevista: "Entrevista",
-  aceptada: "Aceptada",
-  rechazada: "Rechazada",
-  retirada: "Retirada"
-};
 
 const app = express();
 
@@ -1400,7 +1392,7 @@ app.get("/catalogos", (req, res) => {
 =========================== */
 
 app.get("/publicaciones", (req, res) => {
-  const { tipo, especialidad, ciudad, usuario_id, contrato, jornada, salarioMin, salarioMax, experienciaMin, sort, paraUsuarioId, q, equipamiento, retribucion, certificacion } = req.query;
+  const { tipo, sort, paraUsuarioId } = req.query;
 
   let selectCols = "p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad";
   const selectParams = [];
@@ -1424,82 +1416,9 @@ app.get("/publicaciones", (req, res) => {
     selectParams.push(paraUsuarioId);
   }
 
-  let query = `SELECT ${selectCols} FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id WHERE p.activo = 1`;
-  const params = [...selectParams];
-
-  if (tipo) {
-    query += " AND p.tipo = ?";
-    params.push(tipo);
-  }
-
-  if (usuario_id) {
-    query += " AND p.usuario_id = ?";
-    params.push(usuario_id);
-  }
-
-  if (ciudad) {
-    query += " AND p.ciudad LIKE ?";
-    params.push(`%${ciudad}%`);
-  }
-
-  if (contrato) {
-    query += " AND p.contrato = ?";
-    params.push(contrato);
-  }
-
-  if (jornada) {
-    query += " AND p.jornada = ?";
-    params.push(jornada);
-  }
-
-  if (especialidad) {
-    query += " AND EXISTS (SELECT 1 FROM publicacion_especialidades pe WHERE pe.publicacion_id = p.id AND pe.especialidad_id = ?)";
-    params.push(especialidad);
-  }
-
-  if (salarioMin) {
-    query += " AND p.salario_min >= ?";
-    params.push(parseInt(salarioMin));
-  }
-
-  if (salarioMax) {
-    query += " AND p.salario_min <= ?";
-    params.push(parseInt(salarioMax));
-  }
-
-  // Búsqueda de texto libre sobre descripción, ciudad y nombre del publicante
-  if (q && q.trim()) {
-    const like = `%${q.trim()}%`;
-    query += " AND (p.descripcion LIKE ? OR p.ciudad LIKE ? OR p.nombre_contacto LIKE ? OR u.nombre LIKE ?)";
-    params.push(like, like, like, like);
-  }
-
-  if (equipamiento) {
-    query += " AND EXISTS (SELECT 1 FROM publicacion_equipamiento pq WHERE pq.publicacion_id = p.id AND pq.equipo = ?)";
-    params.push(equipamiento);
-  }
-
-  if (retribucion) {
-    query += " AND p.retribucion_tipo = ?";
-    params.push(retribucion);
-  }
-
-  // Certificación del dentista: solo tiene sentido al buscar solicitudes (perfiles de dentistas)
-  if (certificacion) {
-    query += " AND EXISTS (SELECT 1 FROM certificaciones cert WHERE cert.usuario_id = p.usuario_id AND cert.certificacion = ?)";
-    params.push(certificacion);
-  }
-
-  if (experienciaMin) {
-    if (tipo === 'solicitud') {
-      // Dentistas con al menos esta experiencia
-      query += " AND p.experiencia_minima >= ?";
-    } else {
-      // Ofertas que exigen como máximo esta experiencia (el dentista sí califica)
-      query += " AND p.experiencia_minima <= ?";
-    }
-    params.push(parseInt(experienciaMin));
-  }
+  const filtros = construirFiltros(req.query);
+  let query = `SELECT ${selectCols} FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id WHERE p.activo = 1${filtros.sql}`;
+  const params = [...selectParams, ...filtros.params];
 
   if (sort === 'salario') {
     query += " ORDER BY p.salario_min DESC, p.creado_en DESC";
@@ -3212,69 +3131,48 @@ app.delete("/archivos/:id", verifyToken, (req, res) => {
 });
 
 /* ===========================
+   🔹 EXPORTACIONES A CSV
+=========================== */
+
+// Exporta una vista del listado principal (publicaciones, perfiles, mis-publicaciones,
+// favoritos, mis-postulaciones o suplencias). Acepta los mismos filtros que la vista,
+// así el fichero contiene exactamente las filas que el usuario está viendo.
+app.get("/exportar/:vista.csv", verifyToken, async (req, res) => {
+  try {
+    const { archivo, csv } = await generarCsv(db, req.usuario, req.params.vista, req.query);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${archivo}"`);
+    res.send(csv);
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: "Error al exportar" });
+  }
+});
+
+/* ===========================
    🔹 CANDIDATURAS
 =========================== */
 
 // Exportar postulaciones a CSV: 'recibidas' (sobre mis publicaciones) o 'enviadas' (las mías).
-// Separador ';' y BOM UTF-8 para que Excel en español lo abra directamente.
-app.get("/candidaturas/export.csv", verifyToken, (req, res) => {
+app.get("/candidaturas/export.csv", verifyToken, async (req, res) => {
   const tipoExport = req.query.tipo || (req.usuario.tipo === "clinica" ? "recibidas" : "enviadas");
   if (!["recibidas", "enviadas"].includes(tipoExport)) {
     return res.status(400).json({ error: "Tipo de exportación inválido" });
   }
 
-  const esRecibidas = tipoExport === "recibidas";
-  const sql = esRecibidas
-    ? `SELECT c.creado_en, c.actualizado_en, c.estado, c.mensaje,
-              p.tipo as publicacion_tipo, p.ciudad as publicacion_ciudad,
-              u.nombre as contraparte_nombre, u.email as contraparte_email, u.ciudad as contraparte_ciudad
-       FROM candidaturas c
-       INNER JOIN publicaciones p ON c.publicacion_id = p.id
-       INNER JOIN usuarios u ON c.usuario_id = u.id
-       WHERE p.usuario_id = ?
-       ORDER BY c.creado_en DESC`
-    : `SELECT c.creado_en, c.actualizado_en, c.estado, c.mensaje,
-              p.tipo as publicacion_tipo, p.ciudad as publicacion_ciudad,
-              u.nombre as contraparte_nombre, u.email as contraparte_email, u.ciudad as contraparte_ciudad
-       FROM candidaturas c
-       INNER JOIN publicaciones p ON c.publicacion_id = p.id
-       INNER JOIN usuarios u ON p.usuario_id = u.id
-       WHERE c.usuario_id = ?
-       ORDER BY c.creado_en DESC`;
+  const vista = tipoExport === "recibidas" ? "postulaciones-recibidas" : "mis-postulaciones";
 
-  db.all(sql, [req.usuario.id], (err, filas) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Error al exportar postulaciones" });
-    }
-
-    const etiquetaContraparte = esRecibidas ? "Candidato" : "Publicado por";
-    const columnas = ["Fecha postulación", "Estado", "Fecha última actualización",
-                      "Publicación", "Ciudad publicación",
-                      etiquetaContraparte, "Email", "Ciudad", "Mensaje"];
-
-    const escapar = (valor) => `"${String(valor ?? "").replace(/"/g, '""')}"`;
-    const lineas = [columnas.map(escapar).join(";")];
-
-    (filas || []).forEach(f => {
-      lineas.push([
-        f.creado_en,
-        f.estado,
-        f.actualizado_en,
-        f.publicacion_tipo === "oferta" ? "Oferta" : "Solicitud",
-        f.publicacion_ciudad,
-        f.contraparte_nombre,
-        f.contraparte_email,
-        f.contraparte_ciudad,
-        f.mensaje
-      ].map(escapar).join(";"));
-    });
-
+  try {
+    const { csv } = await generarCsv(db, req.usuario, vista, {});
     const fecha = new Date().toISOString().slice(0, 10);
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="postulaciones-${tipoExport}-${fecha}.csv"`);
-    res.send("\uFEFF" + lineas.join("\n"));
-  });
+    res.send(csv);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error al exportar postulaciones" });
+  }
 });
 
 // Crear candidatura (dentista postulándose a oferta)
