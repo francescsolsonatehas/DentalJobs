@@ -4729,29 +4729,9 @@ const app = {
     async verDetalle(id) {
       try {
         const u = await utils.request(`/usuarios/${id}/publico`);
-        let tray = { experiencia: [], formacion: [], idiomas: [], certificaciones: [] };
-        try { tray = await utils.request(`/usuarios/${id}/trayectoria`); } catch (e) { /* sin trayectoria */ }
-
-        const ciudadLabel = u.ciudad ? (u.provincia ? `${u.ciudad} (${u.provincia})` : u.ciudad) : "Sin ciudad";
-        let html = `
-          <p style="color:#4b5563;margin:0 0 .5rem;">${u.tipo === 'dentista' ? '👨‍⚕️ Dentista' : '🏥 Clínica'} · ${utils.escapeHtml(ciudadLabel)}</p>`;
-        if (u.anyos_experiencia !== null && u.anyos_experiencia !== undefined) {
-          html += `<p style="margin:.2rem 0;">${u.anyos_experiencia} años de experiencia</p>`;
-        }
-        if (u.descripcion) html += `<p style="margin:.5rem 0;">${utils.escapeHtml(u.descripcion)}</p>`;
-
-        if ((tray.experiencia || []).length) {
-          html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">Experiencia</h4>` +
-            tray.experiencia.map(e => `<div style="margin-bottom:.3rem;"><strong>${utils.escapeHtml(e.puesto)}</strong>${e.lugar ? ' · ' + utils.escapeHtml(e.lugar) : ''}</div>`).join("");
-        }
-        if ((tray.formacion || []).length) {
-          html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">Formación</h4>` +
-            tray.formacion.map(f => `<div>${utils.escapeHtml([f.titulo, f.centro].filter(Boolean).join(' · ') + (f.anyo ? ` (${f.anyo})` : ''))}</div>`).join("");
-        }
-        if ((tray.idiomas || []).length) {
-          html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">Idiomas</h4><p>` +
-            tray.idiomas.map(i => `${utils.escapeHtml(i.idioma)} (${utils.escapeHtml(i.nivel)})`).join("  ·  ") + `</p>`;
-        }
+        const html = u.tipo === "clinica"
+          ? this.fichaClinica(u)
+          : await this.fichaDentista(u, id);
 
         document.getElementById("detalleTitle").textContent = u.nombre;
         document.getElementById("detalleBody").innerHTML = html;
@@ -4759,6 +4739,93 @@ const app = {
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
+    },
+
+    // Formatea un "YYYY-MM" (input tipo month) como "MM/YYYY"; deja el resto tal cual
+    formatearMes(valor) {
+      if (!valor) return "";
+      const m = String(valor).match(/^(\d{4})-(\d{2})/);
+      return m ? `${m[2]}/${m[1]}` : String(valor);
+    },
+
+    rangoFechas(inicio, fin, actual) {
+      const desde = this.formatearMes(inicio);
+      const hasta = actual ? "Actualidad" : this.formatearMes(fin);
+      if (desde && hasta) return `${desde} — ${hasta}`;
+      return desde || hasta || "";
+    },
+
+    // Ficha pública del dentista: datos personales (profesionales) + trayectoria
+    async fichaDentista(u, id) {
+      let tray = { experiencia: [], formacion: [], idiomas: [], certificaciones: [] };
+      try { tray = await utils.request(`/usuarios/${id}/trayectoria`); } catch (e) { /* sin trayectoria */ }
+
+      const ciudadLabel = u.ciudad ? (u.provincia ? `${u.ciudad} (${u.provincia})` : u.ciudad) : "Sin ciudad";
+      let html = `<p style="color:#4b5563;margin:0 0 .5rem;">👨‍⚕️ Dentista · ${utils.escapeHtml(ciudadLabel)}</p>`;
+      if (u.anyos_experiencia !== null && u.anyos_experiencia !== undefined) {
+        html += `<p style="margin:.2rem 0;">🎓 ${u.anyos_experiencia} años de experiencia</p>`;
+      }
+      if (u.colegiado_estado === "verificado" && u.num_colegiado) {
+        html += `<p style="margin:.2rem 0;color:#059669;font-weight:600;">✓ Colegiado nº ${utils.escapeHtml(u.num_colegiado)}${u.colegio ? ` (${utils.escapeHtml(u.colegio)})` : ""}</p>`;
+      }
+      if ((u.especialidades || []).length) {
+        html += `<p style="margin:.4rem 0;"><strong>Especialidades:</strong> ${u.especialidades.map(e => utils.escapeHtml(e)).join(", ")}</p>`;
+      }
+      if (u.descripcion) html += `<p style="margin:.5rem 0;">${utils.escapeHtml(u.descripcion)}</p>`;
+
+      if ((tray.experiencia || []).length) {
+        html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">💼 Experiencia</h4>` +
+          tray.experiencia.map(e => {
+            const fechas = this.rangoFechas(e.fecha_inicio, e.fecha_fin, e.actual);
+            return `<div style="margin-bottom:.5rem;"><strong>${utils.escapeHtml(e.puesto)}</strong>${e.lugar ? " · " + utils.escapeHtml(e.lugar) : ""}${fechas ? ` <span style="color:#6b7280;">(${fechas})</span>` : ""}${e.descripcion ? `<div style="color:#4b5563;font-size:.9rem;">${utils.escapeHtml(e.descripcion)}</div>` : ""}</div>`;
+          }).join("");
+      }
+      if ((tray.formacion || []).length) {
+        html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">🎓 Formación</h4>` +
+          tray.formacion.map(f => `<div>${utils.escapeHtml([f.titulo, f.centro].filter(Boolean).join(" · ") + (f.anyo ? ` (${f.anyo})` : ""))}</div>`).join("");
+      }
+      if ((tray.idiomas || []).length) {
+        html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">🌐 Idiomas</h4><p>` +
+          tray.idiomas.map(i => `${utils.escapeHtml(i.idioma)} (${utils.escapeHtml(i.nivel)})`).join("  ·  ") + `</p>`;
+      }
+      if ((tray.certificaciones || []).length) {
+        html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">📜 Certificaciones</h4><p>` +
+          tray.certificaciones.map(c => utils.escapeHtml(c)).join("  ·  ") + `</p>`;
+      }
+      return html;
+    },
+
+    // Ficha pública de la clínica: sus datos (sin duplicar los que ya están en la
+    // Sede) más la Sede completa. La ciudad de cuenta solo se muestra si no hay sedes.
+    fichaClinica(u) {
+      const sedes = u.sedes || [];
+      const ciudadLabel = u.ciudad ? (u.provincia ? `${u.ciudad} (${u.provincia})` : u.ciudad) : "";
+      let html = `<p style="color:#4b5563;margin:0 0 .5rem;">🏥 Clínica${!sedes.length && ciudadLabel ? " · " + utils.escapeHtml(ciudadLabel) : ""}</p>`;
+      if ((u.especialidades || []).length) {
+        html += `<p style="margin:.4rem 0;"><strong>Especialidades:</strong> ${u.especialidades.map(e => utils.escapeHtml(e)).join(", ")}</p>`;
+      }
+      if (u.descripcion) html += `<p style="margin:.5rem 0;">${utils.escapeHtml(u.descripcion)}</p>`;
+
+      if (sedes.length) {
+        html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">📍 ${sedes.length > 1 ? "Sedes" : "Sede"}</h4>`;
+        html += sedes.map(s => {
+          const cpCiudad = [s.codigo_postal, s.ciudad].filter(Boolean).join(" ");
+          const localizacion = [cpCiudad, s.provincia].filter(Boolean).join(", ");
+          const lineas = [];
+          if (s.direccion) lineas.push(utils.escapeHtml(s.direccion));
+          if (localizacion) lineas.push(utils.escapeHtml(localizacion));
+          if (s.telefono) lineas.push(`📞 ${utils.escapeHtml(s.telefono)}`);
+          const equip = (s.equipamiento || []).length
+            ? `<div style="color:#4b5563;font-size:.9rem;margin-top:.3rem;">🦷 ${s.equipamiento.map(e => utils.escapeHtml(e)).join(", ")}</div>`
+            : "";
+          return `<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:.75rem 1rem;margin-bottom:.5rem;">
+                    <strong>${utils.escapeHtml(s.nombre)}</strong>
+                    ${lineas.length ? `<div style="color:#4b5563;">${lineas.join("<br>")}</div>` : ""}
+                    ${equip}
+                  </div>`;
+        }).join("");
+      }
+      return html;
     }
   },
 

@@ -37,6 +37,30 @@ test("perfil enriquecido", async (t) => {
     assert.equal(res.body.anyos_experiencia, 7);
     assert.equal(res.body.descripcion, "Endodoncista con 7 años de experiencia");
     assert.equal(res.body.email, undefined);
+    assert.ok(Array.isArray(res.body.especialidades), "incluye especialidades");
+  });
+
+  await t.test("el perfil público de una clínica incluye sus sedes completas", async () => {
+    await request(app)
+      .post("/sedes")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ nombre: "Sede Centro", ciudad: "Barcelona", provincia: "Barcelona", direccion: "Calle Mayor 1", codigo_postal: "08001", telefono: "931112233", equipamiento: ["Microscopio"] });
+
+    const res = await request(app).get(`/usuarios/${clinica.usuario.id}/publico`);
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(res.body.sedes), "incluye sedes");
+    assert.equal(res.body.sedes.length, 1);
+    const sede = res.body.sedes[0];
+    assert.equal(sede.nombre, "Sede Centro");
+    assert.equal(sede.direccion, "Calle Mayor 1");
+    assert.equal(sede.telefono, "931112233");
+    assert.deepEqual(sede.equipamiento, ["Microscopio"]);
+    assert.equal(res.body.email, undefined);
+  });
+
+  await t.test("el perfil público de un dentista no incluye sedes", async () => {
+    const res = await request(app).get(`/usuarios/${dentista.usuario.id}/publico`);
+    assert.equal(res.body.sedes, undefined);
   });
 
   await t.test("una clínica puede subir fotos (tipo 'foto')", async () => {

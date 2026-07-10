@@ -973,11 +973,14 @@ app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
   }
 });
 
-// Perfil público de un usuario (datos no sensibles, para mostrar en fichas)
+// Perfil público de un usuario (datos no sensibles, para mostrar en fichas).
+// No se expone email/teléfono/dirección de cuenta: el contacto es por el chat.
+// Incluye especialidades y, en clínicas, las sedes completas (dato de negocio).
 app.get("/usuarios/:id/publico", (req, res) => {
+  const id = req.params.id;
   db.get(
     "SELECT id, nombre, tipo, ciudad, provincia, pais, descripcion, anyos_experiencia, num_colegiado, colegio, colegiado_estado, creado_en FROM usuarios WHERE id = ?",
-    [req.params.id],
+    [id],
     (err, usuario) => {
       if (err) {
         console.error(err);
@@ -994,7 +997,59 @@ app.get("/usuarios/:id/publico", (req, res) => {
         usuario.colegio = null;
       }
 
-      res.json(usuario);
+      // Especialidades (dentistas y clínicas)
+      db.all(
+        `SELECT e.nombre FROM usuario_especialidades ue
+         INNER JOIN especialidades e ON e.id = ue.especialidad_id
+         WHERE ue.usuario_id = ? ORDER BY e.nombre`,
+        [id],
+        (err2, esps) => {
+          if (err2) {
+            console.error(err2);
+            return res.status(500).json({ error: "Error al obtener perfil" });
+          }
+          usuario.especialidades = (esps || []).map(e => e.nombre);
+
+          // Solo las clínicas tienen sedes; para dentistas la ficha no las necesita
+          if (usuario.tipo !== "clinica") {
+            return res.json(usuario);
+          }
+
+          db.all(
+            "SELECT id, nombre, ciudad, provincia, direccion, codigo_postal, telefono FROM sedes WHERE usuario_id = ? ORDER BY nombre",
+            [id],
+            (err3, sedes) => {
+              if (err3) {
+                console.error(err3);
+                return res.status(500).json({ error: "Error al obtener perfil" });
+              }
+              sedes = sedes || [];
+              if (!sedes.length) {
+                usuario.sedes = [];
+                return res.json(usuario);
+              }
+
+              const ids = sedes.map(s => s.id);
+              const placeholders = ids.map(() => "?").join(",");
+              db.all(
+                `SELECT sede_id, equipo FROM sede_equipamiento WHERE sede_id IN (${placeholders})`,
+                ids,
+                (err4, equipos) => {
+                  if (err4) {
+                    console.error(err4);
+                    return res.status(500).json({ error: "Error al obtener perfil" });
+                  }
+                  const porSede = {};
+                  (equipos || []).forEach(e => { (porSede[e.sede_id] = porSede[e.sede_id] || []).push(e.equipo); });
+                  sedes.forEach(s => { s.equipamiento = porSede[s.id] || []; });
+                  usuario.sedes = sedes;
+                  res.json(usuario);
+                }
+              );
+            }
+          );
+        }
+      );
     }
   );
 });
@@ -3904,27 +3959,49 @@ app.post("/contactos-perfil", verifyToken, (req, res) => {
     if (err) { console.error(err); return res.status(500).json({ error: "Error al contactar" }); }
     if (!perfil) return res.status(404).json({ error: "Perfil no encontrado" });
 
-    db.run(
-      "INSERT INTO contactos_perfil (solicitante_id, perfil_id, estado, mensaje) VALUES (?, ?, 'pendiente', ?)",
-      [solicitanteId, perfil_id, (mensaje || "").trim() || null],
-      function(err2) {
-        if (err2) {
-          if (err2.message.includes("UNIQUE")) return res.status(400).json({ error: "Ya has contactado a este perfil" });
-          console.error(err2);
-          return res.status(500).json({ error: "Error al contactar" });
+    // Un contacto entre dos personas es un único hilo, aunque ambas hayan pulsado
+    // "Contactar". Si ya existe en cualquier sentido, no se crea un segundo:
+    //  - si lo inicié yo, ya está enviado;
+    //  - si me contactó la otra persona, debo aceptar su solicitud (no duplicar el hilo).
+    db.get(
+      `SELECT solicitante_id, estado FROM contactos_perfil
+       WHERE (solicitante_id = ? AND perfil_id = ?) OR (solicitante_id = ? AND perfil_id = ?)`,
+      [solicitanteId, perfil_id, perfil_id, solicitanteId],
+      (errExiste, existente) => {
+        if (errExiste) { console.error(errExiste); return res.status(500).json({ error: "Error al contactar" }); }
+        if (existente) {
+          if (existente.solicitante_id === solicitanteId) {
+            return res.status(400).json({ error: "Ya has contactado a este perfil" });
+          }
+          if (existente.estado === "aceptada") {
+            return res.status(400).json({ error: "Ya estáis en contacto. Ábrelo desde tus mensajes." });
+          }
+          return res.status(400).json({ error: "Esta persona ya te ha enviado una solicitud de contacto. Acéptala desde tus mensajes para empezar a chatear." });
         }
-        res.json({ mensaje: "Contacto enviado", id: this.lastID });
 
-        db.get("SELECT nombre FROM usuarios WHERE id = ?", [solicitanteId], (e, sol) => {
-          if (e || !sol) return;
-          notificarUsuario(
-            perfil_id,
-            "📬 Nuevo contacto en DentalJobs",
-            "Alguien quiere contactar contigo",
-            `${sol.nombre} está interesado/a en tu perfil. Entra para ver su solicitud y aceptarla si te encaja.`,
-            "Ver la solicitud"
-          );
-        });
+        db.run(
+          "INSERT INTO contactos_perfil (solicitante_id, perfil_id, estado, mensaje) VALUES (?, ?, 'pendiente', ?)",
+          [solicitanteId, perfil_id, (mensaje || "").trim() || null],
+          function(err2) {
+            if (err2) {
+              if (err2.message.includes("UNIQUE")) return res.status(400).json({ error: "Ya has contactado a este perfil" });
+              console.error(err2);
+              return res.status(500).json({ error: "Error al contactar" });
+            }
+            res.json({ mensaje: "Contacto enviado", id: this.lastID });
+
+            db.get("SELECT nombre FROM usuarios WHERE id = ?", [solicitanteId], (e, sol) => {
+              if (e || !sol) return;
+              notificarUsuario(
+                perfil_id,
+                "📬 Nuevo contacto en DentalJobs",
+                "Alguien quiere contactar contigo",
+                `${sol.nombre} está interesado/a en tu perfil. Entra para ver su solicitud y aceptarla si te encaja.`,
+                "Ver la solicitud"
+              );
+            });
+          }
+        );
       }
     );
   });

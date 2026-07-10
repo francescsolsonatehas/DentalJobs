@@ -82,3 +82,43 @@ test("contactos de perfil y su chat", async (t) => {
     assert.equal(hilo.body.estado, "aceptada");
   });
 });
+
+test("un contacto entre dos personas es un único hilo aunque ambas pulsen Contactar", async (t) => {
+  const { app, dbPath } = createTestApp();
+  t.after(() => cleanupTestApp(dbPath));
+
+  const clinica = await registrarYLoguear(app, { nombre: "Clínica Uno", email: "clinica-uno@test.com", tipo: "clinica" });
+  const dentista = await registrarYLoguear(app, { nombre: "Dentista Uno", email: "dentista-uno@test.com", tipo: "dentista" });
+
+  // La clínica contacta primero
+  const primero = await request(app)
+    .post("/contactos-perfil")
+    .set("Authorization", `Bearer ${clinica.token}`)
+    .send({ perfil_id: dentista.usuario.id, mensaje: "Hola, nos interesas" });
+  assert.equal(primero.status, 200);
+
+  await t.test("el dentista, que ya tiene una solicitud, no crea un segundo hilo al contactar de vuelta", async () => {
+    const res = await request(app)
+      .post("/contactos-perfil")
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .send({ perfil_id: clinica.usuario.id, mensaje: "¡Yo también!" });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /ya te ha enviado/i);
+  });
+
+  await t.test("solo existe un hilo, el del que contactó primero, y sigue pendiente", async () => {
+    const vistaDentista = await request(app)
+      .get("/contactos-perfil")
+      .set("Authorization", `Bearer ${dentista.token}`);
+    assert.equal(vistaDentista.body.enviados.length, 0);
+    assert.equal(vistaDentista.body.recibidos.length, 1);
+    assert.equal(vistaDentista.body.recibidos[0].estado, "pendiente");
+    assert.equal(vistaDentista.body.recibidos[0].solicitante_id, clinica.usuario.id);
+
+    const vistaClinica = await request(app)
+      .get("/contactos-perfil")
+      .set("Authorization", `Bearer ${clinica.token}`);
+    assert.equal(vistaClinica.body.enviados.length, 1);
+    assert.equal(vistaClinica.body.recibidos.length, 0);
+  });
+});
