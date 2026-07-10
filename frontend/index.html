@@ -305,14 +305,17 @@
                         </div>
                     </div>
                     <div class="form-group" id="ofertaSedeGroup" style="display: none;">
-                        <label for="ofertaSede">Sede</label>
-                        <select id="ofertaSede" onchange="app.sedes.aplicarAPublicacion()">
-                            <option value="">Sin sede específica…</option>
+                        <label for="ofertaSede">Sede *</label>
+                        <select id="ofertaSede" onchange="app.sedes.aplicarAPublicacion('oferta')">
+                            <option value="">Elige una sede…</option>
                         </select>
+                        <small id="ofertaSinSedes" style="display: none; color: #b45309; margin-top: 0.3rem;">No tienes sedes. Crea una en "Mi perfil" → Sedes antes de publicar una oferta.</small>
+                        <div id="ofertaSedePreview" style="margin-top: 0.6rem;"></div>
                     </div>
                     <div class="form-group">
-                        <label for="ofertaCiudad">Ciudad *</label>
-                        <input id="ofertaCiudad" type="text" required>
+                        <label for="ofertaCiudad">Ciudad</label>
+                        <input id="ofertaCiudad" type="text" readonly style="background: #f3f4f6;">
+                        <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Se toma de la sede elegida.</small>
                     </div>
                     <div class="form-group">
                         <label>Especialidades</label>
@@ -367,7 +370,7 @@
                         <label for="ofertaExperiencia">Años de experiencia exigidos</label>
                         <input id="ofertaExperiencia" type="number" min="0" placeholder="Ej: 3">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="ofertaEquipamientoGroup" style="display: none;">
                         <label>Equipamiento de la clínica</label>
                         <div id="ofertaEquipamientoContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
                           <!-- Se llenarán dinámicamente -->
@@ -378,16 +381,16 @@
                         <textarea id="ofertaDescripcion" required></textarea>
                     </div>
                     <div class="form-group">
-                        <label for="ofertaNombreContacto">Nombre de clínica/contacto *</label>
-                        <input id="ofertaNombreContacto" type="text" required>
+                        <label for="ofertaNombreContacto">Empresa (de tu perfil)</label>
+                        <input id="ofertaNombreContacto" type="text" readonly style="background: #f3f4f6;">
                     </div>
                     <div class="form-group">
-                        <label for="ofertaEmailContacto">Email de contacto *</label>
-                        <input id="ofertaEmailContacto" type="email" required>
+                        <label for="ofertaEmailContacto">Email de contacto (de tu perfil)</label>
+                        <input id="ofertaEmailContacto" type="email" readonly style="background: #f3f4f6;">
                     </div>
                     <div class="form-group">
-                        <label for="ofertaTelefonoContacto">Teléfono de contacto</label>
-                        <input id="ofertaTelefonoContacto" type="tel" placeholder="+34 xxx xxx xxx">
+                        <label for="ofertaTelefonoContacto">Teléfono (de la sede)</label>
+                        <input id="ofertaTelefonoContacto" type="tel" readonly style="background: #f3f4f6;">
                     </div>
                     <button type="submit" class="btn-primary" style="width: 100%;">Publicar oferta</button>
                 </form>
@@ -472,14 +475,17 @@
                 </div>
                 <form onsubmit="event.preventDefault(); app.publicaciones.crear('suplencia');">
                     <div class="form-group" id="suplenciaSedeGroup" style="display: none;">
-                        <label for="suplenciaSede">Sede</label>
+                        <label for="suplenciaSede">Sede *</label>
                         <select id="suplenciaSede" onchange="app.sedes.aplicarAPublicacion('suplencia')">
-                            <option value="">Sin sede específica…</option>
+                            <option value="">Elige una sede…</option>
                         </select>
+                        <small id="suplenciaSinSedes" style="display: none; color: #b45309; margin-top: 0.3rem;">No tienes sedes. Crea una en "Mi perfil" → Sedes antes de publicar una suplencia.</small>
+                        <div id="suplenciaSedePreview" style="margin-top: 0.6rem;"></div>
                     </div>
                     <div class="form-group">
-                        <label for="suplenciaCiudad">Ciudad *</label>
-                        <input id="suplenciaCiudad" type="text" required>
+                        <label for="suplenciaCiudad">Ciudad</label>
+                        <input id="suplenciaCiudad" type="text" readonly style="background: #f3f4f6;">
+                        <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Se toma de la sede elegida.</small>
                     </div>
                     <div class="form-group">
                         <label>Especialidades</label>
@@ -524,7 +530,7 @@
                             <input id="suplenciaRetribucionPorcentaje" type="number" min="0" max="100" placeholder="Ej: 35 (% de facturación)">
                         </div>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="suplenciaEquipamientoGroup" style="display: none;">
                         <label>Equipamiento de la clínica</label>
                         <div id="suplenciaEquipamientoContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
                           <!-- Se llenarán dinámicamente -->
@@ -535,16 +541,16 @@
                         <textarea id="suplenciaDescripcion" required placeholder="Motivo de la suplencia, horario, equipo disponible..."></textarea>
                     </div>
                     <div class="form-group">
-                        <label for="suplenciaNombreContacto">Nombre de clínica/contacto *</label>
-                        <input id="suplenciaNombreContacto" type="text" required>
+                        <label for="suplenciaNombreContacto">Empresa (de tu perfil)</label>
+                        <input id="suplenciaNombreContacto" type="text" readonly style="background: #f3f4f6;">
                     </div>
                     <div class="form-group">
-                        <label for="suplenciaEmailContacto">Email de contacto *</label>
-                        <input id="suplenciaEmailContacto" type="email" required>
+                        <label for="suplenciaEmailContacto">Email de contacto (de tu perfil)</label>
+                        <input id="suplenciaEmailContacto" type="email" readonly style="background: #f3f4f6;">
                     </div>
                     <div class="form-group">
-                        <label for="suplenciaTelefonoContacto">Teléfono de contacto</label>
-                        <input id="suplenciaTelefonoContacto" type="tel" placeholder="+34 xxx xxx xxx">
+                        <label for="suplenciaTelefonoContacto">Teléfono (de la sede)</label>
+                        <input id="suplenciaTelefonoContacto" type="tel" readonly style="background: #f3f4f6;">
                     </div>
                     <button type="submit" class="btn-primary" style="width: 100%; background: #ef4444;">Publicar suplencia</button>
                 </form>
@@ -844,11 +850,19 @@
                     </div>
                     <div class="form-group">
                         <label for="sedeCiudad">Ciudad *</label>
-                        <input id="sedeCiudad" type="text" placeholder="Ej: Barcelona" required>
+                        <input id="sedeCiudad" type="text" placeholder="Escribe el municipio…" autocomplete="off" required>
+                        <input id="sedeProvincia" type="hidden">
+                        <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Elige un municipio de la lista para fijar la provincia. <span id="sedeProvinciaLabel"></span></small>
                     </div>
                     <div class="form-group">
                         <label for="sedeDireccion">Dirección</label>
                         <input id="sedeDireccion" type="text" placeholder="Calle, número">
+                    </div>
+                    <div class="form-group">
+                        <label>Equipamiento de la sede</label>
+                        <div id="sedeEquipamientoContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                          <!-- Se llenarán dinámicamente -->
+                        </div>
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                         <div class="form-group">

@@ -189,4 +189,33 @@ test("publicaciones", async (t) => {
     assert.equal(pub.ciudad, "Girona");
     assert.equal(pub.provincia, "Girona");
   });
+
+  await t.test("una oferta con sede hereda ciudad, provincia, teléfono, empresa y equipamiento de la sede/perfil", async () => {
+    const sede = await request(app)
+      .post("/sedes")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ nombre: "Sede Centro", ciudad: "Tarragona", provincia: "Tarragona", telefono: "977000000", equipamiento: ["Microscopio", "CAD-CAM"] });
+    const sedeId = sede.body.id;
+
+    // Publica una oferta con sede, enviando en el cuerpo datos que deben ignorarse
+    const crear = await request(app)
+      .post("/publicaciones")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ tipo: "oferta", sede_id: sedeId, ciudad: "CiudadIgnorada", descripcion: "Oferta con sede", nombre_contacto: "IgnoradoContacto", equipamiento: ["Láser dental"] });
+    assert.equal(crear.status, 200);
+
+    const listado = await request(app).get("/publicaciones?tipo=oferta&ciudad=Tarragona");
+    const pub = listado.body.find((p) => p.id === crear.body.id);
+    assert.ok(pub, "la oferta debería listarse por la ciudad de la sede");
+    assert.equal(pub.ciudad, "Tarragona");
+    assert.equal(pub.provincia, "Tarragona");
+    assert.equal(pub.nombre_contacto, "Clínica Test"); // del perfil, no del cuerpo
+    assert.equal(pub.telefono_contacto, "977000000");  // de la sede
+
+    // El equipamiento de la publicación es el de la sede, no el enviado en el cuerpo
+    const porSede = await request(app).get("/publicaciones?tipo=oferta&ciudad=Tarragona&equipamiento=Microscopio");
+    assert.ok(porSede.body.some((p) => p.id === crear.body.id), "debería encontrarse por el equipamiento de la sede");
+    const porCuerpo = await request(app).get(`/publicaciones?tipo=oferta&ciudad=Tarragona&equipamiento=${encodeURIComponent("Láser dental")}`);
+    assert.ok(!porCuerpo.body.some((p) => p.id === crear.body.id), "no debería tener el equipamiento enviado en el cuerpo");
+  });
 });

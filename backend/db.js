@@ -308,6 +308,16 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
+  // Equipamiento por sede (catálogo fijo, ver server.js). Las ofertas lo heredan de su sede.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS sede_equipamiento (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sede_id INTEGER NOT NULL REFERENCES sedes(id),
+      equipo TEXT NOT NULL,
+      UNIQUE(sede_id, equipo)
+    )
+  `);
+
   db.run(`
     CREATE TABLE IF NOT EXISTS plantillas_publicacion (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

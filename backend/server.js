@@ -1620,12 +1620,19 @@ app.post("/publicaciones", verifyToken, (req, res) => {
     ? equipamiento.filter(e => EQUIPAMIENTO_CATALOGO.includes(e))
     : [];
 
-  const insertarPublicacion = (sedeIdValidada, ciudadFinal, provinciaFinal) => {
+  // Los campos de contacto y el equipamiento pueden venir del formulario (respaldo/legacy) o
+  // derivarse de la sede/perfil (opts) cuando se publica una oferta/suplencia con sede.
+  const insertarPublicacion = (sedeIdValidada, ciudadFinal, provinciaFinal, opts = {}) => {
+    const nombreContactoFinal = opts.nombreContacto !== undefined ? opts.nombreContacto : nombre_contacto;
+    const emailContactoFinal = opts.emailContacto !== undefined ? opts.emailContacto : email_contacto;
+    const telefonoContactoFinal = opts.telefonoContacto !== undefined ? opts.telefonoContacto : telefono_contacto;
+    const equiposFinal = opts.equipos !== undefined ? opts.equipos : equipamientoValido;
+
     db.run(
       `INSERT INTO publicaciones
        (tipo, descripcion, ciudad, provincia, especialidad_id, contrato, jornada, salario, salario_min, salario_max, experiencia_minima, usuario_id, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente, retribucion_tipo, retribucion_porcentaje)
        VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [tipo, descripcion, ciudadFinal, provinciaFinal, contrato || null, jornada || null, salario || null, salarioMin, hastaNum, experienciaMinima, req.usuario.id, nombre_contacto, email_contacto, telefono_contacto, sedeIdValidada, tipo === 'suplencia' ? (fecha_desde || null) : null, tipo === 'suplencia' ? (fecha_hasta || null) : null, tipo === 'suplencia' && urgente ? 1 : 0, retribucionTipoFinal, retribucionPorcentajeFinal],
+      [tipo, descripcion, ciudadFinal, provinciaFinal, contrato || null, jornada || null, salario || null, salarioMin, hastaNum, experienciaMinima, req.usuario.id, nombreContactoFinal, emailContactoFinal, telefonoContactoFinal, sedeIdValidada, tipo === 'suplencia' ? (fecha_desde || null) : null, tipo === 'suplencia' ? (fecha_hasta || null) : null, tipo === 'suplencia' && urgente ? 1 : 0, retribucionTipoFinal, retribucionPorcentajeFinal],
       function(err) {
         if (err) {
           console.error(err);
@@ -1643,9 +1650,9 @@ app.post("/publicaciones", verifyToken, (req, res) => {
           stmt.finalize();
         }
 
-        if (equipamientoValido.length > 0) {
+        if (equiposFinal && equiposFinal.length > 0) {
           const stmt = db.prepare("INSERT INTO publicacion_equipamiento (publicacion_id, equipo) VALUES (?, ?)");
-          equipamientoValido.forEach(eq => stmt.run(publicacionId, eq));
+          equiposFinal.forEach(eq => stmt.run(publicacionId, eq));
           stmt.finalize();
         }
 
@@ -1655,23 +1662,6 @@ app.post("/publicaciones", verifyToken, (req, res) => {
         });
       }
     );
-  };
-
-  const proceder = (ciudadFinal, provinciaFinal) => {
-    if (sede_id) {
-      db.get("SELECT usuario_id FROM sedes WHERE id = ?", [sede_id], (err, sede) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).json({ error: "Error al crear publicación" });
-        }
-        if (!sede || sede.usuario_id !== req.usuario.id) {
-          return res.status(403).json({ error: "La sede indicada no es tuya" });
-        }
-        insertarPublicacion(sede_id, ciudadFinal, provinciaFinal);
-      });
-    } else {
-      insertarPublicacion(null, ciudadFinal, provinciaFinal);
-    }
   };
 
   if (tipo === 'solicitud') {
@@ -1687,10 +1677,41 @@ app.post("/publicaciones", verifyToken, (req, res) => {
       if (!ciudadFinal) {
         return res.status(400).json({ error: "Define tu ciudad en el perfil antes de publicar una solicitud" });
       }
-      proceder(ciudadFinal, provinciaFinal);
+      insertarPublicacion(null, ciudadFinal, provinciaFinal, { equipos: [] });
+    });
+  } else if (sede_id) {
+    // Oferta/suplencia con sede: ciudad, provincia, teléfono y equipamiento se heredan de la sede;
+    // el nombre y el email de contacto, del perfil de la clínica (no editables en el formulario).
+    db.get("SELECT * FROM sedes WHERE id = ?", [sede_id], (err, sede) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al crear publicación" });
+      }
+      if (!sede || sede.usuario_id !== req.usuario.id) {
+        return res.status(403).json({ error: "La sede indicada no es tuya" });
+      }
+      db.get("SELECT nombre, email FROM usuarios WHERE id = ?", [req.usuario.id], (err2, perfil) => {
+        if (err2 || !perfil) {
+          console.error(err2);
+          return res.status(500).json({ error: "Error al crear publicación" });
+        }
+        db.all("SELECT equipo FROM sede_equipamiento WHERE sede_id = ?", [sede_id], (err3, rows) => {
+          if (err3) {
+            console.error(err3);
+            return res.status(500).json({ error: "Error al crear publicación" });
+          }
+          insertarPublicacion(sede_id, sede.ciudad, sede.provincia || null, {
+            nombreContacto: perfil.nombre,
+            emailContacto: perfil.email,
+            telefonoContacto: sede.telefono || null,
+            equipos: (rows || []).map(r => r.equipo)
+          });
+        });
+      });
     });
   } else {
-    proceder(ciudad, provincia || null);
+    // Oferta/suplencia sin sede (respaldo/legacy/API): se usa lo que llegue en el cuerpo
+    insertarPublicacion(null, ciudad, provincia || null);
   }
 });
 
@@ -3467,20 +3488,30 @@ app.post("/sedes", verifyToken, (req, res) => {
     return res.status(403).json({ error: "Solo las clínicas pueden gestionar sedes" });
   }
 
-  const { nombre, ciudad, direccion, codigo_postal, telefono } = req.body;
+  const { nombre, ciudad, provincia, direccion, codigo_postal, telefono, equipamiento } = req.body;
   if (!nombre || !nombre.trim() || !ciudad || !ciudad.trim()) {
     return res.status(400).json({ error: "Nombre y ciudad son obligatorios" });
   }
 
+  const equipos = Array.isArray(equipamiento) ? equipamiento.filter(e => EQUIPAMIENTO_CATALOGO.includes(e)) : [];
+
   db.run(
-    "INSERT INTO sedes (usuario_id, nombre, ciudad, direccion, codigo_postal, telefono) VALUES (?, ?, ?, ?, ?, ?)",
-    [req.usuario.id, nombre.trim(), ciudad.trim(), direccion || null, codigo_postal || null, telefono || null],
+    "INSERT INTO sedes (usuario_id, nombre, ciudad, provincia, direccion, codigo_postal, telefono) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    [req.usuario.id, nombre.trim(), ciudad.trim(), provincia || null, direccion || null, codigo_postal || null, telefono || null],
     function(err) {
       if (err) {
         console.error(err);
         return res.status(500).json({ error: "Error al crear sede" });
       }
-      res.json({ mensaje: "Sede creada", id: this.lastID });
+      const sedeId = this.lastID;
+      // Guardar el equipamiento antes de responder (evita fallos de escritura en vuelo)
+      if (equipos.length) {
+        const stmt = db.prepare("INSERT INTO sede_equipamiento (sede_id, equipo) VALUES (?, ?)");
+        equipos.forEach(e => stmt.run(sedeId, e));
+        stmt.finalize(() => res.json({ mensaje: "Sede creada", id: sedeId }));
+      } else {
+        res.json({ mensaje: "Sede creada", id: sedeId });
+      }
     }
   );
 });
@@ -3494,16 +3525,32 @@ app.get("/sedes", verifyToken, (req, res) => {
         console.error(err);
         return res.status(500).json({ error: "Error al obtener sedes" });
       }
-      res.json({ sedes: sedes || [] });
+      sedes = sedes || [];
+      if (!sedes.length) return res.json({ sedes: [] });
+
+      const ids = sedes.map(s => s.id);
+      const placeholders = ids.map(() => "?").join(",");
+      db.all(`SELECT sede_id, equipo FROM sede_equipamiento WHERE sede_id IN (${placeholders})`, ids, (err2, equipos) => {
+        if (err2) {
+          console.error(err2);
+          return res.status(500).json({ error: "Error al obtener sedes" });
+        }
+        const porSede = {};
+        (equipos || []).forEach(e => { (porSede[e.sede_id] = porSede[e.sede_id] || []).push(e.equipo); });
+        sedes.forEach(s => { s.equipamiento = porSede[s.id] || []; });
+        res.json({ sedes });
+      });
     }
   );
 });
 
 app.put("/sedes/:id", verifyToken, (req, res) => {
-  const { nombre, ciudad, direccion, codigo_postal, telefono } = req.body;
+  const { nombre, ciudad, provincia, direccion, codigo_postal, telefono, equipamiento } = req.body;
   if (!nombre || !nombre.trim() || !ciudad || !ciudad.trim()) {
     return res.status(400).json({ error: "Nombre y ciudad son obligatorios" });
   }
+
+  const equipos = Array.isArray(equipamiento) ? equipamiento.filter(e => EQUIPAMIENTO_CATALOGO.includes(e)) : null;
 
   db.get("SELECT usuario_id FROM sedes WHERE id = ?", [req.params.id], (err, sede) => {
     if (err) {
@@ -3515,14 +3562,27 @@ app.put("/sedes/:id", verifyToken, (req, res) => {
     }
 
     db.run(
-      "UPDATE sedes SET nombre = ?, ciudad = ?, direccion = ?, codigo_postal = ?, telefono = ? WHERE id = ?",
-      [nombre.trim(), ciudad.trim(), direccion || null, codigo_postal || null, telefono || null, req.params.id],
+      "UPDATE sedes SET nombre = ?, ciudad = ?, provincia = ?, direccion = ?, codigo_postal = ?, telefono = ? WHERE id = ?",
+      [nombre.trim(), ciudad.trim(), provincia || null, direccion || null, codigo_postal || null, telefono || null, req.params.id],
       (err) => {
         if (err) {
           console.error(err);
           return res.status(500).json({ error: "Error al actualizar sede" });
         }
-        res.json({ mensaje: "Sede actualizada" });
+        // Si se envía equipamiento, se reemplaza por completo el de la sede
+        if (equipos === null) {
+          return res.json({ mensaje: "Sede actualizada" });
+        }
+        db.run("DELETE FROM sede_equipamiento WHERE sede_id = ?", [req.params.id], (err2) => {
+          if (err2) {
+            console.error(err2);
+            return res.status(500).json({ error: "Error al actualizar sede" });
+          }
+          if (!equipos.length) return res.json({ mensaje: "Sede actualizada" });
+          const stmt = db.prepare("INSERT INTO sede_equipamiento (sede_id, equipo) VALUES (?, ?)");
+          equipos.forEach(e => stmt.run(req.params.id, e));
+          stmt.finalize(() => res.json({ mensaje: "Sede actualizada" }));
+        });
       }
     );
   });
@@ -3544,12 +3604,18 @@ app.delete("/sedes/:id", verifyToken, (req, res) => {
         console.error(err);
         return res.status(500).json({ error: "Error al eliminar sede" });
       }
-      db.run("DELETE FROM sedes WHERE id = ?", [req.params.id], (err) => {
+      db.run("DELETE FROM sede_equipamiento WHERE sede_id = ?", [req.params.id], (err) => {
         if (err) {
           console.error(err);
           return res.status(500).json({ error: "Error al eliminar sede" });
         }
-        res.json({ mensaje: "Sede eliminada" });
+        db.run("DELETE FROM sedes WHERE id = ?", [req.params.id], (err) => {
+          if (err) {
+            console.error(err);
+            return res.status(500).json({ error: "Error al eliminar sede" });
+          }
+          res.json({ mensaje: "Sede eliminada" });
+        });
       });
     });
   });
