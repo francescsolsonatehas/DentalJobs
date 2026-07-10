@@ -608,8 +608,30 @@ const app = {
 
       try {
         const publicaciones = await utils.request("/favoritos");
+        let perfilesFav = [];
+        try {
+          const f = await utils.request("/favoritos-perfil");
+          perfilesFav = f.perfiles || [];
+        } catch (e) { /* sin perfiles guardados */ }
+
+        const container = document.getElementById("publicacionesContainer");
         estadoApp.publicaciones = publicaciones;
-        app.ui.renderizarPublicaciones();
+
+        if (publicaciones.length) {
+          await app.ui.renderizarPublicaciones();
+        } else {
+          container.innerHTML = "";
+        }
+
+        if (perfilesFav.length) {
+          const favSet = new Set(perfilesFav.map(p => p.id));
+          const encabezado = publicaciones.length ? `<h3 style="margin:1.5rem 0 1rem;color:#0f4c75;">Perfiles guardados</h3>` : "";
+          container.insertAdjacentHTML('beforeend', encabezado + app.perfiles.tarjetasHtml(perfilesFav, favSet));
+        }
+
+        if (!publicaciones.length && !perfilesFav.length) {
+          container.innerHTML = `<div class="empty-state"><h3>No tienes favoritos</h3><p>Guarda publicaciones o perfiles con la estrella ☆.</p></div>`;
+        }
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -867,6 +889,20 @@ const app = {
       }
 
       app.publicaciones.cargar();
+    },
+
+    mostrarPerfiles(btn) {
+      estadoApp.filtros.soloMias = false;
+      estadoApp.filtros.contactadas = false;
+      estadoApp.filtros.verSuplencias = false;
+      document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
+
+      const filtersTitle = document.getElementById("filtrosTitle");
+      filtersTitle.textContent = estadoApp.tipoUsuario === 'clinica' ? "Perfiles de dentistas" : "Perfiles de clínicas";
+      filtersTitle.style.display = "block";
+
+      app.perfiles.cargar();
     },
 
     mostrarMias(btn) {
@@ -4160,7 +4196,9 @@ const app = {
         document.getElementById("btnSuplencias").style.display = "none";
         document.getElementById("filterEquipamientoGroup").style.display = "none";
         document.getElementById("filterCertificacionGroup").style.display = "block";
-        btnTodas.textContent = "Dentistas";
+        document.getElementById("btnPerfiles").style.display = "inline-block";
+        document.getElementById("btnPerfiles").textContent = "👤 Perfiles de dentistas";
+        btnTodas.textContent = "Publicaciones de dentistas";
       } else {
         // Dentista
         const nombrePartes = (estadoApp.usuario?.nombre || 'Candidato').split(' ');
@@ -4178,7 +4216,9 @@ const app = {
         document.getElementById("btnSuplencias").style.display = "inline-block";
         document.getElementById("filterEquipamientoGroup").style.display = "block";
         document.getElementById("filterCertificacionGroup").style.display = "none";
-        btnTodas.textContent = "Clínicas";
+        document.getElementById("btnPerfiles").style.display = "inline-block";
+        document.getElementById("btnPerfiles").textContent = "👤 Perfiles de clínicas";
+        btnTodas.textContent = "Publicaciones de clínicas";
       }
 
       estadoApp.filtros.soloMias = false;
@@ -4501,6 +4541,134 @@ const app = {
           btn.textContent = "⭐";
           btn.title = "Quitar de favoritos";
         }
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    // Favorito de un PERFIL (ficha de usuario), distinto de los favoritos de publicaciones
+    async togglePerfil(perfilId, btn) {
+      const esFavorito = btn.dataset.favorito === "true";
+      try {
+        if (esFavorito) {
+          await utils.request(`/favoritos-perfil/${perfilId}`, { method: "DELETE" });
+          btn.dataset.favorito = "false";
+          btn.textContent = "☆";
+          btn.title = "Guardar en favoritos";
+        } else {
+          await utils.request("/favoritos-perfil", {
+            method: "POST",
+            body: JSON.stringify({ perfil_id: perfilId })
+          });
+          btn.dataset.favorito = "true";
+          btn.textContent = "⭐";
+          btn.title = "Quitar de favoritos";
+        }
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    }
+  },
+
+  // ============================================
+  // Módulo: Perfiles (fichas navegables de usuarios)
+  // ============================================
+
+  perfiles: {
+    async cargar() {
+      if (!estadoApp.usuario) {
+        utils.mostrarAlerta("Debes iniciar sesión", "error");
+        return;
+      }
+      const rol = estadoApp.tipoUsuario === 'clinica' ? 'dentista' : 'clinica';
+      const q = document.getElementById("filterQ").value;
+      const ciudad = document.getElementById("filterCiudad").value;
+      const especialidad = document.getElementById("filterEspecialidad").value;
+
+      let url = `/perfiles?rol=${rol}`;
+      if (q) url += `&q=${encodeURIComponent(q)}`;
+      if (ciudad) url += `&ciudad=${encodeURIComponent(ciudad)}`;
+      if (especialidad) url += `&especialidad=${especialidad}`;
+
+      try {
+        const data = await utils.request(url);
+        const perfiles = data.perfiles || [];
+        let favSet = new Set();
+        try {
+          const f = await utils.request("/favoritos-perfil");
+          favSet = new Set((f.perfiles || []).map(p => p.id));
+        } catch (e) { /* sin favoritos */ }
+        this.render(perfiles, favSet);
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    render(perfiles, favSet) {
+      const container = document.getElementById("publicacionesContainer");
+      if (!perfiles.length) {
+        container.innerHTML = `<div class="empty-state"><h3>No hay perfiles</h3><p>Prueba a cambiar los filtros.</p></div>`;
+        return;
+      }
+      container.innerHTML = this.tarjetasHtml(perfiles, favSet);
+    },
+
+    // Devuelve el HTML de una rejilla de tarjetas de perfil (reutilizado en la vista de Favoritos)
+    tarjetasHtml(perfiles, favSet) {
+      return `<div class="publicaciones">` + perfiles.map(p => {
+        const esFav = favSet.has(p.id);
+        const ciudadLabel = p.ciudad ? (p.provincia ? `${p.ciudad} (${p.provincia})` : p.ciudad) : "Sin ciudad";
+        const esp = (p.especialidades || []).join(", ") || "Sin especialidades";
+        return `
+          <div class="card">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+              <span class="card-type">${p.tipo === 'dentista' ? '👨‍⚕️ Dentista' : '🏥 Clínica'}</span>
+              <button onclick="app.favoritos.togglePerfil(${p.id}, this)" data-favorito="${esFav}" style="background:none;border:none;cursor:pointer;font-size:1.3rem;padding:0;" title="${esFav ? 'Quitar de favoritos' : 'Guardar en favoritos'}">${esFav ? '⭐' : '☆'}</button>
+            </div>
+            <h3>${utils.escapeHtml(p.nombre)}</h3>
+            <div class="card-details">
+              <div class="detail"><span class="detail-icon">📍</span><span>${utils.escapeHtml(ciudadLabel)}</span></div>
+              <div class="detail"><span class="detail-icon">🦷</span><span>${utils.escapeHtml(esp)}</span></div>
+              ${p.anyos_experiencia !== null && p.anyos_experiencia !== undefined ? `<div class="detail"><span class="detail-icon">🎓</span><span>${p.anyos_experiencia} años exp.</span></div>` : ''}
+            </div>
+            ${p.descripcion ? `<p style="color:#6b7280;font-size:.9rem;margin:.5rem 0;">${utils.escapeHtml(p.descripcion.slice(0, 160))}${p.descripcion.length > 160 ? '…' : ''}</p>` : ''}
+            <div class="card-footer" style="display:flex;gap:.5rem;">
+              <button class="btn-primary" onclick="app.perfiles.verDetalle(${p.id})" style="flex:1;">Ver perfil</button>
+            </div>
+          </div>`;
+      }).join("") + `</div>`;
+    },
+
+    async verDetalle(id) {
+      try {
+        const u = await utils.request(`/usuarios/${id}/publico`);
+        let tray = { experiencia: [], formacion: [], idiomas: [], certificaciones: [] };
+        try { tray = await utils.request(`/usuarios/${id}/trayectoria`); } catch (e) { /* sin trayectoria */ }
+
+        const ciudadLabel = u.ciudad ? (u.provincia ? `${u.ciudad} (${u.provincia})` : u.ciudad) : "Sin ciudad";
+        let html = `
+          <p style="color:#4b5563;margin:0 0 .5rem;">${u.tipo === 'dentista' ? '👨‍⚕️ Dentista' : '🏥 Clínica'} · ${utils.escapeHtml(ciudadLabel)}</p>`;
+        if (u.anyos_experiencia !== null && u.anyos_experiencia !== undefined) {
+          html += `<p style="margin:.2rem 0;">${u.anyos_experiencia} años de experiencia</p>`;
+        }
+        if (u.descripcion) html += `<p style="margin:.5rem 0;">${utils.escapeHtml(u.descripcion)}</p>`;
+
+        if ((tray.experiencia || []).length) {
+          html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">Experiencia</h4>` +
+            tray.experiencia.map(e => `<div style="margin-bottom:.3rem;"><strong>${utils.escapeHtml(e.puesto)}</strong>${e.lugar ? ' · ' + utils.escapeHtml(e.lugar) : ''}</div>`).join("");
+        }
+        if ((tray.formacion || []).length) {
+          html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">Formación</h4>` +
+            tray.formacion.map(f => `<div>${utils.escapeHtml([f.titulo, f.centro].filter(Boolean).join(' · ') + (f.anyo ? ` (${f.anyo})` : ''))}</div>`).join("");
+        }
+        if ((tray.idiomas || []).length) {
+          html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">Idiomas</h4><p>` +
+            tray.idiomas.map(i => `${utils.escapeHtml(i.idioma)} (${utils.escapeHtml(i.nivel)})`).join("  ·  ") + `</p>`;
+        }
+
+        document.getElementById("detalleTitle").textContent = u.nombre;
+        document.getElementById("detalleBody").innerHTML = html;
+        document.getElementById("modalDetalle").classList.add("active");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }

@@ -238,6 +238,17 @@ db.serialize(() => {
     )
   `);
 
+  // Favoritos de PERFILES (un usuario guarda la ficha de otro usuario), aparte de los de publicaciones
+  db.run(`
+    CREATE TABLE IF NOT EXISTS favoritos_perfil (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      perfil_id INTEGER NOT NULL REFERENCES usuarios(id),
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(usuario_id, perfil_id)
+    )
+  `);
+
   db.run(`ALTER TABLE usuarios ADD COLUMN email_verificado INTEGER DEFAULT 0`, (err) => {
     // Ignorar error si la columna ya existe
   });

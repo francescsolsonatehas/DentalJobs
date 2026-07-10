@@ -984,7 +984,7 @@ app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
 // Perfil público de un usuario (datos no sensibles, para mostrar en fichas)
 app.get("/usuarios/:id/publico", (req, res) => {
   db.get(
-    "SELECT id, nombre, tipo, ciudad, pais, descripcion, anyos_experiencia, num_colegiado, colegio, colegiado_estado, creado_en FROM usuarios WHERE id = ?",
+    "SELECT id, nombre, tipo, ciudad, provincia, pais, descripcion, anyos_experiencia, num_colegiado, colegio, colegiado_estado, creado_en FROM usuarios WHERE id = ?",
     [req.params.id],
     (err, usuario) => {
       if (err) {
@@ -3883,6 +3883,110 @@ app.delete("/favoritos/:publicacion_id", verifyToken, (req, res) => {
       res.json({ mensaje: "Quitado de favoritos" });
     }
   );
+});
+
+/* ===========================
+   🔹 PERFILES (fichas de usuarios navegables) Y SUS FAVORITOS
+=========================== */
+
+// Lista de perfiles (dentistas o clínicas) para navegar, con filtros. Independiente de publicaciones.
+app.get("/perfiles", (req, res) => {
+  const { rol, ciudad, provincia, especialidad, q } = req.query;
+  const tipo = rol === 'clinica' ? 'clinica' : 'dentista';
+
+  let query = `SELECT id, nombre, tipo, ciudad, provincia, descripcion, anyos_experiencia, colegiado_estado, creado_en
+               FROM usuarios WHERE tipo = ? AND nombre != 'Usuario eliminado'`;
+  const params = [tipo];
+
+  if (ciudad) { query += " AND ciudad LIKE ?"; params.push(`%${ciudad}%`); }
+  if (provincia) { query += " AND provincia LIKE ?"; params.push(`%${provincia}%`); }
+  if (especialidad) {
+    query += " AND EXISTS (SELECT 1 FROM usuario_especialidades ue WHERE ue.usuario_id = usuarios.id AND ue.especialidad_id = ?)";
+    params.push(especialidad);
+  }
+  if (q) {
+    query += " AND (nombre LIKE ? OR descripcion LIKE ? OR ciudad LIKE ?)";
+    params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+  }
+  query += " ORDER BY creado_en DESC LIMIT 200";
+
+  db.all(query, params, (err, perfiles) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al obtener perfiles" });
+    }
+    perfiles = perfiles || [];
+    if (!perfiles.length) return res.json({ perfiles: [] });
+
+    // Adjuntar las especialidades de cada perfil
+    const ids = perfiles.map(p => p.id);
+    const ph = ids.map(() => "?").join(",");
+    db.all(
+      `SELECT ue.usuario_id, e.nombre FROM usuario_especialidades ue
+       INNER JOIN especialidades e ON e.id = ue.especialidad_id
+       WHERE ue.usuario_id IN (${ph}) ORDER BY e.nombre`,
+      ids,
+      (err2, filas) => {
+        if (err2) {
+          console.error(err2);
+          return res.status(500).json({ error: "Error al obtener perfiles" });
+        }
+        const porUsuario = {};
+        (filas || []).forEach(f => { (porUsuario[f.usuario_id] = porUsuario[f.usuario_id] || []).push(f.nombre); });
+        perfiles.forEach(p => { p.especialidades = porUsuario[p.id] || []; });
+        res.json({ perfiles });
+      }
+    );
+  });
+});
+
+app.post("/favoritos-perfil", verifyToken, (req, res) => {
+  const { perfil_id } = req.body;
+  if (!perfil_id) return res.status(400).json({ error: "perfil_id requerido" });
+  if (parseInt(perfil_id) === req.usuario.id) return res.status(400).json({ error: "No puedes guardarte a ti mismo" });
+
+  db.get("SELECT id FROM usuarios WHERE id = ?", [perfil_id], (err, u) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al añadir a favoritos" });
+    }
+    if (!u) return res.status(404).json({ error: "Perfil no encontrado" });
+
+    db.run("INSERT INTO favoritos_perfil (usuario_id, perfil_id) VALUES (?, ?)", [req.usuario.id, perfil_id], function(err2) {
+      if (err2) {
+        if (err2.message.includes("UNIQUE")) return res.status(400).json({ error: "Ya está en tus favoritos" });
+        console.error(err2);
+        return res.status(500).json({ error: "Error al añadir a favoritos" });
+      }
+      res.json({ mensaje: "Perfil añadido a favoritos", favorito_id: this.lastID });
+    });
+  });
+});
+
+app.get("/favoritos-perfil", verifyToken, (req, res) => {
+  db.all(
+    `SELECT f.id as favorito_id, u.id, u.nombre, u.tipo, u.ciudad, u.provincia, u.descripcion, u.anyos_experiencia, u.colegiado_estado
+     FROM favoritos_perfil f INNER JOIN usuarios u ON f.perfil_id = u.id
+     WHERE f.usuario_id = ? ORDER BY f.creado_en DESC`,
+    [req.usuario.id],
+    (err, perfiles) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener favoritos de perfil" });
+      }
+      res.json({ perfiles: perfiles || [] });
+    }
+  );
+});
+
+app.delete("/favoritos-perfil/:perfil_id", verifyToken, (req, res) => {
+  db.run("DELETE FROM favoritos_perfil WHERE usuario_id = ? AND perfil_id = ?", [req.usuario.id, req.params.perfil_id], (err) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al quitar de favoritos" });
+    }
+    res.json({ mensaje: "Quitado de favoritos" });
+  });
 });
 
 /* ===========================
