@@ -4754,8 +4754,6 @@ const app = {
             tray.idiomas.map(i => `${utils.escapeHtml(i.idioma)} (${utils.escapeHtml(i.nivel)})`).join("  ·  ") + `</p>`;
         }
 
-        html += `<div style="margin-top:1.25rem;"><button class="btn-secondary" style="width:100%;" onclick="app.modal.cerrarDetalle(); app.perfiles.contactar(${id}, '${utils.escapeHtml(u.nombre || 'este perfil').replace(/'/g, "\\'")}', '${u.tipo}');">✉️ Contactar</button></div>`;
-
         document.getElementById("detalleTitle").textContent = u.nombre;
         document.getElementById("detalleBody").innerHTML = html;
         document.getElementById("modalDetalle").classList.add("active");
