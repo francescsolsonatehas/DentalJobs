@@ -4634,9 +4634,26 @@ const app = {
             ${p.descripcion ? `<p style="color:#6b7280;font-size:.9rem;margin:.5rem 0;">${utils.escapeHtml(p.descripcion.slice(0, 160))}${p.descripcion.length > 160 ? '…' : ''}</p>` : ''}
             <div class="card-footer" style="display:flex;gap:.5rem;">
               <button class="btn-primary" onclick="app.perfiles.verDetalle(${p.id})" style="flex:1;">Ver perfil</button>
+              <button class="btn-secondary" onclick="app.perfiles.contactar(${p.id})" style="flex:1;">✉️ Contactar</button>
             </div>
           </div>`;
       }).join("") + `</div>`;
+    },
+
+    async contactar(perfilId) {
+      if (!estadoApp.usuario) {
+        utils.mostrarAlerta("Debes iniciar sesión", "error");
+        return;
+      }
+      try {
+        await utils.request("/contactos-perfil", {
+          method: "POST",
+          body: JSON.stringify({ perfil_id: perfilId })
+        });
+        utils.mostrarAlerta("✅ Solicitud de contacto enviada. Podréis chatear cuando la acepten.", "success");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
     },
 
     async verDetalle(id) {
@@ -4665,6 +4682,8 @@ const app = {
           html += `<h4 style="color:#0f4c75;margin:1rem 0 .3rem;">Idiomas</h4><p>` +
             tray.idiomas.map(i => `${utils.escapeHtml(i.idioma)} (${utils.escapeHtml(i.nivel)})`).join("  ·  ") + `</p>`;
         }
+
+        html += `<div style="margin-top:1.25rem;"><button class="btn-secondary" style="width:100%;" onclick="app.perfiles.contactar(${id}); app.modal.cerrarDetalle();">✉️ Contactar</button></div>`;
 
         document.getElementById("detalleTitle").textContent = u.nombre;
         document.getElementById("detalleBody").innerHTML = html;
@@ -5449,26 +5468,64 @@ const app = {
         const data = await utils.request("/chat/conversaciones");
         const conversaciones = data.conversaciones || [];
 
+        // Contactos de perfil: pendientes (para aceptar) y aceptados (para poder abrir el chat aunque aún no haya mensajes)
+        let pendientes = [];
+        try {
+          const c = await utils.request("/contactos-perfil");
+          pendientes = (c.recibidos || []).filter(x => x.estado === 'pendiente');
+
+          const yaEnLista = new Set(conversaciones.filter(cv => cv.es_perfil).map(cv => cv.contacto_perfil_id));
+          const añadirAceptado = (contactoId, otroId, otroNombre, fecha) => {
+            if (yaEnLista.has(contactoId)) return;
+            yaEnLista.add(contactoId);
+            conversaciones.push({ es_perfil: true, contacto_perfil_id: contactoId, otro_id: otroId, otro_nombre: otroNombre, ultimo_mensaje: "", ultima_fecha: fecha, no_leidos: 0 });
+          };
+          (c.enviados || []).filter(x => x.estado === 'aceptada').forEach(x => añadirAceptado(x.id, x.perfil_id, x.perfil_nombre, x.actualizado_en));
+          (c.recibidos || []).filter(x => x.estado === 'aceptada').forEach(x => añadirAceptado(x.id, x.solicitante_id, x.solicitante_nombre, x.actualizado_en));
+        } catch (e) { /* sin contactos */ }
+
         document.getElementById("chatTitle").textContent = "💬 Mensajes";
 
-        if (conversaciones.length === 0) {
+        let pendientesHtml = "";
+        if (pendientes.length) {
+          pendientesHtml = `<div style="margin-bottom: 1rem;">
+            <h4 style="color:#0f4c75;margin:0 0 .5rem;">Solicitudes de contacto</h4>` +
+            pendientes.map(p => `
+              <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:.75rem 1rem;margin-bottom:.5rem;">
+                <strong>${utils.escapeHtml(p.solicitante_nombre || 'Usuario')}</strong>
+                <span style="color:#6b7280;font-size:.85rem;"> (${p.solicitante_tipo === 'dentista' ? 'Dentista' : 'Clínica'})</span>
+                ${p.mensaje ? `<p style="margin:.3rem 0;font-size:.9rem;color:#4b5563;">${utils.escapeHtml(p.mensaje)}</p>` : ''}
+                <div style="display:flex;gap:.5rem;margin-top:.4rem;">
+                  <button class="btn-primary btn-small" onclick="app.chat.responderContacto(${p.id}, 'aceptada')">Aceptar</button>
+                  <button class="btn-outline btn-small" onclick="app.chat.responderContacto(${p.id}, 'rechazada')">Rechazar</button>
+                </div>
+              </div>`).join("") + `</div>`;
+        }
+
+        if (conversaciones.length === 0 && !pendientes.length) {
           document.getElementById("chatBody").innerHTML = `
             <div style="padding: 2rem; text-align: center; color: #6b7280;">
               <p>No tienes conversaciones todavía.</p>
-              <p style="font-size: 0.9rem;">El chat se activa cuando una postulación es aceptada: entra en la publicación correspondiente y pulsa "💬 Enviar mensaje".</p>
+              <p style="font-size: 0.9rem;">El chat se activa tras aceptar una postulación (a una publicación o a un perfil).</p>
             </div>
           `;
           return;
         }
 
-        let html = `<div class="chat-conversaciones">`;
+        let html = pendientesHtml + `<div class="chat-conversaciones">`;
         conversaciones.forEach(c => {
-          const etiquetaPub = `${c.publicacion_tipo === 'oferta' ? 'Oferta' : 'Solicitud'} · ${utils.escapeHtml(c.publicacion_ciudad || '')}`;
+          const etiqueta = c.es_perfil
+            ? '👤 Contacto de perfil'
+            : `${c.publicacion_tipo === 'oferta' ? 'Oferta' : 'Solicitud'} · ${utils.escapeHtml(c.publicacion_ciudad || '')}`;
+          const nombreEsc = utils.escapeHtml(c.otro_nombre || 'Usuario').replace(/'/g, "\\'");
+          const onclick = c.es_perfil
+            ? `app.chat.abrirConversacionPerfil(${c.contacto_perfil_id}, ${c.otro_id}, '${nombreEsc}')`
+            : `app.chat.abrirConversacion(${c.publicacion_id}, ${c.otro_id}, '${nombreEsc}')`;
           html += `
-            <div class="chat-conversacion-item" onclick="app.chat.abrirConversacion(${c.publicacion_id}, ${c.otro_id}, '${utils.escapeHtml(c.otro_nombre).replace(/'/g, "\\'")}')">
+            <div class="chat-conversacion-item" onclick="${onclick}">
               <div class="chat-conversacion-info">
                 <strong>${utils.escapeHtml(c.otro_nombre || 'Usuario')}</strong>
-                <span class="chat-conversacion-pub">${etiquetaPub}</span>
+                <span class="chat-conversacion-pub">${etiqueta}</span>
                 <p class="chat-conversacion-ultimo">${utils.escapeHtml((c.ultimo_mensaje || '').slice(0, 60))}${(c.ultimo_mensaje || '').length > 60 ? '…' : ''}</p>
               </div>
               <div class="chat-conversacion-meta">
@@ -5485,9 +5542,17 @@ const app = {
       }
     },
 
-    async abrirConversacion(publicacionId, otroId, otroNombre) {
-      this.conversacionActual = { publicacion_id: publicacionId, otro_id: otroId, otro_nombre: otroNombre };
+    async responderContacto(id, estado) {
+      try {
+        await utils.request(`/contactos-perfil/${id}`, { method: "PUT", body: JSON.stringify({ estado }) });
+        utils.mostrarAlerta(estado === 'aceptada' ? "Contacto aceptado, ya podéis chatear" : "Contacto rechazado", "success");
+        await this.renderConversaciones();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
 
+    renderHiloUI(otroNombre) {
       document.getElementById("chatTitle").textContent = `💬 ${otroNombre}`;
       document.getElementById("chatBody").innerHTML = `
         <div class="chat-hilo">
@@ -5500,6 +5565,19 @@ const app = {
           </form>
         </div>
       `;
+    },
+
+    async abrirConversacion(publicacionId, otroId, otroNombre) {
+      this.conversacionActual = { es_perfil: false, publicacion_id: publicacionId, otro_id: otroId, otro_nombre: otroNombre };
+      this.renderHiloUI(otroNombre);
+      await this.refrescarHilo(true);
+      const input = document.getElementById("chatInput");
+      if (input) input.focus();
+    },
+
+    async abrirConversacionPerfil(contactoId, otroId, otroNombre) {
+      this.conversacionActual = { es_perfil: true, contacto_perfil_id: contactoId, otro_id: otroId, otro_nombre: otroNombre };
+      this.renderHiloUI(otroNombre);
       await this.refrescarHilo(true);
       const input = document.getElementById("chatInput");
       if (input) input.focus();
@@ -5515,7 +5593,10 @@ const app = {
       if (!conv) return;
 
       try {
-        const data = await utils.request(`/chat/mensajes/${conv.publicacion_id}/${conv.otro_id}`);
+        const url = conv.es_perfil
+          ? `/chat/perfil/${conv.contacto_perfil_id}/mensajes`
+          : `/chat/mensajes/${conv.publicacion_id}/${conv.otro_id}`;
+        const data = await utils.request(url);
         const mensajes = data.mensajes || [];
         const contenedor = document.getElementById("chatMensajes");
         if (!contenedor) return;
@@ -5543,7 +5624,7 @@ const app = {
 
         const escribiendoEl = document.getElementById("chatEscribiendo");
         if (escribiendoEl) {
-          escribiendoEl.style.visibility = data.escribiendo ? "visible" : "hidden";
+          escribiendoEl.style.visibility = (!conv.es_perfil && data.escribiendo) ? "visible" : "hidden";
         }
 
         if (estabaAbajo) {
@@ -5563,14 +5644,21 @@ const app = {
       input.value = "";
 
       try {
-        await utils.request("/chat/mensajes", {
-          method: "POST",
-          body: JSON.stringify({
-            publicacion_id: conv.publicacion_id,
-            destinatario_id: conv.otro_id,
-            cuerpo
-          })
-        });
+        if (conv.es_perfil) {
+          await utils.request("/chat/perfil/mensajes", {
+            method: "POST",
+            body: JSON.stringify({ contacto_perfil_id: conv.contacto_perfil_id, cuerpo })
+          });
+        } else {
+          await utils.request("/chat/mensajes", {
+            method: "POST",
+            body: JSON.stringify({
+              publicacion_id: conv.publicacion_id,
+              destinatario_id: conv.otro_id,
+              cuerpo
+            })
+          });
+        }
         await this.refrescarHilo(true);
       } catch (error) {
         input.value = cuerpo;
@@ -5580,7 +5668,7 @@ const app = {
 
     notificarEscribiendo() {
       const conv = this.conversacionActual;
-      if (!conv) return;
+      if (!conv || conv.es_perfil) return;
       // Throttle: como mucho una señal cada 2 segundos
       const ahora = Date.now();
       if (ahora - this.ultimaSenalEscribiendo < 2000) return;

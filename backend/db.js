@@ -249,6 +249,26 @@ db.serialize(() => {
     )
   `);
 
+  // Contactos de PERFIL: "postularse" a la ficha de otro usuario (sin publicación asociada).
+  // Al aceptarse, se habilita el chat entre ambos (espejo de candidaturas para publicaciones).
+  db.run(`
+    CREATE TABLE IF NOT EXISTS contactos_perfil (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      solicitante_id INTEGER NOT NULL REFERENCES usuarios(id),
+      perfil_id INTEGER NOT NULL REFERENCES usuarios(id),
+      estado TEXT DEFAULT 'pendiente',
+      mensaje TEXT,
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+      actualizado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(solicitante_id, perfil_id)
+    )
+  `);
+
+  // Un mensaje de chat puede pertenecer a una publicación (candidatura) o a un contacto de perfil
+  db.run(`ALTER TABLE mensajes ADD COLUMN contacto_perfil_id INTEGER REFERENCES contactos_perfil(id)`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
   db.run(`ALTER TABLE usuarios ADD COLUMN email_verificado INTEGER DEFAULT 0`, (err) => {
     // Ignorar error si la columna ya existe
   });
