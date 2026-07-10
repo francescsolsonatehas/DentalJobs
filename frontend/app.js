@@ -4663,6 +4663,7 @@ const app = {
             ${p.descripcion ? `<p style="color:#6b7280;font-size:.9rem;margin:.5rem 0;">${utils.escapeHtml(p.descripcion.slice(0, 160))}${p.descripcion.length > 160 ? '…' : ''}</p>` : ''}
             <div class="card-footer" style="display:flex;gap:.5rem;">
               <button class="btn-primary" onclick="app.perfiles.verDetalle(${p.id})" style="flex:1;">Ver perfil</button>
+              <button class="btn-secondary" onclick="app.perfiles.contactar(${p.id}, '${utils.escapeHtml(p.nombre || 'este perfil').replace(/'/g, "\\'")}', '${p.tipo}')" style="flex:1;">✉️ Contactar</button>
             </div>
           </div>`;
       }).join("") + `</div>`;
