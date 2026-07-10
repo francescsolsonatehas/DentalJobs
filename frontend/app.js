@@ -4745,7 +4745,7 @@ const app = {
       try {
         const u = await utils.request(`/usuarios/${id}/publico`);
         const html = u.tipo === "clinica"
-          ? this.fichaClinica(u)
+          ? await this.fichaClinica(u, id)
           : await this.fichaDentista(u, id);
 
         document.getElementById("detalleTitle").textContent = u.nombre;
@@ -4792,6 +4792,7 @@ const app = {
     async fichaDentista(u, id) {
       let tray = { experiencia: [], formacion: [], idiomas: [], certificaciones: [] };
       try { tray = await utils.request(`/usuarios/${id}/trayectoria`); } catch (e) { /* sin trayectoria */ }
+      const resumen = await app.resenyas.cargarResumen(id);
 
       const ciudadLabel = u.ciudad ? (u.provincia ? `${u.ciudad} (${u.provincia})` : u.ciudad) : "No indicada";
 
@@ -4800,6 +4801,7 @@ const app = {
         <p style="margin:.3rem 0;font-size:1.05rem;"><span class="detail-icon">👨‍⚕️</span> Dentista · <strong>${utils.escapeHtml(ciudadLabel)}</strong></p>
         ${u.anyos_experiencia !== null && u.anyos_experiencia !== undefined ? `<p style="margin:.3rem 0;">🎓 <strong>${u.anyos_experiencia}</strong> años de experiencia</p>` : ""}
         <p style="margin:.3rem 0;">🏅 Colegiación: ${this.estadoColegiacion(u)}</p>
+        <div style="margin:.3rem 0;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;"><span>⭐</span>${app.resenyas.resumenHtml(resumen, id, u.nombre)}</div>
         <p style="margin:.6rem 0 .2rem;font-weight:600;color:#0f4c75;">Especialidades</p>
         ${this.bloqueEspecialidades(u, false)}
         <p style="margin:.7rem 0 0;color:#9ca3af;font-size:.85rem;">En DentalJobs desde ${utils.formatearFecha(u.creado_en)}</p>
@@ -4836,20 +4838,33 @@ const app = {
     },
 
     // Ficha pública de la clínica: sus datos (sin duplicar los que ya están en la
-    // Sede) más la Sede completa, en secciones con estilo.
-    fichaClinica(u) {
+    // Sede) más valoraciones, fotos y la Sede completa, en secciones con estilo.
+    async fichaClinica(u, id) {
       const sedes = u.sedes || [];
       const ciudadLabel = u.ciudad ? (u.provincia ? `${u.ciudad} (${u.provincia})` : u.ciudad) : "";
+      const resumen = await app.resenyas.cargarResumen(id);
+      let fotos = [];
+      try {
+        const archivos = await utils.request(`/archivos/usuario/${id}`);
+        fotos = (archivos || []).filter(a => a.tipo === "foto");
+      } catch (e) { /* sin fotos */ }
 
       let html = `<div class="perfil-dentista">`;
       html += `<div class="info-section">
         <p style="margin:.3rem 0;font-size:1.05rem;"><span class="detail-icon">🏥</span> Clínica${!sedes.length && ciudadLabel ? ` · <strong>${utils.escapeHtml(ciudadLabel)}</strong>` : ""}</p>
+        <div style="margin:.3rem 0;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;"><span>⭐</span>${app.resenyas.resumenHtml(resumen, id, u.nombre)}</div>
         <p style="margin:.6rem 0 .2rem;font-weight:600;color:#0f4c75;">Especialidades</p>
         ${this.bloqueEspecialidades(u, true)}
         <p style="margin:.7rem 0 0;color:#9ca3af;font-size:.85rem;">En DentalJobs desde ${utils.formatearFecha(u.creado_en)}</p>
       </div>`;
 
       html += `<div class="info-section"><h4>Sobre la clínica</h4><p>${u.descripcion ? utils.escapeHtml(u.descripcion) : `<span style="color:#9ca3af;">Esta clínica aún no ha añadido una descripción.</span>`}</p></div>`;
+
+      if (fotos.length) {
+        html += `<div class="info-section"><h4>📷 Fotos de la clínica</h4>
+          <div class="fotos-gallery">${fotos.map(f => `<div class="foto-item"><img src="${API}/archivos/${f.id}/download" alt="Foto de la clínica" loading="lazy"></div>`).join("")}</div>
+        </div>`;
+      }
 
       if (sedes.length) {
         html += `<div class="info-section"><h4>📍 ${sedes.length > 1 ? `Sedes (${sedes.length})` : "Sede"}</h4>`;
