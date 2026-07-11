@@ -4133,10 +4133,9 @@ const app = {
     statsPollingInterval: null,
 
     iniciarActualizacionAutomatica() {
-      // Detener polling anterior si existe
-      if (this.statsPollingInterval) {
-        clearInterval(this.statsPollingInterval);
-      }
+      // Detener pollings anteriores si existen
+      if (this.statsPollingInterval) clearInterval(this.statsPollingInterval);
+      if (this.badgePollingInterval) clearInterval(this.badgePollingInterval);
 
       // Actualizar stats cada 3 minutos; no son datos que cambien al segundo,
       // así que no hace falta más frecuencia y se ahorran peticiones al backend
@@ -4145,17 +4144,37 @@ const app = {
         if (document.visibilityState !== "visible") return;
         try {
           await app.ui.actualizarStats();
-          await app.chat.actualizarContador();
         } catch (error) {
           console.error("Error al actualizar stats:", error);
         }
       }, 180000);
+
+      // El contador de mensajes no leídos sí debe reaccionar rápido: se comprueba
+      // cada 20 s (consulta ligera) para que el número rojo aparezca casi al momento.
+      this.badgePollingInterval = setInterval(() => {
+        if (document.visibilityState !== "visible") return;
+        app.chat.actualizarContador();
+      }, 20000);
+
+      // Y al volver a la pestaña, refrescar el contador de inmediato
+      if (!this._visibilidadBadgeListener) {
+        this._visibilidadBadgeListener = () => {
+          if (document.visibilityState === "visible" && estadoApp.usuario) {
+            app.chat.actualizarContador();
+          }
+        };
+        document.addEventListener("visibilitychange", this._visibilidadBadgeListener);
+      }
     },
 
     detenerActualizacionAutomatica() {
       if (this.statsPollingInterval) {
         clearInterval(this.statsPollingInterval);
         this.statsPollingInterval = null;
+      }
+      if (this.badgePollingInterval) {
+        clearInterval(this.badgePollingInterval);
+        this.badgePollingInterval = null;
       }
     },
 
