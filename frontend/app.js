@@ -4637,6 +4637,163 @@ const app = {
   },
 
   // ============================================
+  // Módulo: Alertas de búsqueda guardadas
+  // ============================================
+
+  alertas: {
+    _cache: [],
+
+    // Lee los filtros actuales de la barra de búsqueda
+    recogerFiltrosActuales() {
+      const get = id => (document.getElementById(id)?.value || "").trim();
+      return {
+        tipo: estadoApp.filtros.tipo || "",
+        q: get("filterQ"),
+        ciudad: get("filterCiudad"),
+        especialidad: get("filterEspecialidad"),
+        contrato: get("filterContrato"),
+        jornada: get("filterJornada"),
+        equipamiento: get("filterEquipamiento"),
+        certificacion: get("filterCertificacion"),
+        retribucion: get("filterRetribucion"),
+        salarioMin: get("filterSalarioMin"),
+        experienciaMin: get("filterExperienciaMin")
+      };
+    },
+
+    // Texto legible que resume una alerta
+    describirFiltros(f) {
+      f = f || {};
+      const partes = [];
+      if (f.tipo) partes.push({ oferta: "Ofertas", solicitud: "Dentistas", suplencia: "Suplencias" }[f.tipo] || f.tipo);
+      if (f.ciudad) partes.push("📍 " + f.ciudad);
+      if (f.especialidad) {
+        const e = (estadoApp.especialidades || []).find(x => String(x.id) === String(f.especialidad));
+        partes.push("🦷 " + (e ? e.nombre : f.especialidad));
+      }
+      if (f.q) partes.push(`“${f.q}”`);
+      if (f.contrato) partes.push(f.contrato);
+      if (f.jornada) partes.push(f.jornada);
+      if (f.salarioMin) partes.push("desde " + f.salarioMin + " €");
+      if (f.experienciaMin) partes.push("≥" + f.experienciaMin + " años exp.");
+      if (f.equipamiento) partes.push(f.equipamiento);
+      if (f.certificacion) partes.push(f.certificacion);
+      if (f.retribucion) partes.push(f.retribucion);
+      return partes.length ? partes.join(" · ") : "Todas las publicaciones";
+    },
+
+    async guardarBusquedaActual() {
+      if (!estadoApp.usuario || !estadoApp.token) {
+        utils.mostrarAlerta("Inicia sesión para guardar búsquedas y recibir alertas", "info");
+        return;
+      }
+      const filtros = this.recogerFiltrosActuales();
+      const reales = Object.entries(filtros).filter(([k, v]) => k !== "tipo" && v && String(v).trim() !== "");
+      if (reales.length === 0) {
+        utils.mostrarAlerta("Ajusta algún filtro (ciudad, especialidad, salario…) antes de guardar la búsqueda", "info");
+        return;
+      }
+      const nombre = this.describirFiltros(filtros).slice(0, 60);
+      try {
+        await utils.request("/alertas", {
+          method: "POST",
+          body: JSON.stringify({ nombre, filtros, frecuencia: "semanal" })
+        });
+        utils.mostrarAlerta("🔔 Alerta guardada. Te avisaremos por email de las nuevas coincidencias.", "success");
+      } catch (e) {
+        utils.mostrarAlerta(e.message || "No se pudo guardar la alerta", "error");
+      }
+    },
+
+    async abrir() {
+      if (!estadoApp.usuario || !estadoApp.token) {
+        utils.mostrarAlerta("Inicia sesión para ver tus alertas", "info");
+        return;
+      }
+      const body = document.getElementById("alertasBody");
+      body.innerHTML = '<p style="color:#6b7280;">Cargando…</p>';
+      document.getElementById("modalAlertas").classList.add("active");
+      try {
+        const data = await utils.request("/alertas");
+        this._cache = data.alertas || [];
+        body.innerHTML = this.render(this._cache);
+      } catch (e) {
+        body.innerHTML = `<p style="color:#ef4444;">${utils.escapeHtml(e.message || "Error al cargar las alertas")}</p>`;
+      }
+    },
+
+    cerrar() {
+      const m = document.getElementById("modalAlertas");
+      if (m) m.classList.remove("active");
+    },
+
+    render(alertas) {
+      if (!alertas || alertas.length === 0) {
+        return '<p style="color:#6b7280;">Aún no tienes alertas guardadas. Ajusta los filtros de búsqueda y pulsa «🔔 Guardar esta búsqueda».</p>';
+      }
+      return alertas.map(a => {
+        const desc = this.describirFiltros(a.filtros);
+        const activa = String(a.activa) === "1";
+        const n = a.coincidencias || 0;
+        return `
+          <div style="border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem; margin-bottom: 1rem; ${activa ? "" : "opacity: 0.6;"}">
+            <div style="display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start;">
+              <div style="min-width: 0;">
+                <strong style="color: #0f4c75;">${utils.escapeHtml(a.nombre || desc)}</strong>
+                <p style="margin: 0.25rem 0 0 0; color: #6b7280; font-size: 0.85rem;">${utils.escapeHtml(desc)}</p>
+              </div>
+              <span title="Coincidencias ahora mismo" style="background: ${n > 0 ? "#10b981" : "#9ca3af"}; color: white; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">${n} ahora</span>
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem;">
+              <button onclick="app.alertas.aplicar(${a.id})" style="background: #3b82f6; color: white; border: none; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🔎 Ver coincidencias</button>
+              <button onclick="app.alertas.toggleActiva(${a.id}, ${activa ? 0 : 1})" style="background: white; color: #374151; border: 1px solid #d1d5db; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">${activa ? "⏸️ Pausar" : "▶️ Activar"}</button>
+              <button onclick="app.alertas.eliminar(${a.id})" style="background: white; color: #ef4444; border: 1px solid #fecaca; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🗑️ Eliminar</button>
+            </div>
+          </div>`;
+      }).join("");
+    },
+
+    aplicar(id) {
+      const a = (this._cache || []).find(x => x.id === id);
+      if (!a) return;
+      const f = a.filtros || {};
+      const set = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val ?? ""; };
+      set("filterQ", f.q);
+      set("filterCiudad", f.ciudad);
+      set("filterEspecialidad", f.especialidad);
+      set("filterContrato", f.contrato);
+      set("filterJornada", f.jornada);
+      set("filterEquipamiento", f.equipamiento);
+      set("filterCertificacion", f.certificacion);
+      set("filterRetribucion", f.retribucion);
+      set("filterSalarioMin", f.salarioMin);
+      set("filterExperienciaMin", f.experienciaMin);
+      this.cerrar();
+      app.publicaciones.cargar();
+    },
+
+    async toggleActiva(id, activa) {
+      try {
+        await utils.request(`/alertas/${id}`, { method: "PUT", body: JSON.stringify({ activa }) });
+        this.abrir();
+      } catch (e) {
+        utils.mostrarAlerta(e.message || "No se pudo actualizar la alerta", "error");
+      }
+    },
+
+    async eliminar(id) {
+      if (!confirm("¿Eliminar esta alerta? Dejarás de recibir avisos de sus coincidencias.")) return;
+      try {
+        await utils.request(`/alertas/${id}`, { method: "DELETE" });
+        utils.mostrarAlerta("Alerta eliminada", "success");
+        this.abrir();
+      } catch (e) {
+        utils.mostrarAlerta(e.message || "No se pudo eliminar la alerta", "error");
+      }
+    }
+  },
+
+  // ============================================
   // Módulo: Favoritos
   // ============================================
 

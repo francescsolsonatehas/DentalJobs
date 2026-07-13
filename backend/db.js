@@ -406,6 +406,24 @@ db.serialize(() => {
     )
   `);
 
+  // Alertas de búsqueda guardadas por el usuario. `filtros` es un JSON con los
+  // mismos parámetros que acepta construirFiltros (tipo, ciudad, especialidad,
+  // salarioMin...), de modo que el matching reutiliza exactamente la misma lógica
+  // que el listado de publicaciones. `ultimo_aviso` guarda cuándo se avisó por
+  // última vez, para solo notificar publicaciones nuevas desde entonces.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS alertas_busqueda (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      nombre TEXT,
+      filtros TEXT NOT NULL,
+      frecuencia TEXT DEFAULT 'semanal',
+      activa INTEGER DEFAULT 1,
+      ultimo_aviso DATETIME,
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Backfill: calcular salario_min para publicaciones existentes que aún no lo tienen
   db.all("SELECT id, salario FROM publicaciones WHERE salario_min IS NULL AND salario IS NOT NULL", (err, filas) => {
     if (err || !filas) return;
