@@ -192,6 +192,69 @@ const utils = {
     `;
   },
 
+  // Línea de tiempo del progreso de una candidatura, pensada para el candidato.
+  // Muestra las etapas Enviada → CV visto → En proceso → Entrevista → Aceptada,
+  // resaltando hasta dónde ha llegado. Si fue rechazada o retirada, cierra en rojo/gris.
+  lineaTiempoCandidatura(estado, actualizadoEn) {
+    const etapas = [
+      { clave: 'pendiente', etiqueta: 'Enviada', icono: '📨' },
+      { clave: 'vista', etiqueta: 'CV visto', icono: '👁️' },
+      { clave: 'en_proceso', etiqueta: 'En proceso', icono: '⚙️' },
+      { clave: 'entrevista', etiqueta: 'Entrevista', icono: '🤝' },
+      { clave: 'aceptada', etiqueta: 'Aceptada', icono: '🎉' }
+    ];
+    const orden = { pendiente: 0, vista: 1, en_proceso: 2, entrevista: 3, aceptada: 4 };
+    const terminal = estado === 'rechazada' || estado === 'retirada';
+
+    // En estados terminales, el índice alcanzado es hasta donde tenga sentido
+    // (rechazada/retirada no avanzan por las etapas, así que solo marcamos "Enviada").
+    const indiceActual = terminal ? 0 : (orden[estado] ?? 0);
+    const verde = '#10b981';
+    const gris = '#d1d5db';
+    const grisTexto = '#9ca3af';
+
+    let pasos = etapas.map((etapa, i) => {
+      const alcanzada = i <= indiceActual;
+      const esActual = i === indiceActual && !terminal;
+      const color = alcanzada ? verde : gris;
+      const conector = i < etapas.length - 1
+        ? `<div style="flex: 1; height: 3px; background: ${i < indiceActual ? verde : gris}; min-width: 12px;"></div>`
+        : '';
+      return `
+        <div style="display: flex; align-items: center; flex: ${i < etapas.length - 1 ? '1' : '0 0 auto'};">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem; flex: 0 0 auto;">
+            <div style="width: 34px; height: 34px; border-radius: 50%; background: ${alcanzada ? color : 'white'}; border: 2px solid ${color}; display: flex; align-items: center; justify-content: center; font-size: 1rem; ${esActual ? 'box-shadow: 0 0 0 4px rgba(16,185,129,0.2);' : ''}">${alcanzada ? etapa.icono : ''}</div>
+            <span style="font-size: 0.7rem; font-weight: ${esActual ? '700' : '500'}; color: ${alcanzada ? '#065f46' : grisTexto}; text-align: center; white-space: nowrap;">${etapa.etiqueta}</span>
+          </div>
+          ${conector}
+        </div>`;
+    }).join('');
+
+    let cierreTerminal = '';
+    if (terminal) {
+      const color = estado === 'rechazada' ? '#ef4444' : '#9ca3af';
+      const icono = estado === 'rechazada' ? '✕' : '↩';
+      const etiqueta = estado === 'rechazada' ? 'No seleccionada' : 'Retirada';
+      cierreTerminal = `
+        <div style="display: flex; align-items: center; flex: 0 0 auto;">
+          <div style="flex: 1; height: 3px; background: ${color}; min-width: 12px;"></div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem;">
+            <div style="width: 34px; height: 34px; border-radius: 50%; background: ${color}; border: 2px solid ${color}; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: white; box-shadow: 0 0 0 4px ${estado === 'rechazada' ? 'rgba(239,68,68,0.2)' : 'rgba(156,163,175,0.2)'};">${icono}</div>
+            <span style="font-size: 0.7rem; font-weight: 700; color: ${color}; white-space: nowrap;">${etiqueta}</span>
+          </div>
+        </div>`;
+    }
+
+    const fecha = actualizadoEn ? utils.formatearFecha(actualizadoEn) : '';
+    return `
+      <div style="margin: 0.5rem 0;">
+        <div style="display: flex; align-items: flex-start; overflow-x: auto; padding: 0.5rem 0.25rem;">
+          ${pasos}${cierreTerminal}
+        </div>
+        ${fecha ? `<p style="margin: 0.25rem 0 0 0; font-size: 0.72rem; color: #9ca3af;">Última actualización: ${fecha}</p>` : ''}
+      </div>`;
+  },
+
   escapeHtml(texto) {
     if (texto === null || texto === undefined) return '';
     return String(texto)
@@ -2314,6 +2377,7 @@ const app = {
               </div>
               <span style="background: ${estadoColor}; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize; white-space: nowrap;">${utils.textoEstado(post.estado)}</span>
             </div>
+            ${utils.lineaTiempoCandidatura(post.estado, post.actualizado_en)}
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; font-size: 0.9rem; color: #6b7280;">
               <p style="margin: 0;"><strong>📍 Ciudad:</strong> ${utils.escapeHtml(post.ciudad)}</p>
               <p style="margin: 0;"><strong>📅 Fecha:</strong> ${fecha}</p>
@@ -2357,6 +2421,11 @@ const app = {
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
             <h3 style="margin: 0; color: #0f4c75; font-size: 1.5rem; font-weight: 700;">${utils.escapeHtml(post.empresa_nombre || post.ciudad)}</h3>
             <span style="background: ${estadoColor}; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize;">${utils.textoEstado(post.estado)}</span>
+          </div>
+
+          <div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📈 Estado de tu candidatura</h4>
+            ${utils.lineaTiempoCandidatura(post.estado, post.actualizado_en)}
           </div>
 
           <div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
