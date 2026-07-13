@@ -3560,7 +3560,7 @@ app.get("/publicaciones/:id/candidatos", verifyToken, (req, res) => {
 
   const listar = () => {
     db.all(
-      `SELECT c.*, u.nombre, u.email, u.telefono, u.movil, u.ciudad, u.direccion, u.tipo
+      `SELECT c.*, u.nombre, u.email, u.telefono, u.movil, u.ciudad, u.direccion, u.tipo, u.colegiado_estado
        FROM candidaturas c
        JOIN usuarios u ON c.usuario_id = u.id
        WHERE c.publicacion_id = ?
