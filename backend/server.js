@@ -318,7 +318,7 @@ app.delete("/auth/mi-cuenta", verifyToken, (req, res) => {
       [`UPDATE usuarios SET nombre = 'Usuario eliminado', email = 'eliminado-' || id || '@dentaljobs.invalid',
         password = '!cuenta-eliminada!', telefono = NULL, movil = NULL, direccion = NULL, codigo_postal = NULL,
         pais = NULL, ciudad = NULL, descripcion = NULL, anyos_experiencia = NULL, email_verificado = 0,
-        acepto_terminos_en = NULL, num_colegiado = NULL, colegio = NULL, colegiado_estado = 'sin_indicar'
+        acepto_terminos_en = NULL
         WHERE id = ?`, [usuarioId]]
     ];
 
@@ -491,7 +491,7 @@ app.post("/auth/reenviar-verificacion", verifyToken, (req, res) => {
 });
 
 app.put("/auth/actualizar-perfil", verifyToken, (req, res) => {
-  const { nombre, telefono, movil, direccion, codigo_postal, pais, ciudad, provincia, descripcion, anyos_experiencia, num_colegiado, colegio } = req.body;
+  const { nombre, telefono, movil, direccion, codigo_postal, pais, ciudad, provincia, descripcion, anyos_experiencia } = req.body;
   const usuarioId = req.usuario.id;
 
   if (!nombre) {
@@ -505,53 +505,17 @@ app.put("/auth/actualizar-perfil", verifyToken, (req, res) => {
   // Preferencia de avisos por email: si el cliente no la envía, se mantiene activada
   const recibirEmails = req.body.recibir_emails === false || req.body.recibir_emails === 0 ? 0 : 1;
 
-  const datosComunes = [nombre, telefono || null, movil || null, direccion || null, codigo_postal || null, pais || null, ciudad || null, provincia || null, (descripcion || "").trim() || null, experiencia, recibirEmails];
-
-  if (req.usuario.tipo !== 'dentista') {
-    // La colegiación solo aplica a dentistas; en clínicas se ignora cualquier valor recibido
-    db.run(
-      "UPDATE usuarios SET nombre = ?, telefono = ?, movil = ?, direccion = ?, codigo_postal = ?, pais = ?, ciudad = ?, provincia = ?, descripcion = ?, anyos_experiencia = ?, recibir_emails = ? WHERE id = ?",
-      [...datosComunes, usuarioId],
-      (err) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).json({ error: "Error al actualizar perfil" });
-        }
-        res.json({ success: true, message: "Perfil actualizado correctamente" });
+  db.run(
+    "UPDATE usuarios SET nombre = ?, telefono = ?, movil = ?, direccion = ?, codigo_postal = ?, pais = ?, ciudad = ?, provincia = ?, descripcion = ?, anyos_experiencia = ?, recibir_emails = ? WHERE id = ?",
+    [nombre, telefono || null, movil || null, direccion || null, codigo_postal || null, pais || null, ciudad || null, provincia || null, (descripcion || "").trim() || null, experiencia, recibirEmails, usuarioId],
+    (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al actualizar perfil" });
       }
-    );
-    return;
-  }
-
-  // Dentista: si cambia el nº de colegiado o el colegio, la verificación vuelve a 'pendiente'
-  // (o a 'sin_indicar' si borra el número), aunque ya estuviera verificada antes.
-  db.get("SELECT num_colegiado, colegio, colegiado_estado FROM usuarios WHERE id = ?", [usuarioId], (err, actual) => {
-    if (err || !actual) {
-      console.error(err);
-      return res.status(500).json({ error: "Error al actualizar perfil" });
+      res.json({ success: true, message: "Perfil actualizado correctamente" });
     }
-
-    const nuevoNumero = (num_colegiado || "").trim() || null;
-    const nuevoColegio = (colegio || "").trim() || null;
-    const cambioColegiacion = nuevoNumero !== actual.num_colegiado || nuevoColegio !== actual.colegio;
-
-    const nuevoEstado = cambioColegiacion
-      ? (nuevoNumero ? "pendiente" : "sin_indicar")
-      : actual.colegiado_estado;
-
-    db.run(
-      `UPDATE usuarios SET nombre = ?, telefono = ?, movil = ?, direccion = ?, codigo_postal = ?, pais = ?, ciudad = ?, provincia = ?, descripcion = ?, anyos_experiencia = ?, recibir_emails = ?,
-       num_colegiado = ?, colegio = ?, colegiado_estado = ? WHERE id = ?`,
-      [...datosComunes, nuevoNumero, nuevoColegio, nuevoEstado, usuarioId],
-      (err) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).json({ error: "Error al actualizar perfil" });
-        }
-        res.json({ success: true, message: "Perfil actualizado correctamente" });
-      }
-    );
-  });
+  );
 });
 
 app.get("/auth/mi-especialidades", verifyToken, (req, res) => {
@@ -763,7 +727,7 @@ app.get("/auth/mi-perfil", verifyToken, (req, res) => {
   const usuarioId = req.usuario.id;
 
   db.get(
-    "SELECT id, nombre, email, tipo, telefono, movil, direccion, codigo_postal, pais, ciudad, provincia, descripcion, anyos_experiencia, email_verificado, recibir_emails, num_colegiado, colegio, colegiado_estado, creado_en FROM usuarios WHERE id = ?",
+    "SELECT id, nombre, email, tipo, telefono, movil, direccion, codigo_postal, pais, ciudad, provincia, descripcion, anyos_experiencia, email_verificado, recibir_emails, creado_en FROM usuarios WHERE id = ?",
     [usuarioId],
     (err, usuario) => {
       if (err) {
@@ -788,7 +752,7 @@ async function recopilarDatosCv(usuarioId) {
   const all = (sql, params) => new Promise((resolve, reject) => db.all(sql, params, (e, r) => e ? reject(e) : resolve(r)));
 
   const usuario = await get(
-    "SELECT nombre, email, telefono, movil, ciudad, direccion, codigo_postal, pais, descripcion, anyos_experiencia, num_colegiado, colegio, colegiado_estado FROM usuarios WHERE id = ?",
+    "SELECT nombre, email, telefono, movil, ciudad, direccion, codigo_postal, pais, descripcion, anyos_experiencia FROM usuarios WHERE id = ?",
     [usuarioId]
   );
   if (!usuario) return null;
@@ -876,12 +840,6 @@ app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
       [usuario.ciudad, usuario.pais].filter(Boolean).join(", ")
     ].filter(Boolean).join("  ·  ");
     doc.fontSize(10).text(contacto);
-
-    if (usuario.colegiado_estado === "verificado" && usuario.num_colegiado) {
-      doc.moveDown(0.2);
-      doc.fillColor("#059669").fontSize(10)
-        .text(`✓ Colegiado nº ${usuario.num_colegiado}${usuario.colegio ? " — " + usuario.colegio : ""} (verificado en DentalJobs)`);
-    }
 
     if (resenyas && resenyas.total > 0) {
       const media = Math.round(resenyas.media * 10) / 10;
@@ -980,7 +938,7 @@ app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
 app.get("/usuarios/:id/publico", (req, res) => {
   const id = req.params.id;
   db.get(
-    "SELECT id, nombre, tipo, ciudad, provincia, pais, descripcion, anyos_experiencia, num_colegiado, colegio, colegiado_estado, creado_en FROM usuarios WHERE id = ?",
+    "SELECT id, nombre, tipo, ciudad, provincia, pais, descripcion, anyos_experiencia, creado_en FROM usuarios WHERE id = ?",
     [id],
     (err, usuario) => {
       if (err) {
@@ -989,13 +947,6 @@ app.get("/usuarios/:id/publico", (req, res) => {
       }
       if (!usuario) {
         return res.status(404).json({ error: "Usuario no encontrado" });
-      }
-
-      // El nº de colegiado solo se expone públicamente si ya ha sido verificado;
-      // mientras tanto, solo se informa del estado (para no publicitar datos sin comprobar).
-      if (usuario.colegiado_estado !== "verificado") {
-        usuario.num_colegiado = null;
-        usuario.colegio = null;
       }
 
       // Especialidades (dentistas y clínicas)
@@ -1273,66 +1224,6 @@ app.delete("/idiomas/:id", verifyToken, (req, res) => {
       }
       res.json({ mensaje: "Idioma eliminado" });
     });
-  });
-});
-
-/* ===========================
-   🔹 VERIFICACIÓN DE COLEGIADO (revisión manual, sin panel de roles)
-=========================== */
-
-// Lista de dentistas con la colegiación pendiente de revisar
-app.get("/admin/verificaciones-pendientes", verificarAdmin, (req, res) => {
-  db.all(
-    "SELECT id, nombre, email, num_colegiado, colegio FROM usuarios WHERE tipo = 'dentista' AND colegiado_estado = 'pendiente' ORDER BY id ASC",
-    (err, filas) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener verificaciones pendientes" });
-      }
-      res.json({ pendientes: filas || [] });
-    }
-  );
-});
-
-app.put("/admin/verificaciones/:usuarioId", verificarAdmin, (req, res) => {
-  const { estado } = req.body;
-  if (!["verificado", "rechazado"].includes(estado)) {
-    return res.status(400).json({ error: "Estado inválido" });
-  }
-
-  db.get("SELECT nombre, email, num_colegiado, colegio FROM usuarios WHERE id = ? AND tipo = 'dentista'", [req.params.usuarioId], (err, usuario) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Error al actualizar la verificación" });
-    }
-    if (!usuario) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
-    }
-
-    db.run(
-      "UPDATE usuarios SET colegiado_estado = ? WHERE id = ?",
-      [estado, req.params.usuarioId],
-      (err) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).json({ error: "Error al actualizar la verificación" });
-        }
-
-        res.json({ success: true, mensaje: `Colegiación marcada como ${estado}` });
-
-        const textos = {
-          verificado: `¡Buenas noticias! Hemos verificado tu nº de colegiado (${usuario.num_colegiado}, ${usuario.colegio}). Ya aparece el sello de verificación en tu perfil público.`,
-          rechazado: `No hemos podido verificar tu nº de colegiado (${usuario.num_colegiado}, ${usuario.colegio}). Revisa que los datos sean correctos y vuelve a guardarlos desde tu perfil.`
-        };
-        notificarUsuario(
-          req.params.usuarioId,
-          estado === "verificado" ? "✓ Tu colegiación ha sido verificada" : "Revisa tu nº de colegiado",
-          estado === "verificado" ? "Colegiación verificada" : "No hemos podido verificar tu colegiación",
-          textos[estado],
-          "Ver mi perfil"
-        );
-      }
-    );
   });
 });
 
@@ -3560,7 +3451,7 @@ app.get("/publicaciones/:id/candidatos", verifyToken, (req, res) => {
 
   const listar = () => {
     db.all(
-      `SELECT c.*, u.nombre, u.email, u.telefono, u.movil, u.ciudad, u.direccion, u.tipo, u.colegiado_estado
+      `SELECT c.*, u.nombre, u.email, u.telefono, u.movil, u.ciudad, u.direccion, u.tipo
        FROM candidaturas c
        JOIN usuarios u ON c.usuario_id = u.id
        WHERE c.publicacion_id = ?
@@ -4103,7 +3994,7 @@ app.get("/perfiles", (req, res) => {
   const { rol, ciudad, provincia, especialidad, q } = req.query;
   const tipo = rol === 'clinica' ? 'clinica' : 'dentista';
 
-  let query = `SELECT id, nombre, tipo, ciudad, provincia, descripcion, anyos_experiencia, colegiado_estado, creado_en
+  let query = `SELECT id, nombre, tipo, ciudad, provincia, descripcion, anyos_experiencia, creado_en
                FROM usuarios WHERE tipo = ? AND nombre != 'Usuario eliminado'`;
   const params = [tipo];
 
@@ -4174,7 +4065,7 @@ app.post("/favoritos-perfil", verifyToken, (req, res) => {
 
 app.get("/favoritos-perfil", verifyToken, (req, res) => {
   db.all(
-    `SELECT f.id as favorito_id, u.id, u.nombre, u.tipo, u.ciudad, u.provincia, u.descripcion, u.anyos_experiencia, u.colegiado_estado
+    `SELECT f.id as favorito_id, u.id, u.nombre, u.tipo, u.ciudad, u.provincia, u.descripcion, u.anyos_experiencia
      FROM favoritos_perfil f INNER JOIN usuarios u ON f.perfil_id = u.id
      WHERE f.usuario_id = ? ORDER BY f.creado_en DESC`,
     [req.usuario.id],

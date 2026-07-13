@@ -289,18 +289,13 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
-  db.run(`ALTER TABLE usuarios ADD COLUMN num_colegiado TEXT`, (err) => {
-    // Ignorar error si la columna ya existe
-  });
-
-  db.run(`ALTER TABLE usuarios ADD COLUMN colegio TEXT`, (err) => {
-    // Ignorar error si la columna ya existe
-  });
-
-  // sin_indicar | pendiente | verificado | rechazado
-  db.run(`ALTER TABLE usuarios ADD COLUMN colegiado_estado TEXT DEFAULT 'sin_indicar'`, (err) => {
-    // Ignorar error si la columna ya existe
-  });
+  // La funcionalidad de colegiación (nº de colegiado, colegio y su verificación)
+  // se retiró: no aportaba y era información sensible. Se eliminan las columnas y,
+  // con ellas, cualquier dato guardado. DROP COLUMN no es idempotente, pero el
+  // adaptador ignora el error si la columna ya no existe (BD nueva o segundo boot).
+  db.run(`ALTER TABLE usuarios DROP COLUMN num_colegiado`, () => {});
+  db.run(`ALTER TABLE usuarios DROP COLUMN colegio`, () => {});
+  db.run(`ALTER TABLE usuarios DROP COLUMN colegiado_estado`, () => {});
 
   db.run(`
     CREATE TABLE IF NOT EXISTS tokens_verificacion (

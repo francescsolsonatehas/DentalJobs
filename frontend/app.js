@@ -3212,12 +3212,6 @@ const app = {
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; width: 30%; color: #0F4C75;">Nombre:</td>
               <td style="padding: 0.8rem;">${utils.escapeHtml(dentista.nombre || '-')}</td>
             </tr>
-            ${publico && publico.colegiado_estado === 'verificado' ? `
-            <tr style="border-bottom: 1px solid #e5e7eb;">
-              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🎓 Colegiado:</td>
-              <td style="padding: 0.8rem; color: #059669; font-weight: 600;">✓ Verificado — nº ${utils.escapeHtml(publico.num_colegiado)}${publico.colegio ? ` (${utils.escapeHtml(publico.colegio)})` : ''}</td>
-            </tr>
-            ` : ''}
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">📧 Email:</td>
               <td style="padding: 0.8rem;"><a href="mailto:${utils.escapeHtml(dentista.email)}" style="color: #0F4C75; text-decoration: none;">${utils.escapeHtml(dentista.email || '-')}</a></td>
@@ -3316,7 +3310,6 @@ const app = {
       let html = `
         <div class="perfil-dentista">
           <h3 style="margin-top: 0;">${utils.escapeHtml(dentista.nombre)}</h3>
-          ${publico && publico.colegiado_estado === 'verificado' ? `<p style="color: #059669; font-weight: 600;">✓ Colegiado verificado — nº ${utils.escapeHtml(publico.num_colegiado)}${publico.colegio ? ` (${utils.escapeHtml(publico.colegio)})` : ''}</p>` : ''}
 
           <div class="info-section">
             <h4>Contacto</h4>
@@ -3562,16 +3555,6 @@ const app = {
   // ============================================
 
   perfil: {
-    // Aviso del estado de verificación del nº de colegiado, para el propio formulario
-    badgeColegiado(estado) {
-      const estilos = {
-        pendiente: `<small style="color: #6366f1; font-weight: 600; margin-top: 0.3rem; display: block;">⏳ Verificación pendiente de revisión</small>`,
-        verificado: `<small style="color: #10b981; font-weight: 600; margin-top: 0.3rem; display: block;">✓ Colegiado verificado</small>`,
-        rechazado: `<small style="color: #ef4444; font-weight: 600; margin-top: 0.3rem; display: block;">⚠️ No hemos podido verificarlo. Revisa los datos y vuelve a guardarlos.</small>`
-      };
-      return estilos[estado] || '';
-    },
-
     async cargar() {
       if (!estadoApp.usuario) return;
 
@@ -3792,17 +3775,6 @@ const app = {
             </div>
 
             <div class="form-group">
-              <label>Nº de colegiado</label>
-              <input type="text" id="perfilNumColegiado" value="${utils.escapeHtml(u.num_colegiado || '')}" placeholder="Ej: 12345">
-            </div>
-
-            <div class="form-group">
-              <label>Colegio profesional</label>
-              <input type="text" id="perfilColegio" value="${utils.escapeHtml(u.colegio || '')}" placeholder="Ej: Colegio de Odontólogos de Barcelona">
-              ${app.perfil.badgeColegiado(u.colegiado_estado)}
-            </div>
-
-            <div class="form-group">
               <label>Certificaciones</label>
               <div id="certificacionesContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
                 <!-- Se llenarán dinámicamente -->
@@ -3899,9 +3871,7 @@ const app = {
         pais: document.getElementById("perfilPais").value || null,
         descripcion: document.getElementById("perfilDescripcion")?.value || null,
         anyos_experiencia: document.getElementById("perfilAnyosExperiencia")?.value || null,
-        recibir_emails: document.getElementById("perfilRecibirEmails")?.checked ?? true,
-        num_colegiado: document.getElementById("perfilNumColegiado")?.value || null,
-        colegio: document.getElementById("perfilColegio")?.value || null
+        recibir_emails: document.getElementById("perfilRecibirEmails")?.checked ?? true
       };
 
       try {
@@ -4182,9 +4152,6 @@ const app = {
         const contacto = [u.email, u.movil || u.telefono, [u.ciudad, u.pais].filter(Boolean).join(", ")]
           .filter(Boolean).map(utils.escapeHtml).join("  ·  ");
 
-        const colegiado = (u.colegiado_estado === "verificado" && u.num_colegiado)
-          ? `<p style="color: #059669; font-size: 0.85rem; margin: 0.3rem 0;">✓ Colegiado nº ${utils.escapeHtml(u.num_colegiado)}${u.colegio ? " — " + utils.escapeHtml(u.colegio) : ""} (verificado)</p>`
-          : "";
         const valoracion = (cv.resenyas && cv.resenyas.total > 0)
           ? `<p style="color: #b45309; font-size: 0.85rem; margin: 0.3rem 0;">Valoración media: ${Math.round(cv.resenyas.media * 10) / 10}/5 (${cv.resenyas.total} reseña${cv.resenyas.total === 1 ? "" : "s"})</p>`
           : "";
@@ -4215,7 +4182,6 @@ const app = {
             <h3 style="color: #0f4c75; margin: 0;">${utils.escapeHtml(u.nombre || "")}</h3>
             <p style="color: #4b5563; margin: 0.1rem 0;">Dentista</p>
             ${contacto ? `<p style="font-size: 0.85rem; color: #4b5563; margin: 0.3rem 0;">${contacto}</p>` : ""}
-            ${colegiado}
             ${valoracion}
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 0.75rem 0;">
             ${seccion("Perfil", u.descripcion ? `<p style="margin: 0.2rem 0;">${utils.escapeHtml(u.descripcion)}</p>` : "")}
@@ -4967,7 +4933,6 @@ const app = {
         const esClinica = p.tipo === "clinica";
         const ciudadLabel = p.ciudad ? (p.provincia ? `${p.ciudad} (${p.provincia})` : p.ciudad) : "Ubicación no indicada";
         const especialidades = p.especialidades || [];
-        const colegiadoOk = !esClinica && p.colegiado_estado === "verificado";
         const chips = especialidades.slice(0, 4).map(e => this.chipEspecialidad(e, esClinica)).join("")
           + (especialidades.length > 4 ? `<span class="badge">+${especialidades.length - 4}</span>` : "");
         return `
@@ -4976,11 +4941,10 @@ const app = {
               <span class="card-type ${esClinica ? "type-oferta" : "type-solicitud"}">${esClinica ? "🏥 Clínica" : "👨‍⚕️ Dentista"}</span>
               <button onclick="app.favoritos.togglePerfil(${p.id}, this)" data-favorito="${esFav}" style="background:none;border:none;cursor:pointer;font-size:1.3rem;padding:0;" title="${esFav ? "Quitar de favoritos" : "Guardar en favoritos"}">${esFav ? "⭐" : "☆"}</button>
             </div>
-            <h3>${utils.escapeHtml(p.nombre)}${colegiadoOk ? ` <span title="Colegiación verificada" style="color:#059669;font-size:.9rem;">✓</span>` : ""}</h3>
+            <h3>${utils.escapeHtml(p.nombre)}</h3>
             <div class="card-details">
               <div class="detail"><span class="detail-icon">📍</span><span>${utils.escapeHtml(ciudadLabel)}</span></div>
               ${p.anyos_experiencia !== null && p.anyos_experiencia !== undefined ? `<div class="detail"><span class="detail-icon">🎓</span><span>${p.anyos_experiencia} años de experiencia</span></div>` : ""}
-              ${colegiadoOk ? `<div class="detail"><span class="detail-icon">✅</span><span style="color:#059669;font-weight:600;">Colegiado verificado</span></div>` : ""}
             </div>
             ${chips
               ? `<div class="badges">${chips}</div>`
@@ -5081,15 +5045,6 @@ const app = {
       return desde || hasta || "";
     },
 
-    // Estado de colegiación legible para la ficha del dentista
-    estadoColegiacion(u) {
-      if (u.colegiado_estado === "verificado" && u.num_colegiado) {
-        return `<span style="color:#059669;font-weight:600;">✓ Colegiado nº ${utils.escapeHtml(u.num_colegiado)}${u.colegio ? ` · ${utils.escapeHtml(u.colegio)}` : ""}</span>`;
-      }
-      if (u.colegiado_estado === "pendiente") return `<span style="color:#6366f1;">⏳ En verificación</span>`;
-      return `<span style="color:#9ca3af;">No indicada</span>`;
-    },
-
     // Fila de badges de especialidades, o un aviso si no hay
     bloqueEspecialidades(u, esClinica) {
       if (!(u.especialidades || []).length) {
@@ -5111,7 +5066,6 @@ const app = {
       html += `<div class="info-section">
         <p style="margin:.3rem 0;font-size:1.05rem;"><span class="detail-icon">👨‍⚕️</span> Dentista · <strong>${utils.escapeHtml(ciudadLabel)}</strong></p>
         ${u.anyos_experiencia !== null && u.anyos_experiencia !== undefined ? `<p style="margin:.3rem 0;">🎓 <strong>${u.anyos_experiencia}</strong> años de experiencia</p>` : ""}
-        <p style="margin:.3rem 0;">🏅 Colegiación: ${this.estadoColegiacion(u)}</p>
         <div style="margin:.3rem 0;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;"><span>⭐</span>${app.resenyas.resumenHtml(resumen, id, u.nombre)}</div>
         <p style="margin:.6rem 0 .2rem;font-weight:600;color:#0f4c75;">Especialidades</p>
         ${this.bloqueEspecialidades(u, false)}
@@ -6475,10 +6429,7 @@ const app = {
         }
         const html = candidatos.map(c => {
           const estadoColor = utils.colorEstado(c.estado);
-          const colegiadoBadge = c.colegiado_estado === 'verificado'
-            ? ` <span title="Colegiación verificada" style="color:#059669;font-size:0.8rem;font-weight:600;white-space:nowrap;">✓ Colegiado verificado</span>`
-            : '';
-          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.nombre)}${colegiadoBadge}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Email:</strong> ${utils.escapeHtml(c.email)}</p>${c.telefono ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Teléfono:</strong> ${utils.escapeHtml(c.telefono)}</p>` : ''}${c.movil ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Móvil:</strong> ${utils.escapeHtml(c.movil)}</p>` : ''}${c.ciudad ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad)}</p>` : ''}${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; padding: 0.75rem; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #2563eb; color: #374151; font-size: 0.9rem;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}${utils.respuestasCribaHtml(c.respuestas)}</div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize; display: inline-block; margin-bottom: 0.5rem;">${utils.textoEstado(c.estado)}</span><div style="display: flex; gap: 0.5rem; flex-direction: column;">${utils.selectorEstado(c.id, c.estado, `app.candidaturas.actualizarEstado(${c.id}, this.value, ${publicacionId})`)}</div></div></div></div>`;
+          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.nombre)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Email:</strong> ${utils.escapeHtml(c.email)}</p>${c.telefono ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Teléfono:</strong> ${utils.escapeHtml(c.telefono)}</p>` : ''}${c.movil ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Móvil:</strong> ${utils.escapeHtml(c.movil)}</p>` : ''}${c.ciudad ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad)}</p>` : ''}${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; padding: 0.75rem; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #2563eb; color: #374151; font-size: 0.9rem;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}${utils.respuestasCribaHtml(c.respuestas)}</div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize; display: inline-block; margin-bottom: 0.5rem;">${utils.textoEstado(c.estado)}</span><div style="display: flex; gap: 0.5rem; flex-direction: column;">${utils.selectorEstado(c.id, c.estado, `app.candidaturas.actualizarEstado(${c.id}, this.value, ${publicacionId})`)}</div></div></div></div>`;
         });
         container.innerHTML = `<div>${html.join('')}</div>`;
       } catch (error) {

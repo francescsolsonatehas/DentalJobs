@@ -39,16 +39,9 @@ const ETIQUETAS_TIPO = {
   suplencia: "Suplencia"
 };
 
-const ETIQUETAS_COLEGIADO = {
-  verificado: "Verificado",
-  pendiente: "Pendiente de revisión",
-  rechazado: "No verificado"
-};
-
 const tipoPublicacion = (tipo) => ETIQUETAS_TIPO[tipo] || tipo || "";
 const rol = (tipo) => (tipo === "clinica" ? "Clínica" : "Dentista");
 const estado = (valor) => ETIQUETAS_ESTADO[valor] || valor || "";
-const colegiado = (valor) => ETIQUETAS_COLEGIADO[valor] || "Sin indicar";
 const siNo = (valor) => (valor ? "Sí" : "No");
 
 function salario(f) {
@@ -205,7 +198,7 @@ const VISTAS = {
     async consultar(db, usuario, query) {
       const tipo = usuario.tipo === "clinica" ? "dentista" : "clinica";
       let sql = `SELECT u.nombre, u.tipo, u.ciudad, u.provincia, u.descripcion, u.anyos_experiencia,
-                        u.colegiado_estado, u.creado_en, ${ESPECIALIDADES_USUARIO}
+                        u.creado_en, ${ESPECIALIDADES_USUARIO}
                  FROM usuarios u
                  WHERE u.tipo = ? AND u.nombre != 'Usuario eliminado'`;
       const params = [tipo];
@@ -224,10 +217,10 @@ const VISTAS = {
 
       const filas = await todos(db, sql, params);
       return {
-        columnas: ["Nombre", "Tipo", "Ciudad", "Provincia", "Años de experiencia", "Colegiado",
+        columnas: ["Nombre", "Tipo", "Ciudad", "Provincia", "Años de experiencia",
                    "Especialidades", "Alta en la plataforma", "Descripción"],
         filas: filas.map(f => [
-          f.nombre, rol(f.tipo), f.ciudad, f.provincia, f.anyos_experiencia, colegiado(f.colegiado_estado),
+          f.nombre, rol(f.tipo), f.ciudad, f.provincia, f.anyos_experiencia,
           f.especialidades, f.creado_en, f.descripcion
         ])
       };
