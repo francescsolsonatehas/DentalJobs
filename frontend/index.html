@@ -287,6 +287,15 @@
             </div>
         </div>
 
+        <!-- Conmutador Lista / Calendario (solo en la vista de suplencias) -->
+        <div id="suplenciasVistaToggle" style="display: none; gap: 0.5rem; margin-bottom: 1rem;">
+            <button id="btnVistaLista" class="btn-outline btn-small active" onclick="app.suplenciasCalendario.verLista()">📋 Lista</button>
+            <button id="btnVistaCalendario" class="btn-outline btn-small" onclick="app.suplenciasCalendario.verCalendario()">📅 Calendario</button>
+        </div>
+
+        <!-- Vista de calendario mensual de suplencias -->
+        <div id="suplenciasCalendarioContainer" style="display: none;"></div>
+
         <!-- Grid de publicaciones -->
         <div id="publicacionesContainer"></div>
 

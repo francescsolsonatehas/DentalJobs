@@ -455,6 +455,100 @@ const app = {
   },
 
   // ============================================
+  // Módulo: Vista de calendario mensual de suplencias
+  // ============================================
+
+  suplenciasCalendario: {
+    anyo: null,
+    mes: null, // 1-12
+
+    verCalendario() {
+      if (this.anyo == null) {
+        const hoy = new Date();
+        this.anyo = hoy.getFullYear();
+        this.mes = hoy.getMonth() + 1;
+      }
+      document.getElementById("publicacionesContainer").style.display = "none";
+      document.getElementById("suplenciasCalendarioContainer").style.display = "block";
+      document.getElementById("btnVistaCalendario").classList.add("active");
+      document.getElementById("btnVistaLista").classList.remove("active");
+      this.render();
+    },
+
+    verLista() {
+      document.getElementById("suplenciasCalendarioContainer").style.display = "none";
+      document.getElementById("publicacionesContainer").style.display = "";
+      document.getElementById("btnVistaLista").classList.add("active");
+      document.getElementById("btnVistaCalendario").classList.remove("active");
+      app.publicaciones.cargar();
+    },
+
+    cambiarMes(delta) {
+      let m = (this.mes - 1) + delta;
+      this.anyo += Math.floor(m / 12);
+      this.mes = ((m % 12) + 12) % 12 + 1;
+      this.render();
+    },
+
+    // Clic en un día con suplencias: pasa a la lista filtrada por esa fecha
+    irADia(fecha) {
+      document.getElementById("filterFechaDesde").value = fecha;
+      document.getElementById("filterFechaHasta").value = fecha;
+      this.verLista();
+    },
+
+    async render() {
+      const cont = document.getElementById("suplenciasCalendarioContainer");
+      if (!cont) return;
+      cont.innerHTML = `<p style="color:#6b7280;padding:1rem;">Cargando calendario…</p>`;
+
+      let dias = {};
+      try {
+        const data = await utils.request(`/suplencias/calendario?anyo=${this.anyo}&mes=${this.mes}`);
+        dias = data.dias || {};
+      } catch (e) {
+        cont.innerHTML = `<p style="color:#ef4444;padding:1rem;">No se pudo cargar el calendario.</p>`;
+        return;
+      }
+
+      const hoy = app.calendario.hoyISO();
+      const primero = new Date(this.anyo, this.mes - 1, 1);
+      const offset = (primero.getDay() + 6) % 7; // semana que empieza en lunes
+      const diasEnMes = new Date(this.anyo, this.mes, 0).getDate();
+
+      let celdas = "";
+      for (let i = 0; i < offset; i++) celdas += `<div class="cal-celda cal-vacia"></div>`;
+      for (let d = 1; d <= diasEnMes; d++) {
+        const fecha = `${this.anyo}-${String(this.mes).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+        const items = dias[fecha] || [];
+        const pasado = fecha < hoy;
+        if (items.length > 0 && !pasado) {
+          const hayUrgente = items.some(x => x.urgente);
+          const ciudades = [...new Set(items.map(x => x.ciudad).filter(Boolean))].join(", ");
+          celdas += `<div class="supcal-dia${hayUrgente ? " supcal-urgente" : ""}" title="${utils.escapeHtml(ciudades)}" onclick="app.suplenciasCalendario.irADia('${fecha}')">
+            <span class="supcal-num">${d}</span>
+            <span class="supcal-badge">${items.length}</span>
+          </div>`;
+        } else {
+          celdas += `<div class="cal-celda supcal-vacio${pasado ? " cal-pasado" : ""}">${d}</div>`;
+        }
+      }
+
+      cont.innerHTML = `
+        <div class="supcal-widget">
+          <div class="cal-cabecera">
+            <button type="button" class="cal-nav" onclick="app.suplenciasCalendario.cambiarMes(-1)">‹</button>
+            <strong>${app.calendario.NOMBRES_MES[this.mes - 1]} ${this.anyo}</strong>
+            <button type="button" class="cal-nav" onclick="app.suplenciasCalendario.cambiarMes(1)">›</button>
+          </div>
+          <div class="cal-rejilla cal-semana">${app.calendario.DIAS_SEMANA.map(x => `<div class="cal-celda cal-nombre-dia">${x}</div>`).join("")}</div>
+          <div class="cal-rejilla">${celdas}</div>
+          <p class="cal-resumen">Haz clic en un día para ver sus suplencias. En rojo, los días con alguna urgente.</p>
+        </div>`;
+    }
+  },
+
+  // ============================================
   // Módulo: Auth
   // ============================================
 
@@ -758,7 +852,7 @@ const app = {
         tipo = estadoApp.tipoUsuario === 'clinica' ? 'solicitud' : 'oferta';
       }
 
-      // El filtro por fecha solo se muestra al navegar suplencias
+      // El filtro por fecha y el conmutador Lista/Calendario solo se muestran en suplencias
       const grupoFechaDesde = document.getElementById("filterFechaDesdeGroup");
       const grupoFechaHasta = document.getElementById("filterFechaHastaGroup");
       if (grupoFechaDesde && grupoFechaHasta) {
@@ -768,6 +862,17 @@ const app = {
         if (!estadoApp.filtros.verSuplencias) {
           document.getElementById("filterFechaDesde").value = "";
           document.getElementById("filterFechaHasta").value = "";
+        }
+      }
+      const toggleVista = document.getElementById("suplenciasVistaToggle");
+      if (toggleVista) {
+        toggleVista.style.display = estadoApp.filtros.verSuplencias ? "flex" : "none";
+        // Al salir de suplencias, garantizar que se ve la lista y no el calendario
+        if (!estadoApp.filtros.verSuplencias) {
+          document.getElementById("suplenciasCalendarioContainer").style.display = "none";
+          document.getElementById("publicacionesContainer").style.display = "";
+          document.getElementById("btnVistaLista")?.classList.add("active");
+          document.getElementById("btnVistaCalendario")?.classList.remove("active");
         }
       }
 
@@ -1274,6 +1379,12 @@ const app = {
       const filtersTitle = document.getElementById("filtrosTitle");
       filtersTitle.textContent = "🚨 Suplencias y turnos sueltos";
       filtersTitle.style.display = "block";
+
+      // Entrar siempre en modo lista (por si se quedó abierto el calendario)
+      document.getElementById("suplenciasCalendarioContainer").style.display = "none";
+      document.getElementById("publicacionesContainer").style.display = "";
+      document.getElementById("btnVistaLista")?.classList.add("active");
+      document.getElementById("btnVistaCalendario")?.classList.remove("active");
 
       app.publicaciones.cargar();
     },

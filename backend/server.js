@@ -1707,6 +1707,39 @@ app.put("/disponibilidad", verifyToken, (req, res) => {
   });
 });
 
+// Suplencias activas agrupadas por día para un mes concreto, para la vista de
+// calendario. Devuelve { dias: { 'YYYY-MM-DD': [ {id, ciudad, urgente} ] } }.
+app.get("/suplencias/calendario", (req, res) => {
+  const anyo = parseInt(req.query.anyo);
+  const mes = parseInt(req.query.mes); // 1-12
+  if (!anyo || !mes || mes < 1 || mes > 12) {
+    return res.status(400).json({ error: "Indica un año y un mes válidos" });
+  }
+  const mm = String(mes).padStart(2, "0");
+  const inicio = `${anyo}-${mm}-01`;
+  const fin = `${anyo}-${mm}-31`; // comparación de cadenas: cubre todo el mes
+
+  db.all(
+    `SELECT sd.fecha, p.id, p.ciudad, p.urgente
+     FROM suplencia_dias sd
+     JOIN publicaciones p ON p.id = sd.publicacion_id
+     WHERE p.activo = 1 AND p.tipo = 'suplencia' AND sd.fecha BETWEEN ? AND ?
+     ORDER BY sd.fecha, p.urgente DESC, p.id`,
+    [inicio, fin],
+    (err, filas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener el calendario" });
+      }
+      const dias = {};
+      (filas || []).forEach(f => {
+        (dias[f.fecha] = dias[f.fecha] || []).push({ id: f.id, ciudad: f.ciudad, urgente: !!f.urgente });
+      });
+      res.json({ dias });
+    }
+  );
+});
+
 // Sanea las preguntas de criba de una oferta: máximo 3, sin vacías, recortadas.
 const MAX_PREGUNTAS_CRIBA = 3;
 function sanearPreguntas(preguntas) {

@@ -2281,3 +2281,54 @@ select:focus {
   color: #6b7280;
   text-align: center;
 }
+
+/* ============================================
+   Vista de calendario mensual de suplencias
+   ============================================ */
+.supcal-widget {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 1rem;
+  background: #fff;
+  max-width: 520px;
+  margin: 0 auto;
+}
+.supcal-dia {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+  color: #0f4c75;
+  font-weight: 600;
+  transition: background 0.12s;
+}
+.supcal-dia:hover { background: #bae6fd; }
+.supcal-urgente { background: #fee2e2; border-color: #fecaca; color: #b91c1c; }
+.supcal-urgente:hover { background: #fecaca; }
+.supcal-num { font-size: 0.9rem; }
+.supcal-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  background: #0f4c75;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  line-height: 1rem;
+  min-width: 1rem;
+  height: 1rem;
+  text-align: center;
+  padding: 0 3px;
+  font-weight: 700;
+}
+.supcal-urgente .supcal-badge { background: #b91c1c; }
+.supcal-vacio {
+  color: #cbd5e1;
+  background: #f8fafc;
+  font-size: 0.85rem;
+}
