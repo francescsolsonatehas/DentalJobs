@@ -263,6 +263,14 @@
                     <label for="filterExperienciaMin">Años de experiencia</label>
                     <input id="filterExperienciaMin" type="number" placeholder="Ej: 3" oninput="app.publicaciones.cargar()">
                 </div>
+                <div class="filter-group" id="filterFechaDesdeGroup" style="display: none;">
+                    <label for="filterFechaDesde">Disponible desde</label>
+                    <input id="filterFechaDesde" type="date" onchange="app.publicaciones.cargar()" title="Suplencias que cubren días a partir de esta fecha">
+                </div>
+                <div class="filter-group" id="filterFechaHastaGroup" style="display: none;">
+                    <label for="filterFechaHasta">hasta</label>
+                    <input id="filterFechaHasta" type="date" onchange="app.publicaciones.cargar()" title="Suplencias que cubren días hasta esta fecha">
+                </div>
                 <div class="filter-group">
                     <label for="filterOrden">Ordenar por</label>
                     <select id="filterOrden" onchange="app.publicaciones.cargar()">
@@ -532,15 +540,21 @@
                           <!-- Se llenarán dinámicamente -->
                         </div>
                     </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                        <div class="form-group">
-                            <label for="suplenciaFechaDesde">Desde *</label>
-                            <input id="suplenciaFechaDesde" type="date" required>
+                    <div class="form-group">
+                        <label>Días de la suplencia *</label>
+                        <p style="font-size: 0.82rem; color: #6b7280; margin: 0.2rem 0 0.6rem;">Marca en el calendario los días que necesitas cubrir. Pueden ser sueltos o seguidos.</p>
+                        <div style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 0.7rem;">
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 0.8rem;">Añadir rango: desde</label>
+                                <input id="suplenciaRangoDesde" type="date">
+                            </div>
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 0.8rem;">hasta</label>
+                                <input id="suplenciaRangoHasta" type="date">
+                            </div>
+                            <button type="button" class="btn-outline btn-small" onclick="app.publicaciones.anadirRangoCalendario('suplenciaCalendario','suplenciaRangoDesde','suplenciaRangoHasta')" style="margin-bottom: 0.15rem;">+ Añadir al calendario</button>
                         </div>
-                        <div class="form-group">
-                            <label for="suplenciaFechaHasta">Hasta (vacío = día suelto)</label>
-                            <input id="suplenciaFechaHasta" type="date">
-                        </div>
+                        <div id="suplenciaCalendario"></div>
                     </div>
                     <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.8rem;">
                         <input type="checkbox" id="suplenciaUrgente">
@@ -750,6 +764,7 @@
                 <button class="tab-btn" id="tabTrayectoria" onclick="app.perfil.switchTab('trayectoria')">Trayectoria</button>
                 <button class="tab-btn" id="tabCv" onclick="app.perfil.switchTab('cv')">Mi CV</button>
                 <button class="tab-btn" id="tabPortfolio" onclick="app.perfil.switchTab('portfolio')">Portfolio</button>
+                <button class="tab-btn" id="tabDisponibilidad" onclick="app.perfil.switchTab('disponibilidad')">🗓️ Disponibilidad</button>
                 <button class="tab-btn" id="tabFotos" onclick="app.perfil.switchTab('fotos')">Fotos</button>
                 <button class="tab-btn" id="tabSedes" onclick="app.perfil.switchTab('sedes')">Sedes</button>
             </div>
@@ -759,6 +774,14 @@
                 <div id="misDatosContainer">
                     <p style="text-align: center; color: #999;">Cargando...</p>
                 </div>
+            </div>
+
+            <!-- Tab: Disponibilidad para suplencias (dentistas) -->
+            <div id="tab-disponibilidad" class="tab-content">
+                <h4 style="color: #0f4c75; margin: 0 0 0.5rem 0;">🗓️ Mi disponibilidad para suplencias</h4>
+                <p style="color: #6b7280; font-size: 0.9rem; margin: 0 0 1rem;">Marca los días en los que podrías cubrir una suplencia. Ayuda a las clínicas a saber cuándo cuentan contigo, y podrás filtrar las suplencias por tus días libres.</p>
+                <div id="disponibilidadCalendario"></div>
+                <button class="btn-primary" style="margin-top: 1rem;" onclick="app.disponibilidad.guardar()">Guardar disponibilidad</button>
             </div>
 
             <!-- Tab: Trayectoria profesional -->

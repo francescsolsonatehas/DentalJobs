@@ -2207,3 +2207,77 @@ select:focus {
   font-size: 0.85rem;
   margin: 0 0 1rem 0;
 }
+
+/* ============================================
+   Calendario de días (widget reutilizable)
+   ============================================ */
+.cal-widget {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.75rem;
+  background: #fff;
+  max-width: 340px;
+}
+.cal-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  color: #0f4c75;
+}
+.cal-cabecera strong { text-transform: capitalize; font-size: 0.95rem; }
+.cal-nav {
+  background: #f1f5f9;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  width: 2rem;
+  height: 2rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #0f4c75;
+}
+.cal-nav:hover { background: #e2e8f0; }
+.cal-rejilla {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.cal-celda {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  border-radius: 6px;
+}
+.cal-nombre-dia { color: #9ca3af; font-weight: 600; font-size: 0.75rem; }
+.cal-semana { margin-bottom: 2px; }
+.cal-dia {
+  cursor: pointer;
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+  color: #374151;
+  transition: background 0.12s, color 0.12s;
+}
+.cal-dia:hover { background: #dbeafe; }
+.cal-sel {
+  background: #0f4c75 !important;
+  border-color: #0f4c75 !important;
+  color: #fff !important;
+  font-weight: 700;
+}
+.cal-pasado {
+  color: #cbd5e1;
+  background: #fff;
+  border-color: transparent;
+  cursor: default;
+}
+.cal-pasado:hover { background: #fff; }
+.cal-vacia { background: transparent; }
+.cal-resumen {
+  margin: 0.6rem 0 0;
+  font-size: 0.82rem;
+  color: #6b7280;
+  text-align: center;
+}

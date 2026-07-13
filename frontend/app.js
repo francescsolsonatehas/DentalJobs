@@ -109,6 +109,31 @@ const utils = {
     return date.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
   },
 
+  // Formatea un día 'YYYY-MM-DD' como "14 ago" (sin desfases de zona horaria)
+  formatearDia(iso) {
+    const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return String(iso || "");
+    return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+  },
+
+  // Expande un rango 'YYYY-MM-DD' a la lista de días (ambos incluidos). Espejo
+  // cliente de backend/fechas.js expandirRango, con tope de seguridad.
+  expandirRango(desde, hasta) {
+    if (!desde) return [];
+    const fin = hasta || desde;
+    if (fin < desde) return [desde];
+    const dias = [];
+    let d = new Date(desde + "T00:00:00");
+    const limite = new Date(fin + "T00:00:00");
+    let guard = 0;
+    while (d <= limite && guard < 366) {
+      dias.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`);
+      d.setDate(d.getDate() + 1);
+      guard++;
+    }
+    return dias;
+  },
+
   formatearTamanyo(bytes) {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -298,6 +323,133 @@ const app = {
         app.modal.abrirAuthEmpresa();
       } else {
         app.modal.abrirAuthCandidato();
+      }
+    }
+  },
+
+  // ============================================
+  // Módulo: Calendario de días (widget reutilizable)
+  // Rejilla mensual donde el usuario marca/desmarca días. Lo usan el alta de
+  // suplencia (días que cubre) y la disponibilidad del dentista. Cada instancia
+  // se identifica por el id del contenedor donde se pinta.
+  // ============================================
+
+  calendario: {
+    _inst: {},
+    NOMBRES_MES: ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"],
+    DIAS_SEMANA: ["L","M","X","J","V","S","D"],
+
+    hoyISO() {
+      const h = new Date();
+      return `${h.getFullYear()}-${String(h.getMonth()+1).padStart(2,"0")}-${String(h.getDate()).padStart(2,"0")}`;
+    },
+
+    // Crea (o reinicia) una instancia en `containerId`. `seleccion` es un array de
+    // días 'YYYY-MM-DD'; `onChange(dias)` se llama en cada cambio.
+    crear(containerId, { seleccion = [], onChange } = {}) {
+      const base = seleccion.length ? new Date(seleccion.slice().sort()[0] + "T00:00:00") : new Date();
+      this._inst[containerId] = {
+        seleccion: new Set(seleccion),
+        anyo: base.getFullYear(),
+        mes: base.getMonth(),
+        onChange: onChange || (() => {})
+      };
+      this.render(containerId);
+    },
+
+    obtener(containerId) {
+      return [...(this._inst[containerId]?.seleccion || [])].sort();
+    },
+
+    fijar(containerId, dias) {
+      const inst = this._inst[containerId];
+      if (!inst) return;
+      inst.seleccion = new Set(dias);
+      this.render(containerId);
+    },
+
+    cambiarMes(containerId, delta) {
+      const inst = this._inst[containerId];
+      if (!inst) return;
+      let m = inst.mes + delta;
+      inst.anyo += Math.floor(m / 12);
+      inst.mes = ((m % 12) + 12) % 12;
+      this.render(containerId);
+    },
+
+    toggle(containerId, fecha) {
+      const inst = this._inst[containerId];
+      if (!inst) return;
+      if (inst.seleccion.has(fecha)) inst.seleccion.delete(fecha);
+      else inst.seleccion.add(fecha);
+      inst.onChange([...inst.seleccion].sort());
+      this.render(containerId);
+    },
+
+    render(containerId) {
+      const inst = this._inst[containerId];
+      const cont = document.getElementById(containerId);
+      if (!inst || !cont) return;
+
+      const { anyo, mes, seleccion } = inst;
+      const hoy = this.hoyISO();
+      const primero = new Date(anyo, mes, 1);
+      // getDay(): 0=domingo..6=sábado → convertir a semana que empieza en lunes
+      const offset = (primero.getDay() + 6) % 7;
+      const diasEnMes = new Date(anyo, mes + 1, 0).getDate();
+
+      let celdas = "";
+      for (let i = 0; i < offset; i++) celdas += `<div class="cal-celda cal-vacia"></div>`;
+      for (let d = 1; d <= diasEnMes; d++) {
+        const fecha = `${anyo}-${String(mes+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+        const pasado = fecha < hoy;
+        const sel = seleccion.has(fecha);
+        const clases = ["cal-celda", "cal-dia"];
+        if (sel) clases.push("cal-sel");
+        if (pasado) clases.push("cal-pasado");
+        const onclick = pasado ? "" : ` onclick="app.calendario.toggle('${containerId}','${fecha}')"`;
+        celdas += `<div class="${clases.join(" ")}"${onclick}>${d}</div>`;
+      }
+
+      const total = seleccion.size;
+      cont.innerHTML = `
+        <div class="cal-widget">
+          <div class="cal-cabecera">
+            <button type="button" class="cal-nav" onclick="app.calendario.cambiarMes('${containerId}',-1)">‹</button>
+            <strong>${this.NOMBRES_MES[mes]} ${anyo}</strong>
+            <button type="button" class="cal-nav" onclick="app.calendario.cambiarMes('${containerId}',1)">›</button>
+          </div>
+          <div class="cal-rejilla cal-semana">${this.DIAS_SEMANA.map(x => `<div class="cal-celda cal-nombre-dia">${x}</div>`).join("")}</div>
+          <div class="cal-rejilla">${celdas}</div>
+          <p class="cal-resumen">${total === 0 ? "Ningún día seleccionado" : `${total} día${total===1?"":"s"} seleccionado${total===1?"":"s"}`}</p>
+        </div>`;
+    }
+  },
+
+  // ============================================
+  // Módulo: Disponibilidad del dentista para suplencias
+  // ============================================
+
+  disponibilidad: {
+    async cargar() {
+      try {
+        const data = await utils.request("/disponibilidad");
+        app.calendario.crear("disponibilidadCalendario", { seleccion: data.dias || [] });
+      } catch (error) {
+        app.calendario.crear("disponibilidadCalendario", { seleccion: [] });
+      }
+    },
+
+    async guardar() {
+      const dias = app.calendario.obtener("disponibilidadCalendario");
+      try {
+        await utils.request("/disponibilidad", {
+          method: "PUT",
+          body: JSON.stringify({ dias })
+        });
+        utils.mostrarAlerta(dias.length ? `Disponibilidad guardada (${dias.length} día${dias.length === 1 ? "" : "s"})` : "Disponibilidad vaciada", "success");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
       }
     }
   },
@@ -606,6 +758,19 @@ const app = {
         tipo = estadoApp.tipoUsuario === 'clinica' ? 'solicitud' : 'oferta';
       }
 
+      // El filtro por fecha solo se muestra al navegar suplencias
+      const grupoFechaDesde = document.getElementById("filterFechaDesdeGroup");
+      const grupoFechaHasta = document.getElementById("filterFechaHastaGroup");
+      if (grupoFechaDesde && grupoFechaHasta) {
+        const mostrarFecha = estadoApp.filtros.verSuplencias ? "block" : "none";
+        grupoFechaDesde.style.display = mostrarFecha;
+        grupoFechaHasta.style.display = mostrarFecha;
+        if (!estadoApp.filtros.verSuplencias) {
+          document.getElementById("filterFechaDesde").value = "";
+          document.getElementById("filterFechaHasta").value = "";
+        }
+      }
+
       const q = document.getElementById("filterQ").value;
       const ciudad = document.getElementById("filterCiudad").value;
       const radioKm = document.getElementById("filterRadio")?.value || "";
@@ -617,6 +782,8 @@ const app = {
       const retribucion = document.getElementById("filterRetribucion").value;
       const salarioMin = document.getElementById("filterSalarioMin").value;
       const experienciaMin = document.getElementById("filterExperienciaMin").value;
+      const fechaDesde = document.getElementById("filterFechaDesde")?.value || "";
+      const fechaHasta = document.getElementById("filterFechaHasta")?.value || "";
       const orden = document.getElementById("filterOrden").value;
 
       estadoApp.filtros = { tipo, q, ciudad, radioKm, especialidad, contrato, jornada, equipamiento, certificacion, retribucion, salarioMin, experienciaMin, orden, soloMias: estadoApp.filtros.soloMias, verSuplencias: estadoApp.filtros.verSuplencias };
@@ -637,6 +804,9 @@ const app = {
         if (retribucion) url += `retribucion=${retribucion}&`;
         if (salarioMin) url += `salarioMin=${salarioMin}&`;
         if (experienciaMin) url += `experienciaMin=${experienciaMin}&`;
+        // Filtro por fecha: solo tiene sentido en suplencias (usa suplencia_dias)
+        if (estadoApp.filtros.verSuplencias && fechaDesde) url += `fechaDesde=${fechaDesde}&`;
+        if (estadoApp.filtros.verSuplencias && fechaHasta) url += `fechaHasta=${fechaHasta}&`;
         if (orden && orden !== 'recientes') {
           url += `sort=${orden}&`;
           if (orden === 'relevancia' && estadoApp.usuario) url += `paraUsuarioId=${estadoApp.usuario.id}&`;
@@ -767,8 +937,7 @@ const app = {
           ciudad: document.getElementById("suplenciaCiudad").value,
           especialidades: especialidades,
           salario: document.getElementById("suplenciaSalario").value || null,
-          fecha_desde: document.getElementById("suplenciaFechaDesde").value || null,
-          fecha_hasta: document.getElementById("suplenciaFechaHasta").value || null,
+          dias: app.calendario.obtener("suplenciaCalendario"),
           urgente: document.getElementById("suplenciaUrgente").checked,
           nombre_contacto: document.getElementById("suplenciaNombreContacto").value,
           email_contacto: document.getElementById("suplenciaEmailContacto").value,
@@ -812,8 +981,8 @@ const app = {
         return;
       }
 
-      if (tipo === "suplencia" && !formData.fecha_desde) {
-        utils.mostrarAlerta("Indica al menos la fecha de inicio de la suplencia", "error");
+      if (tipo === "suplencia" && (!formData.dias || formData.dias.length === 0)) {
+        utils.mostrarAlerta("Marca en el calendario al menos un día para la suplencia", "error");
         return;
       }
 
@@ -922,6 +1091,22 @@ const app = {
       checkboxes.forEach(cb => {
         cb.checked = marcarTodas.checked;
       });
+    },
+
+    // Añade todos los días de un rango al calendario indicado, para no tener que
+    // marcarlos uno a uno cuando son seguidos. La usan el alta y la edición de suplencia.
+    anadirRangoCalendario(calId, desdeId, hastaId) {
+      const desde = document.getElementById(desdeId).value;
+      const hasta = document.getElementById(hastaId).value;
+      if (!desde) {
+        utils.mostrarAlerta("Elige al menos la fecha 'desde' del rango", "error");
+        return;
+      }
+      const actuales = new Set(app.calendario.obtener(calId));
+      utils.expandirRango(desde, hasta || desde).forEach(d => actuales.add(d));
+      app.calendario.fijar(calId, [...actuales]);
+      document.getElementById(desdeId).value = "";
+      document.getElementById(hastaId).value = "";
     },
 
     // Copia al portapapeles la URL pública (indexable) de una oferta
@@ -1231,6 +1416,9 @@ const app = {
         app.catalogos.renderizarEquipamientoPublicar('suplencia');
         app.publicaciones.toggleRetribucion('oferta');
         app.publicaciones.toggleRetribucion('suplencia');
+        app.calendario.crear("suplenciaCalendario", {});
+        document.getElementById("suplenciaRangoDesde").value = "";
+        document.getElementById("suplenciaRangoHasta").value = "";
         document.getElementById("modalPublicarTitle").textContent = "Publicar nueva oferta";
       } else {
         // Candidato solo ve tab de Solicitud
@@ -1332,6 +1520,15 @@ const app = {
         }
       }
 
+      // Días concretos de la suplencia (los trae el detalle /publicaciones/:id)
+      let diasSuplencia = [];
+      if (publicacion.tipo === 'suplencia') {
+        try {
+          const det = await utils.request(`/publicaciones/${publicacion.id}`);
+          diasSuplencia = det.dias || [];
+        } catch (error) { /* sin días */ }
+      }
+
       let html = `
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 1.5rem;">
           <tbody>
@@ -1343,10 +1540,12 @@ const app = {
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">Tipo:</td>
               <td style="padding: 0.8rem;">${publicacion.tipo === 'oferta' ? '📋 Oferta' : publicacion.tipo === 'suplencia' ? `🚨 Suplencia${publicacion.urgente ? ' (urgente)' : ''}` : '🔍 Solicitud'}</td>
             </tr>
-            ${publicacion.tipo === 'suplencia' && (publicacion.fecha_desde || publicacion.fecha_hasta) ? `
+            ${publicacion.tipo === 'suplencia' && (diasSuplencia.length || publicacion.fecha_desde) ? `
             <tr style="border-bottom: 1px solid #e5e7eb;">
-              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🗓️ Fechas:</td>
-              <td style="padding: 0.8rem;">${utils.escapeHtml([publicacion.fecha_desde, publicacion.fecha_hasta].filter(Boolean).join(' → '))}</td>
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🗓️ Días:</td>
+              <td style="padding: 0.8rem;">${diasSuplencia.length
+                ? `<div class="badges" style="gap:.3rem;">${diasSuplencia.map(d => `<span class="badge">${utils.escapeHtml(utils.formatearDia(d))}</span>`).join("")}</div>`
+                : utils.escapeHtml([publicacion.fecha_desde, publicacion.fecha_hasta].filter(Boolean).join(' → '))}</td>
             </tr>
             ` : ''}
             ${publicacion.usuario_nombre ? `
@@ -1495,6 +1694,15 @@ const app = {
         preguntasActuales = pub.preguntas ? (typeof pub.preguntas === 'string' ? JSON.parse(pub.preguntas) : pub.preguntas) : [];
       } catch (e) { preguntasActuales = []; }
 
+      // Días actuales de la suplencia, para prerrellenar el calendario de edición
+      let diasActuales = [];
+      if (pub.tipo === 'suplencia') {
+        try {
+          const det = await utils.request(`/publicaciones/${pub.id}`);
+          diasActuales = det.dias || [];
+        } catch (e) { diasActuales = []; }
+      }
+
       let html = `
         <form id="formEdicion" onsubmit="event.preventDefault(); app.modal.guardarEdicion();">
           <div class="form-group">
@@ -1545,6 +1753,22 @@ const app = {
               <option value="Flexible" ${pub.jornada === 'Flexible' ? 'selected' : ''}>Flexible</option>
             </select>
           </div>
+          ${pub.tipo === 'suplencia' ? `
+          <div class="form-group">
+            <label>Días de la suplencia *</label>
+            <div style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 0.7rem;">
+              <div class="form-group" style="margin: 0;">
+                <label style="font-size: 0.8rem;">Añadir rango: desde</label>
+                <input id="editRangoDesde" type="date">
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label style="font-size: 0.8rem;">hasta</label>
+                <input id="editRangoHasta" type="date">
+              </div>
+              <button type="button" class="btn-outline btn-small" onclick="app.publicaciones.anadirRangoCalendario('editSuplenciaCalendario','editRangoDesde','editRangoHasta')" style="margin-bottom: 0.15rem;">+ Añadir</button>
+            </div>
+            <div id="editSuplenciaCalendario"></div>
+          </div>` : ''}
           <div class="form-group">
             <label for="editSalario">Salario</label>
             <input id="editSalario" type="text" value="${utils.escapeHtml(pub.salario || '')}">
@@ -1574,6 +1798,10 @@ const app = {
 
       document.getElementById("detalleBody").innerHTML = html;
       document.getElementById("detalleTitle").textContent = "Editar publicación";
+
+      if (pub.tipo === 'suplencia') {
+        app.calendario.crear("editSuplenciaCalendario", { seleccion: diasActuales });
+      }
     },
 
     marcarTodasEspecialidadesEdicion() {
@@ -1611,6 +1839,16 @@ const app = {
         const camposPregunta = document.querySelectorAll(".editPregunta");
         if (camposPregunta.length > 0) {
           data.preguntas = Array.from(camposPregunta).map(i => i.value.trim()).filter(v => v);
+        }
+
+        // Días de la suplencia (solo si es una suplencia y el calendario existe)
+        if (pub.tipo === 'suplencia') {
+          const dias = app.calendario.obtener("editSuplenciaCalendario");
+          if (dias.length === 0) {
+            utils.mostrarAlerta("Marca en el calendario al menos un día para la suplencia", "error");
+            return;
+          }
+          data.dias = dias;
         }
 
         await utils.request(`/publicaciones/${pub.id}`, {
@@ -3564,6 +3802,7 @@ const app = {
         document.getElementById("tabTrayectoria").style.display = "none";
         document.getElementById("tabCv").style.display = "none";
         document.getElementById("tabPortfolio").style.display = "none";
+        document.getElementById("tabDisponibilidad").style.display = "none";
         document.getElementById("tabFotos").style.display = "inline-block";
         document.getElementById("tabSedes").style.display = "inline-block";
         document.getElementById("perfilTitle").textContent = "Datos de la Empresa";
@@ -3573,6 +3812,7 @@ const app = {
         document.getElementById("tabTrayectoria").style.display = "inline-block";
         document.getElementById("tabCv").style.display = "inline-block";
         document.getElementById("tabPortfolio").style.display = "inline-block";
+        document.getElementById("tabDisponibilidad").style.display = "inline-block";
         document.getElementById("tabFotos").style.display = "none";
         document.getElementById("tabSedes").style.display = "none";
         document.getElementById("perfilTitle").textContent = "Mi perfil";
@@ -3600,6 +3840,9 @@ const app = {
       // La pestaña de CV muestra una vista previa generada a partir de Mis datos + Trayectoria
       if (tab === 'cv' && estadoApp.tipoUsuario === 'dentista') {
         app.perfil.renderPreviewCv();
+      }
+      if (tab === 'disponibilidad' && estadoApp.tipoUsuario === 'dentista') {
+        app.disponibilidad.cargar();
       }
     },
 
