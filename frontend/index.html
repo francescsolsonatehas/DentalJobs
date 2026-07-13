@@ -201,6 +201,16 @@
                     <input id="filterCiudad" placeholder="Ej: Madrid, Barcelona..." oninput="app.publicaciones.cargar()">
                 </div>
                 <div class="filter-group">
+                    <label for="filterRadio">Radio</label>
+                    <select id="filterRadio" onchange="app.publicaciones.cargar()" title="Busca publicaciones a esta distancia de la ciudad indicada">
+                        <option value="">Solo esa ciudad</option>
+                        <option value="10">a 10 km</option>
+                        <option value="25">a 25 km</option>
+                        <option value="50">a 50 km</option>
+                        <option value="100">a 100 km</option>
+                    </select>
+                </div>
+                <div class="filter-group">
                     <label for="filterEspecialidad">Especialidad</label>
                     <select id="filterEspecialidad" onchange="app.publicaciones.cargar()">
                         <option value="">Todas las especialidades</option>

@@ -594,6 +594,7 @@ const app = {
 
       const q = document.getElementById("filterQ").value;
       const ciudad = document.getElementById("filterCiudad").value;
+      const radioKm = document.getElementById("filterRadio")?.value || "";
       const especialidad = document.getElementById("filterEspecialidad").value;
       const contrato = document.getElementById("filterContrato").value;
       const jornada = document.getElementById("filterJornada").value;
@@ -604,7 +605,7 @@ const app = {
       const experienciaMin = document.getElementById("filterExperienciaMin").value;
       const orden = document.getElementById("filterOrden").value;
 
-      estadoApp.filtros = { tipo, q, ciudad, especialidad, contrato, jornada, equipamiento, certificacion, retribucion, salarioMin, experienciaMin, orden, soloMias: estadoApp.filtros.soloMias, verSuplencias: estadoApp.filtros.verSuplencias };
+      estadoApp.filtros = { tipo, q, ciudad, radioKm, especialidad, contrato, jornada, equipamiento, certificacion, retribucion, salarioMin, experienciaMin, orden, soloMias: estadoApp.filtros.soloMias, verSuplencias: estadoApp.filtros.verSuplencias };
 
       let url = "/publicaciones?";
       if (tipo) url += `tipo=${tipo}&`;
@@ -613,6 +614,7 @@ const app = {
       } else {
         if (q) url += `q=${encodeURIComponent(q)}&`;
         if (ciudad) url += `ciudad=${encodeURIComponent(ciudad)}&`;
+        if (ciudad && radioKm) url += `radioKm=${encodeURIComponent(radioKm)}&`;
         if (especialidad) url += `especialidad=${especialidad}&`;
         if (contrato) url += `contrato=${encodeURIComponent(contrato)}&`;
         if (jornada) url += `jornada=${encodeURIComponent(jornada)}&`;

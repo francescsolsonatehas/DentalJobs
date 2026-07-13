@@ -19,6 +19,7 @@ const { enviarEmail, plantilla, urlFrontend } = require("./email");
 const { ETIQUETAS_ESTADO } = require("./catalogos");
 const { construirFiltros } = require("./filtros-publicaciones");
 const { generarCsv } = require("./exportaciones");
+const { geocodificarCiudad } = require("./municipios-coords");
 const crypto = require("crypto");
 
 // Notifica por email a un usuario, si tiene los avisos activados
@@ -1474,7 +1475,20 @@ app.get("/publicaciones", (req, res) => {
     selectParams.push(paraUsuarioId);
   }
 
-  const filtros = construirFiltros(req.query);
+  // Búsqueda por radio: geocodificar la ciudad como centro. Si no se reconoce
+  // la ciudad, se ignora el radio y se cae al filtro normal por ciudad.
+  const filtrosQuery = { ...req.query };
+  if (filtrosQuery.radioKm && filtrosQuery.ciudad) {
+    const centro = geocodificarCiudad(filtrosQuery.ciudad);
+    if (centro) {
+      filtrosQuery.latCentro = centro.lat;
+      filtrosQuery.lonCentro = centro.lon;
+    } else {
+      delete filtrosQuery.radioKm;
+    }
+  }
+
+  const filtros = construirFiltros(filtrosQuery);
   let query = `SELECT ${selectCols} FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id WHERE p.activo = 1${filtros.sql}`;
   const params = [...selectParams, ...filtros.params];
 
@@ -1791,12 +1805,13 @@ app.post("/publicaciones", verifyToken, (req, res) => {
     const emailContactoFinal = opts.emailContacto !== undefined ? opts.emailContacto : email_contacto;
     const telefonoContactoFinal = opts.telefonoContacto !== undefined ? opts.telefonoContacto : telefono_contacto;
     const equiposFinal = opts.equipos !== undefined ? opts.equipos : equipamientoValido;
+    const geo = geocodificarCiudad(ciudadFinal);
 
     db.run(
       `INSERT INTO publicaciones
-       (tipo, descripcion, ciudad, provincia, especialidad_id, contrato, jornada, salario, salario_min, salario_max, experiencia_minima, usuario_id, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente, retribucion_tipo, retribucion_porcentaje)
-       VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [tipo, descripcion, ciudadFinal, provinciaFinal, contrato || null, jornada || null, salario || null, salarioMin, hastaNum, experienciaMinima, req.usuario.id, nombreContactoFinal, emailContactoFinal, telefonoContactoFinal, sedeIdValidada, tipo === 'suplencia' ? (fecha_desde || null) : null, tipo === 'suplencia' ? (fecha_hasta || null) : null, tipo === 'suplencia' && urgente ? 1 : 0, retribucionTipoFinal, retribucionPorcentajeFinal],
+       (tipo, descripcion, ciudad, provincia, especialidad_id, contrato, jornada, salario, salario_min, salario_max, experiencia_minima, usuario_id, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente, retribucion_tipo, retribucion_porcentaje, lat, lon)
+       VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [tipo, descripcion, ciudadFinal, provinciaFinal, contrato || null, jornada || null, salario || null, salarioMin, hastaNum, experienciaMinima, req.usuario.id, nombreContactoFinal, emailContactoFinal, telefonoContactoFinal, sedeIdValidada, tipo === 'suplencia' ? (fecha_desde || null) : null, tipo === 'suplencia' ? (fecha_hasta || null) : null, tipo === 'suplencia' && urgente ? 1 : 0, retribucionTipoFinal, retribucionPorcentajeFinal, geo ? geo.lat : null, geo ? geo.lon : null],
       function(err) {
         if (err) {
           console.error(err);
@@ -2044,13 +2059,15 @@ app.put("/publicaciones/:id", verifyToken, (req, res) => {
     const salarioMin = salarioMatch ? parseInt(salarioMatch[0]) : null;
     const experienciaMinima = experiencia !== undefined && experiencia !== null && experiencia !== '' ? parseInt(experiencia) : null;
 
+    const geo = geocodificarCiudad(ciudad);
+
     db.run(
       `UPDATE publicaciones
        SET descripcion = ?, ciudad = ?, contrato = ?, jornada = ?, salario = ?, salario_min = ?, experiencia_minima = ?,
-           nombre_contacto = ?, email_contacto = ?, telefono_contacto = ?
+           nombre_contacto = ?, email_contacto = ?, telefono_contacto = ?, lat = ?, lon = ?
        WHERE id = ?`,
       [descripcion, ciudad, contrato || null, jornada || null, salario || null, salarioMin, experienciaMinima,
-       nombre_contacto, email_contacto, telefono_contacto || null, publicacionId],
+       nombre_contacto, email_contacto, telefono_contacto || null, geo ? geo.lat : null, geo ? geo.lon : null, publicacionId],
       function(err) {
         if (err) {
           console.error(err);

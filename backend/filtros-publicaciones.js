@@ -7,11 +7,18 @@
 function construirFiltros(query = {}) {
   const {
     tipo, especialidad, ciudad, usuario_id, contrato, jornada,
-    salarioMin, salarioMax, experienciaMin, q, equipamiento, retribucion, certificacion
+    salarioMin, salarioMax, experienciaMin, q, equipamiento, retribucion, certificacion,
+    radioKm, latCentro, lonCentro
   } = query;
 
   const clausulas = [];
   const params = [];
+
+  // Búsqueda por radio: si viene un centro geocodificado y un radio en km, se
+  // filtra por un recuadro (bounding box) alrededor del centro en vez de por
+  // coincidencia exacta de ciudad. El recuadro es una aproximación barata del
+  // círculo, suficiente para "a X km de".
+  const usarRadio = radioKm && latCentro != null && lonCentro != null;
 
   if (tipo) {
     clausulas.push("p.tipo = ?");
@@ -23,7 +30,15 @@ function construirFiltros(query = {}) {
     params.push(usuario_id);
   }
 
-  if (ciudad) {
+  if (usarRadio) {
+    const km = Math.min(Math.max(parseInt(radioKm) || 0, 1), 500);
+    const lat = parseFloat(latCentro);
+    const lon = parseFloat(lonCentro);
+    const dLat = km / 111;
+    const dLon = km / (111 * Math.cos((lat * Math.PI) / 180) || 1);
+    clausulas.push("p.lat IS NOT NULL AND p.lat BETWEEN ? AND ? AND p.lon BETWEEN ? AND ?");
+    params.push(lat - dLat, lat + dLat, lon - dLon, lon + dLon);
+  } else if (ciudad) {
     clausulas.push("p.ciudad LIKE ?");
     params.push(`%${ciudad}%`);
   }

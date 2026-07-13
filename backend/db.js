@@ -437,6 +437,23 @@ db.serialize(() => {
     stmt.finalize();
   });
 
+  // Coordenadas de la publicación (geocodificadas desde su ciudad), para la
+  // búsqueda por radio en km.
+  db.run(`ALTER TABLE publicaciones ADD COLUMN lat REAL`, () => {});
+  db.run(`ALTER TABLE publicaciones ADD COLUMN lon REAL`, () => {});
+
+  // Backfill: geocodificar la ciudad de las publicaciones que aún no tienen coordenadas
+  const { geocodificarCiudad } = require("./municipios-coords");
+  db.all("SELECT id, ciudad FROM publicaciones WHERE lat IS NULL AND ciudad IS NOT NULL", (err, filas) => {
+    if (err || !filas) return;
+    const stmt = db.prepare("UPDATE publicaciones SET lat = ?, lon = ? WHERE id = ?");
+    filas.forEach(fila => {
+      const geo = geocodificarCiudad(fila.ciudad);
+      if (geo) stmt.run(geo.lat, geo.lon, fila.id);
+    });
+    stmt.finalize();
+  });
+
   db.get("SELECT COUNT(*) as count FROM especialidades", (err, row) => {
     if (row.count === 0) {
       const especializaciones = [
