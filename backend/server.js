@@ -1762,8 +1762,20 @@ app.get("/publicaciones/usuario/:usuario_id/candidatos", verifyToken, (req, res)
   );
 });
 
+// Sanea las preguntas de criba de una oferta: máximo 3, sin vacías, recortadas.
+const MAX_PREGUNTAS_CRIBA = 3;
+function sanearPreguntas(preguntas) {
+  if (!Array.isArray(preguntas)) return [];
+  return preguntas
+    .map(p => String(p || "").trim().slice(0, 200))
+    .filter(p => p.length > 0)
+    .slice(0, MAX_PREGUNTAS_CRIBA);
+}
+
 app.post("/publicaciones", verifyToken, (req, res) => {
-  const { tipo, descripcion, ciudad, provincia, especialidades, contrato, jornada, salario, salarioDesde, salarioHasta, experiencia, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente, retribucionTipo, retribucionPorcentaje, equipamiento } = req.body;
+  const { tipo, descripcion, ciudad, provincia, especialidades, contrato, jornada, salario, salarioDesde, salarioHasta, experiencia, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente, retribucionTipo, retribucionPorcentaje, equipamiento, preguntas } = req.body;
+  // Las preguntas de criba solo aplican a ofertas/suplencias (las publica la clínica)
+  const preguntasCriba = (tipo === "oferta" || tipo === "suplencia") ? sanearPreguntas(preguntas) : [];
 
   // La ciudad de las solicitudes se hereda del perfil del dentista (no editable), así que aquí no es obligatoria
   if (!tipo || (tipo !== 'solicitud' && !ciudad)) {
@@ -1809,9 +1821,9 @@ app.post("/publicaciones", verifyToken, (req, res) => {
 
     db.run(
       `INSERT INTO publicaciones
-       (tipo, descripcion, ciudad, provincia, especialidad_id, contrato, jornada, salario, salario_min, salario_max, experiencia_minima, usuario_id, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente, retribucion_tipo, retribucion_porcentaje, lat, lon)
-       VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [tipo, descripcion, ciudadFinal, provinciaFinal, contrato || null, jornada || null, salario || null, salarioMin, hastaNum, experienciaMinima, req.usuario.id, nombreContactoFinal, emailContactoFinal, telefonoContactoFinal, sedeIdValidada, tipo === 'suplencia' ? (fecha_desde || null) : null, tipo === 'suplencia' ? (fecha_hasta || null) : null, tipo === 'suplencia' && urgente ? 1 : 0, retribucionTipoFinal, retribucionPorcentajeFinal, geo ? geo.lat : null, geo ? geo.lon : null],
+       (tipo, descripcion, ciudad, provincia, especialidad_id, contrato, jornada, salario, salario_min, salario_max, experiencia_minima, usuario_id, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente, retribucion_tipo, retribucion_porcentaje, lat, lon, preguntas)
+       VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [tipo, descripcion, ciudadFinal, provinciaFinal, contrato || null, jornada || null, salario || null, salarioMin, hastaNum, experienciaMinima, req.usuario.id, nombreContactoFinal, emailContactoFinal, telefonoContactoFinal, sedeIdValidada, tipo === 'suplencia' ? (fecha_desde || null) : null, tipo === 'suplencia' ? (fecha_hasta || null) : null, tipo === 'suplencia' && urgente ? 1 : 0, retribucionTipoFinal, retribucionPorcentajeFinal, geo ? geo.lat : null, geo ? geo.lon : null, preguntasCriba.length ? JSON.stringify(preguntasCriba) : null],
       function(err) {
         if (err) {
           console.error(err);
@@ -2038,7 +2050,9 @@ app.post("/publicaciones/:id/especialidades", verifyToken, (req, res) => {
 });
 
 app.put("/publicaciones/:id", verifyToken, (req, res) => {
-  const { descripcion, ciudad, especialidades, contrato, jornada, salario, experiencia, nombre_contacto, email_contacto, telefono_contacto } = req.body;
+  const { descripcion, ciudad, especialidades, contrato, jornada, salario, experiencia, nombre_contacto, email_contacto, telefono_contacto, preguntas } = req.body;
+  // Solo se actualizan las preguntas si el cliente las envía (undefined = no tocar)
+  const preguntasCriba = preguntas !== undefined ? sanearPreguntas(preguntas) : undefined;
   const publicacionId = req.params.id;
 
   db.get("SELECT usuario_id FROM publicaciones WHERE id = ?", [publicacionId], (err, pub) => {
@@ -2061,13 +2075,18 @@ app.put("/publicaciones/:id", verifyToken, (req, res) => {
 
     const geo = geocodificarCiudad(ciudad);
 
+    const setPreguntas = preguntasCriba !== undefined ? ", preguntas = ?" : "";
+    const paramsPreguntas = preguntasCriba !== undefined
+      ? [preguntasCriba.length ? JSON.stringify(preguntasCriba) : null]
+      : [];
+
     db.run(
       `UPDATE publicaciones
        SET descripcion = ?, ciudad = ?, contrato = ?, jornada = ?, salario = ?, salario_min = ?, experiencia_minima = ?,
-           nombre_contacto = ?, email_contacto = ?, telefono_contacto = ?, lat = ?, lon = ?
+           nombre_contacto = ?, email_contacto = ?, telefono_contacto = ?, lat = ?, lon = ?${setPreguntas}
        WHERE id = ?`,
       [descripcion, ciudad, contrato || null, jornada || null, salario || null, salarioMin, experienciaMinima,
-       nombre_contacto, email_contacto, telefono_contacto || null, geo ? geo.lat : null, geo ? geo.lon : null, publicacionId],
+       nombre_contacto, email_contacto, telefono_contacto || null, geo ? geo.lat : null, geo ? geo.lon : null, ...paramsPreguntas, publicacionId],
       function(err) {
         if (err) {
           console.error(err);
@@ -3439,16 +3458,42 @@ app.get("/candidaturas/export.csv", verifyToken, async (req, res) => {
 
 // Crear candidatura (dentista postulándose a oferta)
 app.post("/candidaturas", verifyToken, (req, res) => {
-  const { publicacion_id, mensaje } = req.body;
+  const { publicacion_id, mensaje, respuestas } = req.body;
   const usuario_id = req.usuario.id;
 
   if (!publicacion_id) {
     return res.status(400).json({ error: "publicacion_id requerido" });
   }
 
+  // Si la oferta tiene preguntas de criba, exigir una respuesta a cada una
+  db.get("SELECT preguntas FROM publicaciones WHERE id = ?", [publicacion_id], (errPub, pub) => {
+    if (errPub) {
+      console.error(errPub);
+      return res.status(500).json({ error: "Error al postularse" });
+    }
+    let preguntas = [];
+    try { preguntas = pub && pub.preguntas ? JSON.parse(pub.preguntas) : []; } catch (e) {}
+
+    let respuestasJson = null;
+    if (preguntas.length > 0) {
+      const dadas = Array.isArray(respuestas) ? respuestas : [];
+      const emparejadas = preguntas.map((pregunta, i) => ({
+        pregunta,
+        respuesta: String(dadas[i] || "").trim().slice(0, 1000)
+      }));
+      if (emparejadas.some(r => r.respuesta.length === 0)) {
+        return res.status(400).json({ error: "Responde a todas las preguntas de la oferta" });
+      }
+      respuestasJson = JSON.stringify(emparejadas);
+    }
+
+    insertarCandidatura(respuestasJson);
+  });
+
+  function insertarCandidatura(respuestasJson) {
   db.run(
-    "INSERT INTO candidaturas (publicacion_id, usuario_id, estado, mensaje) VALUES (?, ?, 'pendiente', ?)",
-    [publicacion_id, usuario_id, mensaje || null],
+    "INSERT INTO candidaturas (publicacion_id, usuario_id, estado, mensaje, respuestas) VALUES (?, ?, 'pendiente', ?, ?)",
+    [publicacion_id, usuario_id, mensaje || null, respuestasJson],
     function(err) {
       if (err) {
         if (err.message.includes("UNIQUE")) {
@@ -3482,6 +3527,7 @@ app.post("/candidaturas", verifyToken, (req, res) => {
       );
     }
   );
+  }
 });
 
 // Obtener mis postulaciones (dentista)

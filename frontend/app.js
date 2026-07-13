@@ -265,6 +265,20 @@ const utils = {
       .replace(/'/g, '&#39;');
   },
 
+  // Bloque con las respuestas de criba de una candidatura (JSON [{pregunta,respuesta}]).
+  respuestasCribaHtml(raw) {
+    let arr = [];
+    try { arr = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : []; } catch (e) { return ''; }
+    if (!Array.isArray(arr) || arr.length === 0) return '';
+    return `<div style="margin: 0.5rem 0 0 0; padding: 0.75rem; background: #ecfdf5; border-radius: 6px; border-left: 3px solid #10b981;">
+      <p style="margin: 0 0 0.5rem 0; font-size: 0.8rem; font-weight: 600; color: #065f46;">📋 Respuestas de criba</p>
+      ${arr.map(r => `<div style="margin-bottom: 0.5rem;">
+        <p style="margin: 0; font-size: 0.82rem; color: #047857; font-weight: 600;">${utils.escapeHtml(r.pregunta)}</p>
+        <p style="margin: 0; font-size: 0.88rem; color: #374151; white-space: pre-wrap;">${utils.escapeHtml(r.respuesta)}</p>
+      </div>`).join('')}
+    </div>`;
+  },
+
   ocultarElementos(...ids) {
     ids.forEach(id => {
       const el = document.getElementById(id);
@@ -740,7 +754,8 @@ const app = {
           sede_id: document.getElementById("ofertaSede")?.value || null,
           retribucionTipo: document.querySelector('input[name="ofertaRetribucionTipo"]:checked')?.value || 'fijo',
           retribucionPorcentaje: document.getElementById("ofertaRetribucionPorcentaje").value || null,
-          equipamiento: Array.from(document.querySelectorAll('#ofertaEquipamientoContainer input[type="checkbox"]:checked')).map(cb => cb.value)
+          equipamiento: Array.from(document.querySelectorAll('#ofertaEquipamientoContainer input[type="checkbox"]:checked')).map(cb => cb.value),
+          preguntas: Array.from(document.querySelectorAll('.ofertaPregunta')).map(i => i.value.trim()).filter(v => v)
         };
       } else if (tipo === "suplencia") {
         const especialidadesCheckboxes = document.querySelectorAll('#suplenciaEspecialidadesContainer input[type="checkbox"]:checked');
@@ -761,7 +776,8 @@ const app = {
           sede_id: document.getElementById("suplenciaSede")?.value || null,
           retribucionTipo: document.querySelector('input[name="suplenciaRetribucionTipo"]:checked')?.value || 'fijo',
           retribucionPorcentaje: document.getElementById("suplenciaRetribucionPorcentaje").value || null,
-          equipamiento: Array.from(document.querySelectorAll('#suplenciaEquipamientoContainer input[type="checkbox"]:checked')).map(cb => cb.value)
+          equipamiento: Array.from(document.querySelectorAll('#suplenciaEquipamientoContainer input[type="checkbox"]:checked')).map(cb => cb.value),
+          preguntas: Array.from(document.querySelectorAll('.suplenciaPregunta')).map(i => i.value.trim()).filter(v => v)
         };
       } else {
         // Obtener especialidades seleccionadas
@@ -1473,12 +1489,24 @@ const app = {
         console.error("Error al cargar especialidades:", error);
       }
 
+      // Preguntas de criba actuales (JSON) para prerrellenar el formulario
+      let preguntasActuales = [];
+      try {
+        preguntasActuales = pub.preguntas ? (typeof pub.preguntas === 'string' ? JSON.parse(pub.preguntas) : pub.preguntas) : [];
+      } catch (e) { preguntasActuales = []; }
+
       let html = `
         <form id="formEdicion" onsubmit="event.preventDefault(); app.modal.guardarEdicion();">
           <div class="form-group">
             <label for="editDescripcion">Descripción *</label>
             <textarea id="editDescripcion" required>${utils.escapeHtml(pub.descripcion)}</textarea>
           </div>
+          ${pub.tipo !== 'solicitud' ? `
+          <div class="form-group">
+            <label>Preguntas de criba <span style="color:#6b7280;font-weight:normal;">(opcional, máx. 3)</span></label>
+            <small style="color:#6b7280;display:block;margin-bottom:0.5rem;">El candidato deberá responderlas al postularse.</small>
+            ${[0, 1, 2].map(i => `<input class="editPregunta" type="text" maxlength="200" value="${utils.escapeHtml(preguntasActuales[i] || '')}" placeholder="Pregunta ${i + 1}" style="margin-bottom:0.4rem;">`).join('')}
+          </div>` : ''}
           <div class="form-group">
             <label for="editCiudad">Ciudad *</label>
             <input id="editCiudad" type="text" value="${utils.escapeHtml(pub.ciudad)}" required>
@@ -1579,6 +1607,12 @@ const app = {
           telefono_contacto: document.getElementById("editTelefonoContacto").value || null
         };
 
+        // Preguntas de criba (solo se envían si el formulario las incluye, es decir, no en solicitudes)
+        const camposPregunta = document.querySelectorAll(".editPregunta");
+        if (camposPregunta.length > 0) {
+          data.preguntas = Array.from(camposPregunta).map(i => i.value.trim()).filter(v => v);
+        }
+
         await utils.request(`/publicaciones/${pub.id}`, {
           method: 'PUT',
           body: JSON.stringify(data),
@@ -1628,10 +1662,38 @@ const app = {
       document.getElementById("modalCandidatos").classList.remove("active");
     },
 
+    // Preguntas de criba (killer questions) de la oferta a la que se postula el
+    // candidato. Se leen de estadoApp.publicacionActual.preguntas (JSON) y se
+    // pintan como campos obligatorios encima del mensaje.
+    renderPreguntasCriba() {
+      const cont = document.getElementById("postulacionPreguntas");
+      if (!cont) return;
+      let preguntas = [];
+      try {
+        const raw = estadoApp.publicacionActual && estadoApp.publicacionActual.preguntas;
+        preguntas = raw ? (typeof raw === "string" ? JSON.parse(raw) : raw) : [];
+      } catch (e) { preguntas = []; }
+
+      if (!Array.isArray(preguntas) || preguntas.length === 0) {
+        cont.innerHTML = "";
+        return;
+      }
+      cont.innerHTML = `
+        <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:1rem;margin-bottom:1rem;">
+          <p style="margin:0 0 0.75rem 0;font-weight:600;color:#0c4a6e;font-size:0.9rem;">📋 La clínica quiere que respondas${preguntas.length === 1 ? " a esta pregunta" : " a estas preguntas"}:</p>
+          ${preguntas.map((p, i) => `
+            <div class="form-group" style="margin-bottom:0.75rem;">
+              <label for="preguntaCriba${i}" style="font-size:0.88rem;">${utils.escapeHtml(p)} <span style="color:#dc2626;">*</span></label>
+              <textarea id="preguntaCriba${i}" data-pregunta-criba="${i}" required style="min-height:60px;" placeholder="Tu respuesta…"></textarea>
+            </div>`).join("")}
+        </div>`;
+    },
+
     abrirPostularseModal() {
       document.getElementById("modalPostularseForm").classList.add("active");
       document.getElementById("postulacionMensaje").value = "";
       document.getElementById("postulacionError").style.display = "none";
+      this.renderPreguntasCriba();
     },
 
     abrirPostularseDesdeOferta(oferta) {
@@ -1642,6 +1704,7 @@ const app = {
       document.getElementById("modalPostularseForm").classList.add("active");
       document.getElementById("postulacionMensaje").value = "";
       document.getElementById("postulacionError").style.display = "none";
+      this.renderPreguntasCriba();
     },
 
     cerrarPostularseModal() {
@@ -3092,6 +3155,7 @@ const app = {
                 <span style="background: ${estadoColor}; color: white; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.8rem; text-transform: capitalize; white-space: nowrap; margin-left: 1rem;">${utils.textoEstado(c.estado)}</span>
               </div>
               ${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; padding: 0.75rem; background: #f0f9ff; border-radius: 4px; border-left: 2px solid #0ea5e9; color: #0c4a6e;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}
+              ${utils.respuestasCribaHtml(c.respuestas)}
               <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
                 <button onclick="app.stats.mostrarPerfilDentista(${JSON.stringify(c).replace(/"/g, '&quot;')})" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
                 ${utils.selectorEstado(c.id, c.estado, `app.stats.cambiarEstadoCandidatura(${c.id}, this.value)`)}
@@ -6311,12 +6375,23 @@ const app = {
       const mensaje = document.getElementById("postulacionMensaje").value;
       const errorDiv = document.getElementById("postulacionError");
 
+      // Recoger respuestas a las preguntas de criba (si las hay), en orden
+      const camposPreguntas = Array.from(document.querySelectorAll("#postulacionPreguntas [data-pregunta-criba]"))
+        .sort((a, b) => Number(a.dataset.preguntaCriba) - Number(b.dataset.preguntaCriba));
+      const respuestas = camposPreguntas.map(c => c.value.trim());
+      if (camposPreguntas.length > 0 && respuestas.some(r => r.length === 0)) {
+        errorDiv.innerHTML = "Responde a todas las preguntas de la oferta.";
+        errorDiv.style.display = "block";
+        return;
+      }
+
       try {
         await utils.request("/candidaturas", {
           method: "POST",
           body: JSON.stringify({
             publicacion_id: estadoApp.publicacionActual.id,
-            mensaje: mensaje || null
+            mensaje: mensaje || null,
+            respuestas: respuestas.length ? respuestas : undefined
           })
         });
 
@@ -6400,7 +6475,7 @@ const app = {
         }
         const html = candidatos.map(c => {
           const estadoColor = utils.colorEstado(c.estado);
-          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.nombre)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Email:</strong> ${utils.escapeHtml(c.email)}</p>${c.telefono ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Teléfono:</strong> ${utils.escapeHtml(c.telefono)}</p>` : ''}${c.movil ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Móvil:</strong> ${utils.escapeHtml(c.movil)}</p>` : ''}${c.ciudad ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad)}</p>` : ''}${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; padding: 0.75rem; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #2563eb; color: #374151; font-size: 0.9rem;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}</div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize; display: inline-block; margin-bottom: 0.5rem;">${utils.textoEstado(c.estado)}</span><div style="display: flex; gap: 0.5rem; flex-direction: column;">${utils.selectorEstado(c.id, c.estado, `app.candidaturas.actualizarEstado(${c.id}, this.value, ${publicacionId})`)}</div></div></div></div>`;
+          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.nombre)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Email:</strong> ${utils.escapeHtml(c.email)}</p>${c.telefono ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Teléfono:</strong> ${utils.escapeHtml(c.telefono)}</p>` : ''}${c.movil ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Móvil:</strong> ${utils.escapeHtml(c.movil)}</p>` : ''}${c.ciudad ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad)}</p>` : ''}${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; padding: 0.75rem; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #2563eb; color: #374151; font-size: 0.9rem;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}${utils.respuestasCribaHtml(c.respuestas)}</div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize; display: inline-block; margin-bottom: 0.5rem;">${utils.textoEstado(c.estado)}</span><div style="display: flex; gap: 0.5rem; flex-direction: column;">${utils.selectorEstado(c.id, c.estado, `app.candidaturas.actualizarEstado(${c.id}, this.value, ${publicacionId})`)}</div></div></div></div>`;
         });
         container.innerHTML = `<div>${html.join('')}</div>`;
       } catch (error) {

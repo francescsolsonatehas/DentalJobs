@@ -111,6 +111,14 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
+  // Preguntas de criba (killer questions) que la clínica define en la oferta,
+  // y las respuestas que el candidato da al postularse. Ambas se guardan como
+  // JSON: preguntas = ["¿...?", ...]; respuestas = [{pregunta, respuesta}, ...]
+  // (las respuestas guardan también el texto de la pregunta para que sobrevivan
+  // aunque la oferta cambie sus preguntas más adelante).
+  db.run(`ALTER TABLE publicaciones ADD COLUMN preguntas TEXT`, () => {});
+  db.run(`ALTER TABLE candidaturas ADD COLUMN respuestas TEXT`, () => {});
+
   db.run(`ALTER TABLE usuarios ADD COLUMN direccion TEXT`, (err) => {
     // Ignorar error si la columna ya existe
   });

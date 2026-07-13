@@ -409,6 +409,13 @@
                         <textarea id="ofertaDescripcion" required></textarea>
                     </div>
                     <div class="form-group">
+                        <label>Preguntas de criba <span style="color: var(--gray-600); font-weight: normal;">(opcional, máx. 3)</span></label>
+                        <small style="color: var(--gray-600); display: block; margin-bottom: 0.5rem;">El candidato deberá responderlas al postularse.</small>
+                        <input class="ofertaPregunta" type="text" maxlength="200" placeholder="Ej: ¿Cuántos años de experiencia en implantología tienes?" style="margin-bottom: 0.4rem;">
+                        <input class="ofertaPregunta" type="text" maxlength="200" placeholder="Ej: ¿Tienes disponibilidad para trabajar los sábados?" style="margin-bottom: 0.4rem;">
+                        <input class="ofertaPregunta" type="text" maxlength="200" placeholder="Ej: ¿Estás colegiado/a en esta comunidad?">
+                    </div>
+                    <div class="form-group">
                         <label for="ofertaNombreContacto">Empresa (de tu perfil)</label>
                         <input id="ofertaNombreContacto" type="text" readonly style="background: #f3f4f6;">
                     </div>
@@ -567,6 +574,13 @@
                     <div class="form-group">
                         <label for="suplenciaDescripcion">Descripción *</label>
                         <textarea id="suplenciaDescripcion" required placeholder="Motivo de la suplencia, horario, equipo disponible..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Preguntas de criba <span style="color: var(--gray-600); font-weight: normal;">(opcional, máx. 3)</span></label>
+                        <small style="color: var(--gray-600); display: block; margin-bottom: 0.5rem;">El candidato deberá responderlas al postularse.</small>
+                        <input class="suplenciaPregunta" type="text" maxlength="200" placeholder="Ej: ¿Puedes incorporarte de inmediato?" style="margin-bottom: 0.4rem;">
+                        <input class="suplenciaPregunta" type="text" maxlength="200" placeholder="Ej: ¿Tienes experiencia con nuestro software de gestión?" style="margin-bottom: 0.4rem;">
+                        <input class="suplenciaPregunta" type="text" maxlength="200" placeholder="Ej: ¿Estás colegiado/a en esta comunidad?">
                     </div>
                     <div class="form-group">
                         <label for="suplenciaNombreContacto">Empresa (de tu perfil)</label>
@@ -1036,6 +1050,7 @@
             </div>
             <div id="postulacionError" style="background: #fee2e2; color: #991b1b; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; display: none; border-left: 4px solid #dc2626;"></div>
             <form onsubmit="event.preventDefault(); app.candidaturas.enviarPostulacion();">
+                <div id="postulacionPreguntas"></div>
                 <div class="form-group">
                     <label for="postulacionMensaje">Mensaje (opcional)</label>
                     <textarea id="postulacionMensaje" placeholder="Cuéntale al empleador por qué eres un buen candidato..." style="min-height: 120px;"></textarea>
