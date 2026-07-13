@@ -457,6 +457,47 @@ db.serialize(() => {
     stmt.finalize();
   });
 
+  // Días concretos que cubre una suplencia. Permite días sueltos o recurrentes,
+  // no solo un rango continuo. En publicaciones, fecha_desde/fecha_hasta se
+  // conservan como resumen (min/max de los días) para el listado, el SEO y el
+  // sitemap, que no necesitan el detalle día a día.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS suplencia_dias (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      publicacion_id INTEGER NOT NULL REFERENCES publicaciones(id),
+      fecha TEXT NOT NULL,
+      UNIQUE(publicacion_id, fecha)
+    )
+  `);
+
+  // Disponibilidad del dentista para suplencias: un registro por día disponible.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS disponibilidad_dentista (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      fecha TEXT NOT NULL,
+      UNIQUE(usuario_id, fecha)
+    )
+  `);
+
+  // Backfill: las suplencias que ya existían solo tenían el rango fecha_desde →
+  // fecha_hasta. Se expande a días concretos en suplencia_dias para las que aún
+  // no tengan ninguno, de modo que el nuevo filtro por fecha las incluya.
+  const { expandirRango } = require("./fechas");
+  db.all(
+    `SELECT id, fecha_desde, fecha_hasta FROM publicaciones
+     WHERE tipo = 'suplencia' AND fecha_desde IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM suplencia_dias sd WHERE sd.publicacion_id = publicaciones.id)`,
+    (err, filas) => {
+      if (err || !filas) return;
+      const stmt = db.prepare("INSERT OR IGNORE INTO suplencia_dias (publicacion_id, fecha) VALUES (?, ?)");
+      filas.forEach(fila => {
+        expandirRango(fila.fecha_desde, fila.fecha_hasta).forEach(dia => stmt.run(fila.id, dia));
+      });
+      stmt.finalize();
+    }
+  );
+
   db.get("SELECT COUNT(*) as count FROM especialidades", (err, row) => {
     if (row.count === 0) {
       const especializaciones = [

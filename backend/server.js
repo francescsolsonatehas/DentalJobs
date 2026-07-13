@@ -20,6 +20,7 @@ const { ETIQUETAS_ESTADO } = require("./catalogos");
 const { construirFiltros } = require("./filtros-publicaciones");
 const { generarCsv } = require("./exportaciones");
 const { geocodificarCiudad } = require("./municipios-coords");
+const { expandirRango, sanearDias } = require("./fechas");
 const crypto = require("crypto");
 
 // Notifica por email a un usuario, si tiene los avisos activados
@@ -1627,7 +1628,18 @@ app.get("/publicaciones/:id", (req, res) => {
       if (!pub) {
         return res.status(404).json({ error: "Publicación no encontrada" });
       }
-      res.json(pub);
+      if (pub.tipo !== 'suplencia') {
+        return res.json(pub);
+      }
+      // Para las suplencias se adjuntan los días concretos que cubren
+      db.all(
+        "SELECT fecha FROM suplencia_dias WHERE publicacion_id = ? ORDER BY fecha",
+        [pub.id],
+        (err2, dias) => {
+          pub.dias = (err2 || !dias) ? [] : dias.map(d => d.fecha);
+          res.json(pub);
+        }
+      );
     }
   );
 });
@@ -1653,6 +1665,48 @@ app.get("/publicaciones/usuario/:usuario_id/candidatos", verifyToken, (req, res)
   );
 });
 
+/* ===========================
+   🔹 DISPONIBILIDAD DEL DENTISTA (calendario para suplencias)
+=========================== */
+
+// Días en los que el dentista se declara disponible para cubrir suplencias.
+app.get("/disponibilidad", verifyToken, (req, res) => {
+  db.all(
+    "SELECT fecha FROM disponibilidad_dentista WHERE usuario_id = ? ORDER BY fecha",
+    [req.usuario.id],
+    (err, filas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener la disponibilidad" });
+      }
+      res.json({ dias: (filas || []).map(f => f.fecha) });
+    }
+  );
+});
+
+// Reemplaza el conjunto de días disponibles del dentista por el que llega en dias[].
+app.put("/disponibilidad", verifyToken, (req, res) => {
+  if (req.usuario.tipo !== "dentista") {
+    return res.status(403).json({ error: "Solo los dentistas tienen disponibilidad" });
+  }
+  const dias = sanearDias(req.body.dias, 366);
+
+  // Reemplazo completo: borrar y reinsertar. Se completan todas las escrituras
+  // antes de responder para no dejar ninguna en vuelo (rompería la limpieza en tests).
+  db.run("DELETE FROM disponibilidad_dentista WHERE usuario_id = ?", [req.usuario.id], (err) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al guardar la disponibilidad" });
+    }
+    if (dias.length === 0) {
+      return res.json({ success: true, dias: [] });
+    }
+    const stmt = db.prepare("INSERT OR IGNORE INTO disponibilidad_dentista (usuario_id, fecha) VALUES (?, ?)");
+    dias.forEach(dia => stmt.run(req.usuario.id, dia));
+    stmt.finalize(() => res.json({ success: true, dias }));
+  });
+});
+
 // Sanea las preguntas de criba de una oferta: máximo 3, sin vacías, recortadas.
 const MAX_PREGUNTAS_CRIBA = 3;
 function sanearPreguntas(preguntas) {
@@ -1664,7 +1718,7 @@ function sanearPreguntas(preguntas) {
 }
 
 app.post("/publicaciones", verifyToken, (req, res) => {
-  const { tipo, descripcion, ciudad, provincia, especialidades, contrato, jornada, salario, salarioDesde, salarioHasta, experiencia, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente, retribucionTipo, retribucionPorcentaje, equipamiento, preguntas } = req.body;
+  const { tipo, descripcion, ciudad, provincia, especialidades, contrato, jornada, salario, salarioDesde, salarioHasta, experiencia, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, dias, urgente, retribucionTipo, retribucionPorcentaje, equipamiento, preguntas } = req.body;
   // Las preguntas de criba solo aplican a ofertas/suplencias (las publica la clínica)
   const preguntasCriba = (tipo === "oferta" || tipo === "suplencia") ? sanearPreguntas(preguntas) : [];
 
@@ -1680,9 +1734,17 @@ app.post("/publicaciones", verifyToken, (req, res) => {
     return res.status(403).json({ error: "No puedes crear este tipo de publicación" });
   }
 
-  if (tipo === 'suplencia' && !fecha_desde) {
-    return res.status(400).json({ error: "Las suplencias necesitan al menos una fecha de inicio" });
+  // Días de la suplencia: se aceptan días concretos (dias[]) o, como respaldo/legacy,
+  // un rango fecha_desde→fecha_hasta que se expande. fecha_desde/hasta se guardan como
+  // resumen (primer y último día) para el listado, el SEO y el sitemap.
+  const diasSuplencia = tipo === 'suplencia'
+    ? (Array.isArray(dias) && dias.length ? sanearDias(dias) : sanearDias(expandirRango(fecha_desde, fecha_hasta)))
+    : [];
+  if (tipo === 'suplencia' && diasSuplencia.length === 0) {
+    return res.status(400).json({ error: "Las suplencias necesitan al menos un día" });
   }
+  const suplenciaDesde = diasSuplencia.length ? diasSuplencia[0] : null;
+  const suplenciaHasta = diasSuplencia.length ? diasSuplencia[diasSuplencia.length - 1] : null;
 
   // Salario estructurado (campos numéricos) con retrocompatibilidad con el texto libre
   const desdeNum = salarioDesde !== undefined && salarioDesde !== null && salarioDesde !== '' ? parseInt(salarioDesde) : null;
@@ -1714,7 +1776,7 @@ app.post("/publicaciones", verifyToken, (req, res) => {
       `INSERT INTO publicaciones
        (tipo, descripcion, ciudad, provincia, especialidad_id, contrato, jornada, salario, salario_min, salario_max, experiencia_minima, usuario_id, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, urgente, retribucion_tipo, retribucion_porcentaje, lat, lon, preguntas)
        VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [tipo, descripcion, ciudadFinal, provinciaFinal, contrato || null, jornada || null, salario || null, salarioMin, hastaNum, experienciaMinima, req.usuario.id, nombreContactoFinal, emailContactoFinal, telefonoContactoFinal, sedeIdValidada, tipo === 'suplencia' ? (fecha_desde || null) : null, tipo === 'suplencia' ? (fecha_hasta || null) : null, tipo === 'suplencia' && urgente ? 1 : 0, retribucionTipoFinal, retribucionPorcentajeFinal, geo ? geo.lat : null, geo ? geo.lon : null, preguntasCriba.length ? JSON.stringify(preguntasCriba) : null],
+      [tipo, descripcion, ciudadFinal, provinciaFinal, contrato || null, jornada || null, salario || null, salarioMin, hastaNum, experienciaMinima, req.usuario.id, nombreContactoFinal, emailContactoFinal, telefonoContactoFinal, sedeIdValidada, suplenciaDesde, suplenciaHasta, tipo === 'suplencia' && urgente ? 1 : 0, retribucionTipoFinal, retribucionPorcentajeFinal, geo ? geo.lat : null, geo ? geo.lon : null, preguntasCriba.length ? JSON.stringify(preguntasCriba) : null],
       function(err) {
         if (err) {
           console.error(err);
@@ -1736,6 +1798,15 @@ app.post("/publicaciones", verifyToken, (req, res) => {
           const stmt = db.prepare("INSERT INTO publicacion_equipamiento (publicacion_id, equipo) VALUES (?, ?)");
           equiposFinal.forEach(eq => stmt.run(publicacionId, eq));
           stmt.finalize();
+        }
+
+        // Días concretos de la suplencia. Completamos la escritura antes de responder
+        // (una escritura en vuelo tras res.json haría fallar la limpieza de la BD en tests).
+        if (diasSuplencia.length > 0) {
+          const stmt = db.prepare("INSERT OR IGNORE INTO suplencia_dias (publicacion_id, fecha) VALUES (?, ?)");
+          diasSuplencia.forEach(dia => stmt.run(publicacionId, dia));
+          stmt.finalize(() => res.json({ mensaje: "Publicación creada", id: publicacionId }));
+          return;
         }
 
         res.json({
@@ -1941,12 +2012,12 @@ app.post("/publicaciones/:id/especialidades", verifyToken, (req, res) => {
 });
 
 app.put("/publicaciones/:id", verifyToken, (req, res) => {
-  const { descripcion, ciudad, especialidades, contrato, jornada, salario, experiencia, nombre_contacto, email_contacto, telefono_contacto, preguntas } = req.body;
+  const { descripcion, ciudad, especialidades, contrato, jornada, salario, experiencia, nombre_contacto, email_contacto, telefono_contacto, preguntas, dias, fecha_desde, fecha_hasta } = req.body;
   // Solo se actualizan las preguntas si el cliente las envía (undefined = no tocar)
   const preguntasCriba = preguntas !== undefined ? sanearPreguntas(preguntas) : undefined;
   const publicacionId = req.params.id;
 
-  db.get("SELECT usuario_id FROM publicaciones WHERE id = ?", [publicacionId], (err, pub) => {
+  db.get("SELECT usuario_id, tipo FROM publicaciones WHERE id = ?", [publicacionId], (err, pub) => {
     if (err) {
       console.error(err);
       return res.status(500).json({ error: "Error al actualizar publicación" });
@@ -1971,13 +2042,33 @@ app.put("/publicaciones/:id", verifyToken, (req, res) => {
       ? [preguntasCriba.length ? JSON.stringify(preguntasCriba) : null]
       : [];
 
+    // Días de suplencia editados: se aceptan días concretos (dias[]) o un rango.
+    // Solo se tocan si es una suplencia y el cliente los envía. fecha_desde/hasta
+    // se recalculan como primer y último día.
+    const pidieronDias = Array.isArray(dias) || fecha_desde !== undefined;
+    const diasEdit = pidieronDias ? sanearDias(Array.isArray(dias) && dias.length ? dias : expandirRango(fecha_desde, fecha_hasta)) : null;
+    const aplicarDias = pub.tipo === 'suplencia' && diasEdit !== null && diasEdit.length > 0;
+    const setFechas = aplicarDias ? ", fecha_desde = ?, fecha_hasta = ?" : "";
+    const paramsFechas = aplicarDias ? [diasEdit[0], diasEdit[diasEdit.length - 1]] : [];
+
+    // Sustituye los días de la suplencia (si procede) y responde. Se completan las
+    // escrituras antes de responder para no dejar ninguna en vuelo.
+    const terminar = () => {
+      if (!aplicarDias) return res.json({ mensaje: "Publicación actualizada" });
+      db.run("DELETE FROM suplencia_dias WHERE publicacion_id = ?", [publicacionId], () => {
+        const stmt = db.prepare("INSERT OR IGNORE INTO suplencia_dias (publicacion_id, fecha) VALUES (?, ?)");
+        diasEdit.forEach(dia => stmt.run(publicacionId, dia));
+        stmt.finalize(() => res.json({ mensaje: "Publicación actualizada" }));
+      });
+    };
+
     db.run(
       `UPDATE publicaciones
        SET descripcion = ?, ciudad = ?, contrato = ?, jornada = ?, salario = ?, salario_min = ?, experiencia_minima = ?,
-           nombre_contacto = ?, email_contacto = ?, telefono_contacto = ?, lat = ?, lon = ?${setPreguntas}
+           nombre_contacto = ?, email_contacto = ?, telefono_contacto = ?, lat = ?, lon = ?${setPreguntas}${setFechas}
        WHERE id = ?`,
       [descripcion, ciudad, contrato || null, jornada || null, salario || null, salarioMin, experienciaMinima,
-       nombre_contacto, email_contacto, telefono_contacto || null, geo ? geo.lat : null, geo ? geo.lon : null, ...paramsPreguntas, publicacionId],
+       nombre_contacto, email_contacto, telefono_contacto || null, geo ? geo.lat : null, geo ? geo.lon : null, ...paramsPreguntas, ...paramsFechas, publicacionId],
       function(err) {
         if (err) {
           console.error(err);
@@ -1996,12 +2087,10 @@ app.put("/publicaciones/:id", verifyToken, (req, res) => {
             especialidades.forEach(eId => {
               stmt.run(publicacionId, eId);
             });
-            stmt.finalize();
-
-            res.json({ mensaje: "Publicación actualizada" });
+            stmt.finalize(() => terminar());
           });
         } else {
-          res.json({ mensaje: "Publicación actualizada" });
+          terminar();
         }
       }
     );

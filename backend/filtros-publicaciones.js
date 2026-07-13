@@ -8,7 +8,7 @@ function construirFiltros(query = {}) {
   const {
     tipo, especialidad, ciudad, usuario_id, contrato, jornada,
     salarioMin, salarioMax, experienciaMin, q, equipamiento, retribucion, certificacion,
-    radioKm, latCentro, lonCentro
+    radioKm, latCentro, lonCentro, fecha, fechaDesde, fechaHasta
   } = query;
 
   const clausulas = [];
@@ -89,6 +89,17 @@ function construirFiltros(query = {}) {
   if (certificacion) {
     clausulas.push("EXISTS (SELECT 1 FROM certificaciones cert WHERE cert.usuario_id = p.usuario_id AND cert.certificacion = ?)");
     params.push(certificacion);
+  }
+
+  // Filtro por fecha de suplencia: cubre un día concreto (fecha) o solapa con un
+  // rango (fechaDesde/fechaHasta). Solo casan publicaciones con días en suplencia_dias
+  // (las suplencias), así que activarlo excluye ofertas fijas y solicitudes.
+  if (fecha) {
+    clausulas.push("EXISTS (SELECT 1 FROM suplencia_dias sd WHERE sd.publicacion_id = p.id AND sd.fecha = ?)");
+    params.push(String(fecha).slice(0, 10));
+  } else if (fechaDesde || fechaHasta) {
+    clausulas.push("EXISTS (SELECT 1 FROM suplencia_dias sd WHERE sd.publicacion_id = p.id AND sd.fecha BETWEEN ? AND ?)");
+    params.push(fechaDesde ? String(fechaDesde).slice(0, 10) : "0000-01-01", fechaHasta ? String(fechaHasta).slice(0, 10) : "9999-12-31");
   }
 
   if (experienciaMin) {
