@@ -10,6 +10,7 @@ on:
     branches: [main]
     paths:
       - "frontend/**"
+      - ".github/workflows/espejo-frontend.yml"
   workflow_dispatch:
 
 jobs:
@@ -23,6 +24,12 @@ jobs:
           GH_SYNC_TOKEN: ${{ secrets.GH_SYNC_TOKEN }}
         run: |
           cd frontend
+          # Cache-busting: cada deploy sirve app.js y style.css con una versión única
+          # (el SHA corto del commit), para que los navegadores no reutilicen una copia
+          # antigua en caché. Solo se aplica a la copia del espejo; el index.html del
+          # repo fuente queda con las rutas limpias para desarrollo local.
+          VER="${GITHUB_SHA::7}"
+          sed -i "s/app\.js\"/app.js?v=${VER}\"/g; s/style\.css\"/style.css?v=${VER}\"/g" index.html
           git init -b main
           git config user.name "dentaljobs-bot"
           git config user.email "actions@users.noreply.github.com"
