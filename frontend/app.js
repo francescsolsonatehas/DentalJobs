@@ -697,6 +697,81 @@ const app = {
   },
 
   // ============================================
+  // Módulo: Onboarding (primeros pasos para activarse)
+  // ============================================
+
+  onboarding: {
+    _dismissKey() { return `onboarding_oculto_${estadoApp.usuario ? estadoApp.usuario.id : "x"}`; },
+
+    async refrescar() {
+      const card = document.getElementById("onboardingCard");
+      if (!card || !estadoApp.usuario) return;
+      if (localStorage.getItem(this._dismissKey()) === "1") { card.style.display = "none"; return; }
+
+      let data;
+      try { data = await utils.request("/onboarding"); } catch (e) { return; }
+      if (!data || data.completado) { card.style.display = "none"; return; }
+
+      this.render(data.pasos || []);
+      card.style.display = "block";
+    },
+
+    render(pasos) {
+      const card = document.getElementById("onboardingCard");
+      const total = pasos.length;
+      const hechos = pasos.filter(p => p.hecho).length;
+      const pct = total ? Math.round((hechos / total) * 100) : 0;
+
+      const filas = pasos.map(p => `
+        <div style="display:flex; align-items:flex-start; gap:0.6rem; padding:0.6rem 0; border-top:1px solid #e0f2fe;">
+          <span style="font-size:1.1rem; line-height:1.4;">${p.hecho ? "✅" : "⭕"}</span>
+          <div style="flex:1;">
+            <strong style="font-size:0.92rem; ${p.hecho ? "text-decoration:line-through; color:#9ca3af;" : "color:#0f4c75;"}">${utils.escapeHtml(p.titulo)}${p.opcional ? ` <span style="font-weight:normal; color:#9ca3af; font-size:0.78rem;">(opcional)</span>` : ""}</strong>
+            <p style="margin:0.15rem 0 0; color:#6b7280; font-size:0.82rem; line-height:1.4;">${utils.escapeHtml(p.descripcion)}</p>
+          </div>
+          ${p.hecho ? "" : `<button class="btn-primary btn-small" onclick="app.onboarding.ejecutar('${p.accion}')" style="white-space:nowrap;">Hacer</button>`}
+        </div>`).join("");
+
+      card.innerHTML = `
+        <div style="background:linear-gradient(135deg,#eff6ff,#f0f9ff); border:1px solid #bae6fd; border-radius:12px; padding:1.1rem 1.3rem; margin-bottom:1.5rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
+            <strong style="color:#0f4c75; font-size:1.05rem;">🚀 Primeros pasos</strong>
+            <div style="display:flex; align-items:center; gap:0.8rem;">
+              <span style="color:#0f4c75; font-size:0.85rem; font-weight:600;">${hechos}/${total}</span>
+              <button onclick="app.onboarding.ocultar()" style="background:none; border:none; color:#6b7280; cursor:pointer; font-size:0.82rem;">Ocultar</button>
+            </div>
+          </div>
+          <div style="height:8px; background:#dbeafe; border-radius:999px; overflow:hidden; margin:0.6rem 0 0.2rem;">
+            <div style="height:100%; width:${pct}%; background:#0f4c75; transition:width 0.3s;"></div>
+          </div>
+          ${filas}
+        </div>`;
+    },
+
+    ocultar() {
+      localStorage.setItem(this._dismissKey(), "1");
+      const card = document.getElementById("onboardingCard");
+      if (card) card.style.display = "none";
+    },
+
+    // Abre la acción asociada al paso
+    ejecutar(accion) {
+      const abrirPerfilEn = (tabBtnId) => {
+        app.modal.abrirPerfil();
+        setTimeout(() => document.getElementById(tabBtnId)?.click(), 200);
+      };
+      switch (accion) {
+        case "perfil": app.modal.abrirPerfil(); break;
+        case "disponibilidad": abrirPerfilEn("tabDisponibilidad"); break;
+        case "cv": abrirPerfilEn("tabCv"); break;
+        case "sedes": abrirPerfilEn("tabSedes"); break;
+        case "publicar": app.modal.abrirPublicar(); break;
+        case "explorar": document.getElementById("filtros")?.scrollIntoView({ behavior: "smooth", block: "start" }); break;
+      }
+    }
+  },
+
+  // ============================================
   // Módulo: Auth
   // ============================================
 
@@ -1280,6 +1355,7 @@ const app = {
         app.modal.cerrarPublicar();
         app.publicaciones.cargar();
         app.ui.actualizarStats();
+        app.onboarding.refrescar();
 
         document.getElementById(`tab-${tipo}`).querySelector("form").reset();
         if (tipo === "oferta" || tipo === "suplencia") app.publicaciones.toggleRetribucion(tipo);
@@ -1744,6 +1820,8 @@ const app = {
 
     cerrarPerfil() {
       document.getElementById("modalPerfil").classList.remove("active");
+      // Los pasos de perfil/disponibilidad/CV/sedes se editan aquí: refrescar el onboarding
+      app.onboarding.refrescar();
     },
 
     switchTab(tab) {
@@ -4841,6 +4919,7 @@ const app = {
       document.getElementById("btnNotif").style.display = "inline-block";
       app.chat.actualizarContador();
       app.notificaciones.actualizar();
+      app.onboarding.refrescar();
       app.recordatorios.comprobar();
 
       // Actualizar texto del hero según tipo de usuario
@@ -6880,6 +6959,7 @@ const app = {
         app.modal.cerrarDetalle();
         await app.publicaciones.cargar();
         await app.ui.actualizarStats();
+        app.onboarding.refrescar();
       } catch (error) {
         console.error("Error en postulación:", error);
         const mensajeError = error.message || "Error al enviar postulación";

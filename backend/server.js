@@ -1959,6 +1959,76 @@ app.put("/notificaciones/leer", verifyToken, (req, res) => {
   }
 });
 
+/* ===========================
+   🔹 ONBOARDING (primeros pasos para activarse)
+=========================== */
+
+// Estado de los "primeros pasos" del usuario, calculado a partir de sus datos.
+// Cada paso trae si está hecho y una `accion` que el frontend sabe abrir.
+app.get("/onboarding", verifyToken, (req, res) => {
+  const uid = req.usuario.id;
+
+  if (req.usuario.tipo === "dentista") {
+    db.get(
+      `SELECT
+         (SELECT ciudad FROM usuarios WHERE id = ?) AS ciudad,
+         (SELECT COUNT(*) FROM usuario_especialidades WHERE usuario_id = ?) AS especialidades,
+         (SELECT COUNT(*) FROM disponibilidad_dentista WHERE usuario_id = ?) AS disponibilidad,
+         (SELECT COUNT(*) FROM archivos WHERE usuario_id = ? AND tipo = 'cv') AS cv,
+         (SELECT COUNT(*) FROM candidaturas WHERE usuario_id = ?) AS candidaturas`,
+      [uid, uid, uid, uid, uid],
+      (err, r) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al calcular el onboarding" });
+        }
+        r = r || {};
+        const pasos = [
+          { id: "perfil", hecho: !!(r.ciudad && r.ciudad.trim()) && r.especialidades > 0, opcional: false, accion: "perfil",
+            titulo: "Completa tu perfil", descripcion: "Indica tu ciudad y especialidad para aparecer en las búsquedas y en el matching." },
+          { id: "disponibilidad", hecho: r.disponibilidad > 0, opcional: false, accion: "disponibilidad",
+            titulo: "Marca tu disponibilidad", descripcion: "Señala los días que puedes cubrir suplencias y recibe avisos cuando encajen." },
+          { id: "cv", hecho: r.cv > 0, opcional: true, accion: "cv",
+            titulo: "Sube tu CV", descripcion: "Opcional. Refuerza tus candidaturas ante las clínicas." },
+          { id: "postular", hecho: r.candidaturas > 0, opcional: false, accion: "explorar",
+            titulo: "Postúlate a tu primera oferta", descripcion: "Explora las ofertas y suplencias y da el primer paso." }
+        ];
+        responderOnboarding(res, pasos);
+      }
+    );
+  } else {
+    db.get(
+      `SELECT
+         (SELECT descripcion FROM usuarios WHERE id = ?) AS descripcion,
+         (SELECT COUNT(*) FROM sedes WHERE usuario_id = ?) AS sedes,
+         (SELECT COUNT(*) FROM publicaciones WHERE usuario_id = ? AND tipo IN ('oferta','suplencia')) AS publicaciones`,
+      [uid, uid, uid],
+      (err, r) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al calcular el onboarding" });
+        }
+        r = r || {};
+        const pasos = [
+          { id: "sede", hecho: r.sedes > 0, opcional: false, accion: "sedes",
+            titulo: "Crea tu primera sede", descripcion: "Tus ofertas y suplencias heredan la ubicación y el equipamiento de la sede." },
+          { id: "publicar", hecho: r.publicaciones > 0, opcional: false, accion: "publicar",
+            titulo: "Publica tu primera oferta o suplencia", descripcion: "Empieza a recibir candidaturas de dentistas." },
+          { id: "descripcion", hecho: !!(r.descripcion && r.descripcion.trim()), opcional: true, accion: "perfil",
+            titulo: "Presenta tu clínica", descripcion: "Opcional. Una descripción y fotos dan confianza a los candidatos." }
+        ];
+        responderOnboarding(res, pasos);
+      }
+    );
+  }
+});
+
+// completado = todos los pasos NO opcionales están hechos
+function responderOnboarding(res, pasos) {
+  const completado = pasos.filter(p => !p.opcional).every(p => p.hecho);
+  res.json({ completado, pasos });
+}
+
 // Sanea las preguntas de criba de una oferta: máximo 3, sin vacías, recortadas.
 const MAX_PREGUNTAS_CRIBA = 3;
 function sanearPreguntas(preguntas) {
