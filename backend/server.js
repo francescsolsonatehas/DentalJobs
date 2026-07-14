@@ -107,6 +107,54 @@ function listarClinicasPotencialesParaDentista(usuarioId, callback) {
   );
 }
 
+// Dentistas que casan con una suplencia: disponibles en alguno de sus días,
+// misma ciudad y con especialidad compatible (o la suplencia no exige ninguna).
+// Reutilizable por el surfacing en la app y, más adelante, por los avisos.
+function dentistasDisponiblesParaSuplencia(pubId, callback) {
+  db.all(
+    `SELECT DISTINCT u.id, u.nombre, u.ciudad, u.provincia, u.anyos_experiencia
+     FROM usuarios u
+     JOIN publicaciones p ON p.id = ? AND p.tipo = 'suplencia' AND p.activo = 1
+     WHERE u.tipo = 'dentista'
+       AND EXISTS (
+         SELECT 1 FROM disponibilidad_dentista dd
+         JOIN suplencia_dias sd ON sd.fecha = dd.fecha
+         WHERE dd.usuario_id = u.id AND sd.publicacion_id = p.id
+       )
+       AND (u.ciudad = p.ciudad OR u.ciudad LIKE '%' || p.ciudad || '%' OR p.ciudad LIKE '%' || u.ciudad || '%')
+       AND (
+         NOT EXISTS (SELECT 1 FROM publicacion_especialidades pe WHERE pe.publicacion_id = p.id)
+         OR EXISTS (
+           SELECT 1 FROM publicacion_especialidades pe
+           JOIN usuario_especialidades ue ON ue.especialidad_id = pe.especialidad_id
+           WHERE pe.publicacion_id = p.id AND ue.usuario_id = u.id
+         )
+       )
+     ORDER BY u.nombre`,
+    [pubId],
+    (err, dentistas) => {
+      if (err) return callback(err);
+      if (!dentistas || dentistas.length === 0) return callback(null, []);
+      // Adjuntar a cada dentista los días concretos en los que coincide
+      db.all(
+        `SELECT dd.usuario_id, dd.fecha
+         FROM disponibilidad_dentista dd
+         JOIN suplencia_dias sd ON sd.fecha = dd.fecha
+         WHERE sd.publicacion_id = ?
+         ORDER BY dd.fecha`,
+        [pubId],
+        (err2, pares) => {
+          if (err2) return callback(err2);
+          const porDentista = {};
+          (pares || []).forEach(p => { (porDentista[p.usuario_id] = porDentista[p.usuario_id] || []).push(p.fecha); });
+          dentistas.forEach(d => { d.dias_coincidentes = porDentista[d.id] || []; });
+          callback(null, dentistas);
+        }
+      );
+    }
+  );
+}
+
 // Catálogos fijos (sin tabla propia, como contrato/jornada)
 const EQUIPAMIENTO_CATALOGO = ["CBCT / TAC 3D", "CAD-CAM", "Microscopio", "Escáner intraoral", "Láser dental", "Sedación consciente"];
 const CERTIFICACIONES_CATALOGO = ["Invisalign", "Implantología avanzada", "Ortodoncia lingual", "Estética dental avanzada", "Sedación consciente", "Cirugía guiada"];
@@ -1738,6 +1786,29 @@ app.get("/suplencias/calendario", (req, res) => {
       res.json({ dias });
     }
   );
+});
+
+// Dentistas disponibles que casan con una suplencia (solo el dueño de la suplencia).
+app.get("/suplencias/:id/dentistas-disponibles", verifyToken, (req, res) => {
+  db.get("SELECT usuario_id, tipo FROM publicaciones WHERE id = ?", [req.params.id], (err, pub) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al obtener dentistas disponibles" });
+    }
+    if (!pub || pub.tipo !== "suplencia") {
+      return res.status(404).json({ error: "Suplencia no encontrada" });
+    }
+    if (pub.usuario_id !== req.usuario.id) {
+      return res.status(403).json({ error: "Solo el dueño de la suplencia puede ver los dentistas disponibles" });
+    }
+    dentistasDisponiblesParaSuplencia(req.params.id, (e, dentistas) => {
+      if (e) {
+        console.error(e);
+        return res.status(500).json({ error: "Error al obtener dentistas disponibles" });
+      }
+      res.json({ dentistas: dentistas || [] });
+    });
+  });
 });
 
 // Sanea las preguntas de criba de una oferta: máximo 3, sin vacías, recortadas.

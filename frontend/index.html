@@ -271,6 +271,12 @@
                     <label for="filterFechaHasta">hasta</label>
                     <input id="filterFechaHasta" type="date" onchange="app.publicaciones.cargar()" title="Suplencias que cubren días hasta esta fecha">
                 </div>
+                <div class="filter-group" id="filterMiDisponibilidadGroup" style="display: none;">
+                    <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; margin-top: 1.4rem;" title="Solo suplencias con algún día que tienes marcado en tu disponibilidad">
+                        <input id="filterMiDisponibilidad" type="checkbox" onchange="app.publicaciones.cargar()">
+                        <span>🗓️ Encajan con mi disponibilidad</span>
+                    </label>
+                </div>
                 <div class="filter-group">
                     <label for="filterOrden">Ordenar por</label>
                     <select id="filterOrden" onchange="app.publicaciones.cargar()">
@@ -1017,6 +1023,17 @@
                 <button class="close-btn" onclick="app.modal.cerrarCandidatos()">✕</button>
             </div>
             <div id="candidatosBody" style="padding: 1.5rem;"></div>
+        </div>
+    </div>
+
+    <!-- Modal: Dentistas disponibles para una suplencia -->
+    <div id="modalDisponibles" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="disponiblesTitle">Dentistas disponibles</h2>
+                <button class="close-btn" onclick="document.getElementById('modalDisponibles').classList.remove('active')">✕</button>
+            </div>
+            <div id="disponiblesBody" style="padding: 1.5rem;"></div>
         </div>
     </div>
 

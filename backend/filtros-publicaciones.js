@@ -8,7 +8,7 @@ function construirFiltros(query = {}) {
   const {
     tipo, especialidad, ciudad, usuario_id, contrato, jornada,
     salarioMin, salarioMax, experienciaMin, q, equipamiento, retribucion, certificacion,
-    radioKm, latCentro, lonCentro, fecha, fechaDesde, fechaHasta
+    radioKm, latCentro, lonCentro, fecha, fechaDesde, fechaHasta, disponibleUsuarioId
   } = query;
 
   const clausulas = [];
@@ -100,6 +100,13 @@ function construirFiltros(query = {}) {
   } else if (fechaDesde || fechaHasta) {
     clausulas.push("EXISTS (SELECT 1 FROM suplencia_dias sd WHERE sd.publicacion_id = p.id AND sd.fecha BETWEEN ? AND ?)");
     params.push(fechaDesde ? String(fechaDesde).slice(0, 10) : "0000-01-01", fechaHasta ? String(fechaHasta).slice(0, 10) : "9999-12-31");
+  }
+
+  // "Solo las que encajan con mi disponibilidad": suplencias con algún día que
+  // el dentista (disponibleUsuarioId) tiene marcado como disponible.
+  if (disponibleUsuarioId) {
+    clausulas.push("EXISTS (SELECT 1 FROM suplencia_dias sd JOIN disponibilidad_dentista dd ON dd.fecha = sd.fecha WHERE sd.publicacion_id = p.id AND dd.usuario_id = ?)");
+    params.push(disponibleUsuarioId);
   }
 
   if (experienciaMin) {

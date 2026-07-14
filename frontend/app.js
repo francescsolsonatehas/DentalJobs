@@ -549,6 +549,53 @@ const app = {
   },
 
   // ============================================
+  // Módulo: Suplencias (matching de dentistas disponibles)
+  // ============================================
+
+  suplencias: {
+    // Muestra los dentistas cuya disponibilidad, ciudad y especialidad casan con
+    // esta suplencia (solo lo ve la clínica dueña).
+    async verDisponibles(pubId, titulo) {
+      const body = document.getElementById("disponiblesBody");
+      document.getElementById("disponiblesTitle").textContent = `Disponibles · ${titulo}`;
+      body.innerHTML = `<p style="color:#6b7280;">Buscando dentistas disponibles…</p>`;
+      document.getElementById("modalDisponibles").classList.add("active");
+
+      let dentistas = [];
+      try {
+        const data = await utils.request(`/suplencias/${pubId}/dentistas-disponibles`);
+        dentistas = data.dentistas || [];
+      } catch (error) {
+        body.innerHTML = `<p style="color:#ef4444;">${utils.escapeHtml(error.message)}</p>`;
+        return;
+      }
+
+      if (dentistas.length === 0) {
+        body.innerHTML = `<div style="text-align:center;color:#6b7280;padding:1.5rem;">
+          <p style="font-size:1.05rem;">Aún no hay dentistas disponibles para estos días.</p>
+          <p style="font-size:0.9rem;">Aparecerán aquí cuando un dentista de la zona marque su disponibilidad en alguno de los días de la suplencia.</p>
+        </div>`;
+        return;
+      }
+
+      body.innerHTML = `<p style="color:#6b7280;margin:0 0 1rem;">${dentistas.length} dentista${dentistas.length===1?"":"s"} con disponibilidad en tus días:</p>` +
+        dentistas.map(d => {
+          const ciudad = d.ciudad ? (d.provincia ? `${d.ciudad} (${d.provincia})` : d.ciudad) : "Ubicación no indicada";
+          const exp = (d.anyos_experiencia !== null && d.anyos_experiencia !== undefined) ? ` · 🎓 ${d.anyos_experiencia} años` : "";
+          const chips = (d.dias_coincidentes || []).map(f => `<span class="badge">${utils.escapeHtml(utils.formatearDia(f))}</span>`).join("");
+          return `<div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">
+            <div style="flex:1;">
+              <strong style="color:#0f4c75;display:block;">${utils.escapeHtml(d.nombre)}</strong>
+              <p style="margin:0.2rem 0;color:#6b7280;font-size:0.9rem;">📍 ${utils.escapeHtml(ciudad)}${exp}</p>
+              <div style="margin-top:0.4rem;"><span style="font-size:0.82rem;color:#059669;font-weight:600;">Coincide:</span> <span class="badges" style="gap:0.3rem;">${chips}</span></div>
+            </div>
+            <button class="btn-secondary" onclick="document.getElementById('modalDisponibles').classList.remove('active'); app.perfiles.verDetalle(${d.id})" style="white-space:nowrap;">Ver perfil</button>
+          </div>`;
+        }).join("");
+    }
+  },
+
+  // ============================================
   // Módulo: Auth
   // ============================================
 
@@ -864,6 +911,13 @@ const app = {
           document.getElementById("filterFechaHasta").value = "";
         }
       }
+      // "Encajan con mi disponibilidad": solo para el dentista en la vista de suplencias
+      const grupoDisp = document.getElementById("filterMiDisponibilidadGroup");
+      if (grupoDisp) {
+        const mostrar = estadoApp.filtros.verSuplencias && estadoApp.tipoUsuario === 'dentista';
+        grupoDisp.style.display = mostrar ? "block" : "none";
+        if (!mostrar) document.getElementById("filterMiDisponibilidad").checked = false;
+      }
       const toggleVista = document.getElementById("suplenciasVistaToggle");
       if (toggleVista) {
         toggleVista.style.display = estadoApp.filtros.verSuplencias ? "flex" : "none";
@@ -912,6 +966,11 @@ const app = {
         // Filtro por fecha: solo tiene sentido en suplencias (usa suplencia_dias)
         if (estadoApp.filtros.verSuplencias && fechaDesde) url += `fechaDesde=${fechaDesde}&`;
         if (estadoApp.filtros.verSuplencias && fechaHasta) url += `fechaHasta=${fechaHasta}&`;
+        // "Encajan con mi disponibilidad": cruza suplencia_dias con mi disponibilidad
+        if (estadoApp.filtros.verSuplencias && estadoApp.tipoUsuario === 'dentista' &&
+            document.getElementById("filterMiDisponibilidad")?.checked && estadoApp.usuario) {
+          url += `disponibleUsuarioId=${estadoApp.usuario.id}&`;
+        }
         if (orden && orden !== 'recientes') {
           url += `sort=${orden}&`;
           if (orden === 'relevancia' && estadoApp.usuario) url += `paraUsuarioId=${estadoApp.usuario.id}&`;
@@ -4958,6 +5017,7 @@ const app = {
               ${(() => {
                 if (estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id)) {
                   return `${(pub.tipo === 'oferta' || pub.tipo === 'suplencia') ? `<button class="btn-outline" onclick="app.publicaciones.copiarEnlacePublico(${pub.id})" style="flex: 1;" title="Copiar el enlace público de esta publicación">🔗 Compartir</button>` : ''}
+                          ${pub.tipo === 'suplencia' ? `<button class="btn-outline" onclick="app.suplencias.verDisponibles(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;" title="Dentistas disponibles para estos días">🗓️ Disponibles</button>` : ''}
                           <button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">📊 Estadísticas</button>
                           <button class="btn-danger" onclick="app.publicaciones.retirarPublicacion(${pub.id})" style="flex: 1;">🗑️ Retirar</button>`;
                 }
