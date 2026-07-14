@@ -1842,6 +1842,59 @@ const app = {
       });
     },
 
+    // Tarjeta de compatibilidad. El porcentaje NUNCA va solo: se enseña siempre con
+    // el desglose por dimensión, que es lo que lo hace accionable (y lo que evita
+    // que parezca un modelo entrenado que no es). Si el backend dice que no hay
+    // cobertura suficiente (porcentaje null), no se muestra número: se pide el dato.
+    renderCompatibilidad(compat) {
+      if (!compat || !Array.isArray(compat.dimensiones)) return "";
+
+      const ICONOS = { coincide: "✅", parcial: "🟡", discrepa: "❌", sin_datos: "➖" };
+      const COLORES = { coincide: "#16a34a", parcial: "#f59e0b", discrepa: "#dc2626", sin_datos: "#9ca3af" };
+
+      const filas = compat.dimensiones.map(d => `
+        <div style="display: flex; align-items: baseline; gap: .5rem; padding: .45rem 0; border-top: 1px solid #eef2f7;">
+          <span>${ICONOS[d.estado] || "➖"}</span>
+          <span style="font-weight: 600; color: #0F4C75; min-width: 8.5rem;">${utils.escapeHtml(d.etiqueta)}</span>
+          <span style="color: ${COLORES[d.estado] || "#6b7280"}; font-size: .9rem;">${utils.escapeHtml(d.detalle || "")}</span>
+        </div>
+      `).join("");
+
+      // Sin cobertura suficiente: en vez de un número inventado, se dice qué falta
+      // y de quién es el dato (el motor lo devuelve en `falta`).
+      if (compat.porcentaje === null) {
+        const faltaTuyo = compat.dimensiones.some(d => d.estado === 'sin_datos' && d.falta === 'dentista');
+        return `
+          <div style="background: #F8FAFF; border: 1px solid #dbe4f0; border-left: 4px solid #9ca3af; border-radius: 10px; padding: 1rem; margin-bottom: 1.25rem;">
+            <div style="font-weight: 700; color: #0F4C75; margin-bottom: .25rem;">🧩 Compatibilidad: faltan datos</div>
+            <p style="color: #6b7280; font-size: .9rem; margin: 0 0 .5rem;">
+              ${faltaTuyo
+                ? "Completa tu solicitud (salario y jornada que buscas), tu calendario y tus certificaciones y te diremos cuánto encajas con esta clínica."
+                : "Esta clínica aún no ha detallado lo suficiente su oferta para calcular tu compatibilidad."}
+            </p>
+            ${filas}
+          </div>`;
+      }
+
+      const pct = compat.porcentaje;
+      const color = pct >= 80 ? "#16a34a" : pct >= 55 ? "#f59e0b" : "#dc2626";
+
+      return `
+        <div style="background: #F8FAFF; border: 1px solid #dbe4f0; border-left: 4px solid ${color}; border-radius: 10px; padding: 1rem; margin-bottom: 1.25rem;">
+          <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: .6rem;">
+            <div style="font-size: 2.1rem; font-weight: 800; color: ${color}; line-height: 1;">${pct}%</div>
+            <div>
+              <div style="font-weight: 700; color: #0F4C75;">de compatibilidad con esta clínica</div>
+              <div style="color: #6b7280; font-size: .85rem;">Según lo que buscas: salario, horarios y tecnología</div>
+            </div>
+          </div>
+          <div style="background: #e5e7eb; border-radius: 99px; height: 7px; overflow: hidden; margin-bottom: .5rem;">
+            <div style="width: ${pct}%; height: 100%; background: ${color};"></div>
+          </div>
+          ${filas}
+        </div>`;
+    },
+
     async abrirDetalle(publicacion) {
       estadoApp.publicacionActual = publicacion;
 
@@ -1884,7 +1937,22 @@ const app = {
         } catch (error) { /* sin días */ }
       }
 
-      let html = `
+      // Compatibilidad: solo tiene sentido para un dentista mirando una oferta o
+      // suplencia ajena. Si el backend no puede dar un porcentaje honesto, la
+      // tarjeta lo dice y pide el dato que falta en vez de inventarse un número.
+      let compatibilidadHtml = "";
+      const esDentista = estadoApp.usuario?.tipo === 'dentista';
+      const esAjena = publicacion.usuario_id !== estadoApp.usuario?.id;
+      if (esDentista && esAjena && (publicacion.tipo === 'oferta' || publicacion.tipo === 'suplencia')) {
+        try {
+          const compat = await utils.request(`/publicaciones/${publicacion.id}/compatibilidad`);
+          compatibilidadHtml = app.modal.renderCompatibilidad(compat);
+        } catch (error) {
+          console.error("Error al calcular la compatibilidad:", error);
+        }
+      }
+
+      let html = compatibilidadHtml + `
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 1.5rem;">
           <tbody>
             <tr style="border-bottom: 1px solid #e5e7eb;">

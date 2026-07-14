@@ -16,7 +16,8 @@ const path = require("path");
 const db = require("./db");
 const { verifyToken, generateToken } = require("./middleware/auth");
 const { enviarEmail, plantilla, urlFrontend } = require("./email");
-const { ETIQUETAS_ESTADO } = require("./catalogos");
+const { ETIQUETAS_ESTADO, EQUIPAMIENTO_CATALOGO, CERTIFICACIONES_CATALOGO } = require("./catalogos");
+const { calcularCompatibilidad } = require("./compatibilidad");
 const { construirFiltros } = require("./filtros-publicaciones");
 const { generarCsv } = require("./exportaciones");
 const { geocodificarCiudad } = require("./municipios-coords");
@@ -198,9 +199,32 @@ function avisarInstantaneoSuplencia(pubId, callback) {
   });
 }
 
-// Catálogos fijos (sin tabla propia, como contrato/jornada)
-const EQUIPAMIENTO_CATALOGO = ["CBCT / TAC 3D", "CAD-CAM", "Microscopio", "Escáner intraoral", "Láser dental", "Sedación consciente"];
-const CERTIFICACIONES_CATALOGO = ["Invisalign", "Implantología avanzada", "Ortodoncia lingual", "Estética dental avanzada", "Sedación consciente", "Cirugía guiada"];
+// Perfil del dentista tal y como lo consume el motor de compatibilidad: lo que
+// pide (su solicitud activa), cuándo puede (su calendario) y qué sabe hacer (sus
+// certificaciones). Todo son datos que el dentista ya introduce hoy.
+function perfilCompatibilidad(usuarioId, callback) {
+  db.get(
+    `SELECT salario_min, jornada FROM publicaciones
+     WHERE usuario_id = ? AND tipo = 'solicitud' AND activo = 1
+     ORDER BY creado_en DESC LIMIT 1`,
+    [usuarioId],
+    (err, solicitud) => {
+      if (err) return callback(err);
+      db.all("SELECT fecha FROM disponibilidad_dentista WHERE usuario_id = ?", [usuarioId], (err2, dias) => {
+        if (err2) return callback(err2);
+        db.all("SELECT certificacion FROM certificaciones WHERE usuario_id = ?", [usuarioId], (err3, certs) => {
+          if (err3) return callback(err3);
+          callback(null, {
+            salario_pretendido: solicitud ? solicitud.salario_min : null,
+            jornada_buscada: solicitud ? solicitud.jornada : null,
+            disponibilidad: (dias || []).map(d => d.fecha),
+            certificaciones: (certs || []).map(c => c.certificacion)
+          });
+        });
+      });
+    }
+  );
+}
 
 const app = express();
 
@@ -2274,6 +2298,58 @@ app.get("/publicaciones/:id/equipamiento", (req, res) => {
         return res.status(500).json({ error: "Error al obtener el equipamiento" });
       }
       res.json({ equipamiento: (filas || []).map(f => f.equipo) });
+    }
+  );
+});
+
+// Compatibilidad del dentista autenticado con una oferta o suplencia concreta.
+// El cálculo vive en compatibilidad.js; aquí solo se reúnen los dos lados.
+// Devuelve siempre el desglose por dimensión: el porcentaje a secas no es
+// accionable, y viene a null cuando falta demasiado dato para ser honesto.
+app.get("/publicaciones/:id/compatibilidad", verifyToken, (req, res) => {
+  if (req.usuario.tipo !== "dentista") {
+    return res.status(403).json({ error: "La compatibilidad solo se calcula para dentistas" });
+  }
+
+  db.get(
+    "SELECT id, tipo, jornada, salario_min, salario_max, retribucion_tipo FROM publicaciones WHERE id = ? AND activo = 1",
+    [req.params.id],
+    (err, pub) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al calcular la compatibilidad" });
+      }
+      if (!pub) {
+        return res.status(404).json({ error: "Publicación no encontrada" });
+      }
+      if (pub.tipo !== "oferta" && pub.tipo !== "suplencia") {
+        return res.status(400).json({ error: "Solo las ofertas y suplencias tienen compatibilidad" });
+      }
+
+      db.all("SELECT equipo FROM publicacion_equipamiento WHERE publicacion_id = ?", [pub.id], (err2, equipos) => {
+        if (err2) {
+          console.error(err2);
+          return res.status(500).json({ error: "Error al calcular la compatibilidad" });
+        }
+        db.all("SELECT fecha FROM suplencia_dias WHERE publicacion_id = ? ORDER BY fecha", [pub.id], (err3, dias) => {
+          if (err3) {
+            console.error(err3);
+            return res.status(500).json({ error: "Error al calcular la compatibilidad" });
+          }
+          perfilCompatibilidad(req.usuario.id, (err4, perfil) => {
+            if (err4) {
+              console.error(err4);
+              return res.status(500).json({ error: "Error al calcular la compatibilidad" });
+            }
+            const oferta = {
+              ...pub,
+              equipamiento: (equipos || []).map(e => e.equipo),
+              dias: (dias || []).map(d => d.fecha)
+            };
+            res.json(calcularCompatibilidad(perfil, oferta));
+          });
+        });
+      });
     }
   );
 });

@@ -10,4 +10,9 @@ const ETIQUETAS_ESTADO = {
   retirada: "Retirada"
 };
 
-module.exports = { ETIQUETAS_ESTADO };
+// Catálogos fijos (sin tabla propia, como contrato/jornada). Los comparte el
+// servidor (validación al publicar) con el motor de compatibilidad.
+const EQUIPAMIENTO_CATALOGO = ["CBCT / TAC 3D", "CAD-CAM", "Microscopio", "Escáner intraoral", "Láser dental", "Sedación consciente"];
+const CERTIFICACIONES_CATALOGO = ["Invisalign", "Implantología avanzada", "Ortodoncia lingual", "Estética dental avanzada", "Sedación consciente", "Cirugía guiada"];
+
+module.exports = { ETIQUETAS_ESTADO, EQUIPAMIENTO_CATALOGO, CERTIFICACIONES_CATALOGO };
