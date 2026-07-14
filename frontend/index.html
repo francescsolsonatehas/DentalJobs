@@ -16,6 +16,9 @@
                 <button class="btn-outline btn-small" id="btnChat" onclick="app.chat.abrir()" style="display: none; position: relative;">
                     💬 <span id="chatBadge" style="display: none; background: #ef4444; color: white; border-radius: 50%; padding: 0.1rem 0.4rem; font-size: 0.7rem; position: absolute; top: -4px; right: -4px;">0</span>
                 </button>
+                <button class="btn-outline btn-small" id="btnNotif" onclick="app.notificaciones.togglePanel()" style="display: none; position: relative;" title="Notificaciones">
+                    🔔 <span id="notifBadge" style="display: none; background: #ef4444; color: white; border-radius: 50%; padding: 0.1rem 0.4rem; font-size: 0.7rem; position: absolute; top: -4px; right: -4px;">0</span>
+                </button>
                 <button class="btn-outline btn-small" id="btnPerfil" onclick="app.modal.abrirPerfil()" style="display: none;">Mi perfil</button>
                 <button class="btn-text btn-small" id="btnLogout" onclick="app.auth.logout()" style="display: none;">Logout</button>
             </div>
@@ -25,6 +28,15 @@
             </div>
         </nav>
     </header>
+
+    <!-- Panel de notificaciones (campana) -->
+    <div id="notifPanel" style="display: none; position: fixed; top: 62px; right: 12px; width: 340px; max-width: 92vw; max-height: 70vh; overflow-y: auto; background: white; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.15); z-index: 3000;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 1rem; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; background: white;">
+            <strong style="color: #0f4c75;">Notificaciones</strong>
+            <button onclick="app.notificaciones.marcarTodasLeidas()" style="background: none; border: none; color: #0f4c75; cursor: pointer; font-size: 0.82rem;">Marcar todas leídas</button>
+        </div>
+        <div id="notifLista"></div>
+    </div>
 
     <!-- Hero Landing -->
     <section class="hero landing-hero" id="heroLanding">

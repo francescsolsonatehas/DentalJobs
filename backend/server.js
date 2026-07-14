@@ -24,11 +24,22 @@ const { expandirRango, sanearDias } = require("./fechas");
 const crypto = require("crypto");
 
 // Notifica por email a un usuario, si tiene los avisos activados
-function notificarUsuario(usuarioId, asunto, titulo, cuerpo, textoBoton) {
-  db.get("SELECT nombre, email, recibir_emails FROM usuarios WHERE id = ?", [usuarioId], (err, u) => {
+function notificarUsuario(usuarioId, asunto, titulo, cuerpo, textoBoton, opciones = {}) {
+  // Notificación in-app (campana): se ENCOLA de inmediato (no dentro de un
+  // callback), para que el drenaje de la cola al limpiar la BD en los tests la
+  // capture y no quede una escritura colgando. Se guarda siempre, aunque el
+  // usuario tenga los emails desactivados; el callback vacío traga el error si la
+  // escritura llega tarde. `opciones` puede traer { tipo, enlace }.
+  db.run(
+    "INSERT INTO notificaciones (usuario_id, tipo, titulo, cuerpo, enlace) VALUES (?, ?, ?, ?, ?)",
+    [usuarioId, opciones.tipo || "general", titulo, cuerpo || null, opciones.enlace || null],
+    () => {}
+  );
+
+  // Email: requiere leer la preferencia del usuario, y solo se envía si la acepta.
+  db.get("SELECT email, recibir_emails FROM usuarios WHERE id = ?", [usuarioId], (err, u) => {
     if (err || !u || !u.recibir_emails) return;
     if ((u.email || "").endsWith("@dentaljobs.invalid")) return; // cuentas eliminadas
-
     enviarEmail(u.email, asunto, plantilla(titulo, cuerpo, urlFrontend(), textoBoton || "Abrir DentalJobs"))
       .catch(e => console.error("Error al enviar notificación:", e.message));
   });
@@ -1900,6 +1911,52 @@ app.get("/suplencias/:id/dentistas-disponibles", verifyToken, (req, res) => {
       res.json({ dentistas: dentistas || [] });
     });
   });
+});
+
+/* ===========================
+   🔹 NOTIFICACIONES IN-APP (campana)
+=========================== */
+
+// Últimas notificaciones del usuario + nº sin leer (lo consulta el latido de polling).
+app.get("/notificaciones", verifyToken, (req, res) => {
+  db.get(
+    "SELECT COUNT(*) AS n FROM notificaciones WHERE usuario_id = ? AND leido = 0",
+    [req.usuario.id],
+    (err, cuenta) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener notificaciones" });
+      }
+      db.all(
+        "SELECT id, tipo, titulo, cuerpo, enlace, leido, creado_en FROM notificaciones WHERE usuario_id = ? ORDER BY creado_en DESC LIMIT 30",
+        [req.usuario.id],
+        (err2, filas) => {
+          if (err2) {
+            console.error(err2);
+            return res.status(500).json({ error: "Error al obtener notificaciones" });
+          }
+          res.json({ noLeidas: cuenta ? cuenta.n : 0, notificaciones: filas || [] });
+        }
+      );
+    }
+  );
+});
+
+// Marca como leída una notificación (si viene id) o todas las del usuario.
+app.put("/notificaciones/leer", verifyToken, (req, res) => {
+  const { id } = req.body || {};
+  const responder = (err) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al marcar como leída" });
+    }
+    res.json({ success: true });
+  };
+  if (id) {
+    db.run("UPDATE notificaciones SET leido = 1 WHERE id = ? AND usuario_id = ?", [id, req.usuario.id], responder);
+  } else {
+    db.run("UPDATE notificaciones SET leido = 1 WHERE usuario_id = ? AND leido = 0", [req.usuario.id], responder);
+  }
 });
 
 // Sanea las preguntas de criba de una oferta: máximo 3, sin vacías, recortadas.

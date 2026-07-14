@@ -596,6 +596,107 @@ const app = {
   },
 
   // ============================================
+  // Módulo: Notificaciones in-app (campana)
+  // ============================================
+
+  notificaciones: {
+    _maxIdVisto: null, // para mostrar un toast solo de las que llegan nuevas
+    _lista: [],
+
+    // Consulta el estado (lo llama el latido de polling). Actualiza el badge y,
+    // si han llegado notificaciones nuevas desde la última vez, muestra un toast.
+    async actualizar() {
+      if (!estadoApp.usuario) return;
+      let data;
+      try {
+        data = await utils.request("/notificaciones");
+      } catch (e) { return; }
+
+      this._lista = data.notificaciones || [];
+      const badge = document.getElementById("notifBadge");
+      if (badge) {
+        if (data.noLeidas > 0) {
+          badge.textContent = data.noLeidas > 99 ? "99+" : data.noLeidas;
+          badge.style.display = "inline-block";
+        } else {
+          badge.style.display = "none";
+        }
+      }
+
+      // Toast de las nuevas (salvo en la primera carga de la sesión)
+      const maxId = this._lista.length ? Math.max(...this._lista.map(n => n.id)) : 0;
+      if (this._maxIdVisto !== null && maxId > this._maxIdVisto) {
+        const nuevas = this._lista.filter(n => n.id > this._maxIdVisto && !n.leido);
+        if (nuevas.length === 1) {
+          utils.mostrarAlerta(`🔔 ${nuevas[0].titulo}`, "info");
+        } else if (nuevas.length > 1) {
+          utils.mostrarAlerta(`🔔 Tienes ${nuevas.length} notificaciones nuevas`, "info");
+        }
+      }
+      this._maxIdVisto = maxId;
+
+      // Si el panel está abierto, refrescar la lista
+      if (document.getElementById("notifPanel")?.style.display === "block") {
+        this.render();
+      }
+    },
+
+    togglePanel() {
+      const panel = document.getElementById("notifPanel");
+      if (!panel) return;
+      const abierto = panel.style.display === "block";
+      if (abierto) {
+        panel.style.display = "none";
+      } else {
+        this.render();
+        panel.style.display = "block";
+        // Al abrir se marcan como leídas (el badge desaparece)
+        if (this._lista.some(n => !n.leido)) this.marcarTodasLeidas();
+      }
+    },
+
+    render() {
+      const cont = document.getElementById("notifLista");
+      if (!cont) return;
+      if (!this._lista.length) {
+        cont.innerHTML = `<p style="padding: 1.5rem; text-align: center; color: #9ca3af;">No tienes notificaciones.</p>`;
+        return;
+      }
+      cont.innerHTML = this._lista.map(n => {
+        const fondo = n.leido ? "white" : "#f0f9ff";
+        const enlaceAttr = n.enlace ? ` onclick="app.notificaciones.abrir(${n.id}, '${utils.escapeHtml(String(n.enlace)).replace(/'/g, "\\'")}')" style="cursor:pointer;"` : "";
+        return `<div${enlaceAttr} style="padding: 0.8rem 1rem; border-bottom: 1px solid #f1f5f9; background: ${fondo};">
+          <div style="display:flex; gap:0.5rem; align-items:baseline;">
+            ${n.leido ? "" : `<span style="color:#0ea5e9; font-size:0.7rem;">●</span>`}
+            <strong style="color:#1f2937; font-size:0.9rem;">${utils.escapeHtml(n.titulo)}</strong>
+          </div>
+          ${n.cuerpo ? `<p style="margin:0.25rem 0 0; color:#4b5563; font-size:0.85rem; line-height:1.4;">${utils.escapeHtml(n.cuerpo)}</p>` : ""}
+          <p style="margin:0.3rem 0 0; color:#9ca3af; font-size:0.75rem;">${utils.formatearFecha(n.creado_en)}</p>
+        </div>`;
+      }).join("");
+    },
+
+    abrir(id, enlace) {
+      // Marca esa notificación como leída y navega si hay un enlace interno
+      utils.request("/notificaciones/leer", { method: "PUT", body: JSON.stringify({ id }) }).catch(() => {});
+      document.getElementById("notifPanel").style.display = "none";
+      if (enlace && enlace.startsWith("#")) {
+        window.location.hash = enlace;
+      }
+    },
+
+    async marcarTodasLeidas() {
+      try {
+        await utils.request("/notificaciones/leer", { method: "PUT", body: JSON.stringify({}) });
+      } catch (e) { /* ignorar */ }
+      this._lista = this._lista.map(n => ({ ...n, leido: 1 }));
+      const badge = document.getElementById("notifBadge");
+      if (badge) badge.style.display = "none";
+      this.render();
+    }
+  },
+
+  // ============================================
   // Módulo: Auth
   // ============================================
 
@@ -858,6 +959,12 @@ const app = {
 
       // Limpiar formularios
       document.querySelectorAll("form").forEach(form => form.reset());
+
+      // Cerrar y resetear el panel de notificaciones
+      const notifPanel = document.getElementById("notifPanel");
+      if (notifPanel) notifPanel.style.display = "none";
+      app.notificaciones._maxIdVisto = null;
+      app.notificaciones._lista = [];
 
       utils.mostrarAlerta("Sesión cerrada", "info");
       app.ui.mostrarLanding();
@@ -4668,13 +4775,15 @@ const app = {
       this.badgePollingInterval = setInterval(() => {
         if (document.visibilityState !== "visible") return;
         app.chat.actualizarContador();
+        app.notificaciones.actualizar();
       }, 20000);
 
-      // Y al volver a la pestaña, refrescar el contador de inmediato
+      // Y al volver a la pestaña, refrescar los contadores de inmediato
       if (!this._visibilidadBadgeListener) {
         this._visibilidadBadgeListener = () => {
           if (document.visibilityState === "visible" && estadoApp.usuario) {
             app.chat.actualizarContador();
+            app.notificaciones.actualizar();
           }
         };
         document.addEventListener("visibilitychange", this._visibilidadBadgeListener);
@@ -4729,7 +4838,9 @@ const app = {
       document.getElementById("btnExportarCsv").style.display = "inline-block";
       document.getElementById("btnFavoritos").style.display = "inline-block";
       document.getElementById("btnChat").style.display = "inline-block";
+      document.getElementById("btnNotif").style.display = "inline-block";
       app.chat.actualizarContador();
+      app.notificaciones.actualizar();
       app.recordatorios.comprobar();
 
       // Actualizar texto del hero según tipo de usuario
@@ -6879,6 +6990,13 @@ document.addEventListener("click", (e) => {
   if (e.target.classList && e.target.classList.contains("modal") && e.target.classList.contains("active")) {
     e.target.classList.remove("active");
     app.modal.cerrarTodosModales();
+  }
+
+  // Cerrar el panel de notificaciones al hacer clic fuera de él y del botón campana
+  const panel = document.getElementById("notifPanel");
+  if (panel && panel.style.display === "block") {
+    const dentro = panel.contains(e.target) || document.getElementById("btnNotif")?.contains(e.target);
+    if (!dentro) panel.style.display = "none";
   }
 });
 

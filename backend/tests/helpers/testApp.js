@@ -25,7 +25,19 @@ function createTestApp() {
   return { app, dbPath };
 }
 
-function cleanupTestApp(dbPath) {
+async function cleanupTestApp(dbPath) {
+  // Drenar y cerrar la conexión antes de borrar el fichero: así las escrituras
+  // en vuelo (p. ej. notificaciones creadas como efecto secundario tras responder
+  // un endpoint) terminan y no corrompen el runner ni provocan fallos flaky.
+  try {
+    const db = require("../../db");
+    if (db && typeof db.close === "function") {
+      await new Promise(resolve => db.close(() => resolve()));
+    }
+  } catch (e) {
+    /* si no se puede cerrar, se borra igualmente */
+  }
+
   for (const suffix of ["", "-journal", "-wal", "-shm"]) {
     const file = dbPath + suffix;
     if (fs.existsSync(file)) {

@@ -492,6 +492,21 @@ db.serialize(() => {
     )
   `);
 
+  // Notificaciones in-app (campana): se crean en cada evento por-usuario a la vez
+  // que el email, y se muestran aunque el usuario tenga los emails desactivados.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS notificaciones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      tipo TEXT DEFAULT 'general',
+      titulo TEXT NOT NULL,
+      cuerpo TEXT,
+      enlace TEXT,
+      leido INTEGER DEFAULT 0,
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Backfill: las suplencias que ya existían solo tenían el rango fecha_desde →
   // fecha_hasta. Se expande a días concretos en suplencia_dias para las que aún
   // no tengan ninguno, de modo que el nuevo filtro por fecha las incluya.
