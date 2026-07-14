@@ -155,6 +155,38 @@ function dentistasDisponiblesParaSuplencia(pubId, callback) {
   );
 }
 
+// Aviso instantáneo al publicar una suplencia URGENTE: notifica en el momento a
+// los dentistas que casan y tienen algún día coincidente futuro, y los registra
+// en notificaciones_suplencia para que el digest diario (M3) no repita el aviso.
+// Completa las escrituras antes de invocar el callback (para no dejar escrituras
+// en vuelo que rompan la limpieza de la BD en los tests).
+function avisarInstantaneoSuplencia(pubId, callback) {
+  const terminar = () => callback && callback();
+  dentistasDisponiblesParaSuplencia(pubId, (err, dentistas) => {
+    if (err) {
+      console.error("Error en el aviso instantáneo de suplencia:", err);
+      return terminar();
+    }
+    const hoy = new Date().toISOString().slice(0, 10);
+    const aAvisar = (dentistas || []).filter(d => (d.dias_coincidentes || []).some(f => f >= hoy));
+    if (aAvisar.length === 0) return terminar();
+
+    aAvisar.forEach(d => {
+      notificarUsuario(
+        d.id,
+        "🚨 Suplencia urgente para ti en DentalJobs",
+        "Una suplencia urgente encaja con tu disponibilidad",
+        "Una clínica de tu zona acaba de publicar una suplencia urgente en días que tienes marcados como disponibles. Entra para verla y postularte cuanto antes.",
+        "Ver la suplencia"
+      );
+    });
+
+    const stmt = db.prepare("INSERT OR IGNORE INTO notificaciones_suplencia (usuario_id, publicacion_id) VALUES (?, ?)");
+    aAvisar.forEach(d => stmt.run(d.id, pubId));
+    stmt.finalize(() => terminar());
+  });
+}
+
 // Catálogos fijos (sin tabla propia, como contrato/jornada)
 const EQUIPAMIENTO_CATALOGO = ["CBCT / TAC 3D", "CAD-CAM", "Microscopio", "Escáner intraoral", "Láser dental", "Sedación consciente"];
 const CERTIFICACIONES_CATALOGO = ["Invisalign", "Implantología avanzada", "Ortodoncia lingual", "Estética dental avanzada", "Sedación consciente", "Cirugía guiada"];
@@ -1968,7 +2000,15 @@ app.post("/publicaciones", verifyToken, (req, res) => {
         if (diasSuplencia.length > 0) {
           const stmt = db.prepare("INSERT OR IGNORE INTO suplencia_dias (publicacion_id, fecha) VALUES (?, ?)");
           diasSuplencia.forEach(dia => stmt.run(publicacionId, dia));
-          stmt.finalize(() => res.json({ mensaje: "Publicación creada", id: publicacionId }));
+          stmt.finalize(() => {
+            const responder = () => res.json({ mensaje: "Publicación creada", id: publicacionId });
+            // Aviso instantáneo solo para suplencias urgentes; el resto lo cubre el digest diario
+            if (tipo === 'suplencia' && urgente) {
+              avisarInstantaneoSuplencia(publicacionId, responder);
+            } else {
+              responder();
+            }
+          });
           return;
         }
 
