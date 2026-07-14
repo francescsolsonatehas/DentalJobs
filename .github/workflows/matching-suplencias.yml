@@ -1,0 +1,27 @@
+# Digest diario de matching de suplencias: avisa por email a cada dentista de las
+# suplencias nuevas que encajan con su disponibilidad (ciudad + especialidad + días).
+#
+# Render free no trae cron propio, así que el disparo se hace desde aquí con una
+# petición HTTP al endpoint protegido /admin/matching-suplencias.
+#
+# Secrets necesarios en este repo:
+#   BACKEND_URL   → URL pública del backend en Render (ej. https://dentaljobs.onrender.com)
+#   ADMIN_TOKEN   → el mismo valor que ADMIN_TOKEN en el backend
+name: Matching diario de suplencias
+
+on:
+  schedule:
+    - cron: "0 7 * * *" # cada día a las 07:00 UTC
+  workflow_dispatch:
+
+jobs:
+  matching:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar al endpoint de matching de suplencias
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          curl -sf -X POST "${BACKEND_URL%/}/admin/matching-suplencias" \
+            -H "X-Admin-Token: ${ADMIN_TOKEN}"

@@ -1280,6 +1280,65 @@ app.delete("/idiomas/:id", verifyToken, (req, res) => {
    🔹 MATCHING PROACTIVO (resumen semanal por email)
 =========================== */
 
+// Digest diario de matching de suplencias: por cada dentista, las suplencias
+// activas (futuras) que encajan con su disponibilidad, ciudad y especialidad y
+// de las que aún no se le ha avisado. Envía un email-resumen y registra el aviso
+// en notificaciones_suplencia para no repetir. Pensado para un cron diario.
+app.post("/admin/matching-suplencias", verificarAdmin, (req, res) => {
+  db.all(
+    `SELECT DISTINCT u.id AS usuario_id, p.id AS publicacion_id, p.urgente
+     FROM usuarios u
+     JOIN disponibilidad_dentista dd ON dd.usuario_id = u.id
+     JOIN suplencia_dias sd ON sd.fecha = dd.fecha
+     JOIN publicaciones p ON p.id = sd.publicacion_id AND p.tipo = 'suplencia' AND p.activo = 1
+     WHERE u.tipo = 'dentista'
+       AND sd.fecha >= date('now')
+       AND (u.ciudad = p.ciudad OR u.ciudad LIKE '%' || p.ciudad || '%' OR p.ciudad LIKE '%' || u.ciudad || '%')
+       AND (
+         NOT EXISTS (SELECT 1 FROM publicacion_especialidades pe WHERE pe.publicacion_id = p.id)
+         OR EXISTS (
+           SELECT 1 FROM publicacion_especialidades pe
+           JOIN usuario_especialidades ue ON ue.especialidad_id = pe.especialidad_id
+           WHERE pe.publicacion_id = p.id AND ue.usuario_id = u.id
+         )
+       )
+       AND NOT EXISTS (SELECT 1 FROM notificaciones_suplencia ns WHERE ns.usuario_id = u.id AND ns.publicacion_id = p.id)
+     ORDER BY u.id, p.id`,
+    (err, pares) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al calcular el matching de suplencias" });
+      }
+      pares = pares || [];
+
+      // Agrupar por dentista para enviar un solo email-resumen a cada uno
+      const porDentista = {};
+      pares.forEach(f => { (porDentista[f.usuario_id] = porDentista[f.usuario_id] || []).push(f); });
+
+      Object.entries(porDentista).forEach(([uid, sups]) => {
+        const n = sups.length;
+        const urgentes = sups.filter(s => s.urgente).length;
+        notificarUsuario(
+          uid,
+          `🗓️ ${n} suplencia${n === 1 ? "" : "s"} para ti en DentalJobs`,
+          "Suplencias que encajan con tu disponibilidad",
+          `Hay ${n} suplencia${n === 1 ? "" : "s"} ${urgentes ? `(${urgentes} urgente${urgentes === 1 ? "" : "s"}) ` : ""}en tu zona en días que tienes marcados como disponibles. Entra para verlas y postularte.`,
+          "Ver suplencias"
+        );
+      });
+
+      // Registrar el dedup y responder solo cuando todas las escrituras han terminado
+      // (no dejar escrituras en vuelo que rompan la limpieza de la BD en los tests).
+      if (pares.length === 0) {
+        return res.json({ dentistasAvisados: 0, avisos: 0 });
+      }
+      const stmt = db.prepare("INSERT OR IGNORE INTO notificaciones_suplencia (usuario_id, publicacion_id) VALUES (?, ?)");
+      pares.forEach(p => stmt.run(p.usuario_id, p.publicacion_id));
+      stmt.finalize(() => res.json({ dentistasAvisados: Object.keys(porDentista).length, avisos: pares.length }));
+    }
+  );
+});
+
 // Envía a cada clínica y dentista un resumen de sus coincidencias activas
 // (misma ciudad + especialidad). Pensado para dispararse una vez por semana
 // desde un cron externo (GitHub Actions), ya que Render free no trae cron propio.

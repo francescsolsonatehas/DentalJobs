@@ -480,6 +480,18 @@ db.serialize(() => {
     )
   `);
 
+  // Dedup de avisos de matching de suplencias: un dentista solo se avisa una vez
+  // por suplencia, aunque el digest diario se ejecute muchas veces.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS notificaciones_suplencia (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      publicacion_id INTEGER NOT NULL REFERENCES publicaciones(id),
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(usuario_id, publicacion_id)
+    )
+  `);
+
   // Backfill: las suplencias que ya existían solo tenían el rango fecha_desde →
   // fecha_hasta. Se expande a días concretos en suplencia_dias para las que aún
   // no tengan ninguno, de modo que el nuevo filtro por fecha las incluya.
