@@ -453,6 +453,7 @@ const app = {
           body: JSON.stringify({ dias, ...(Number.isNaN(radio_km) ? {} : { radio_km }) })
         });
         utils.mostrarAlerta(dias.length ? `Disponibilidad guardada (${dias.length} día${dias.length === 1 ? "" : "s"})` : "Disponibilidad vaciada", "success");
+        app.modal.cerrarPerfil();
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -4664,14 +4665,7 @@ const app = {
           }
 
           utils.mostrarAlerta("✅ Perfil actualizado correctamente", "success");
-
-          setTimeout(() => {
-            // Cerrar el modal - solo remover la clase active, no tocar display
-            const modal = document.getElementById("modalPerfil");
-            if (modal) {
-              modal.classList.remove("active");
-            }
-          }, 1000);
+          app.modal.cerrarPerfil();
         }
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
@@ -7127,7 +7121,9 @@ const app = {
         }
 
         utils.mostrarAlerta("✅ Respuestas guardadas", "success");
-        app.onboarding.refrescar();
+        // Al guardar bien, cerrar la ventana de perfil (cerrarPerfil refresca el
+        // onboarding). El toast de éxito vive en el body, así que sigue visible.
+        app.modal.cerrarPerfil();
       } catch (error) {
         console.error("Error al guardar las preferencias:", error);
         utils.mostrarAlerta("Error al guardar las respuestas", "error");
