@@ -522,6 +522,19 @@ db.serialize(() => {
     )
   `);
 
+  // Prioridades personales del dentista sobre las dimensiones de compatibilidad
+  // (Fase 3). Una fila por dimensión que el dentista mueve del neutro; las que no
+  // aparecen valen "media" (peso base). Solo la usan los dentistas: la clínica es
+  // el lado evaluado, no quien pondera. Ver compatibilidad.js (NIVELES_PRIORIDAD).
+  db.run(`
+    CREATE TABLE IF NOT EXISTS prioridades_compat (
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      clave TEXT NOT NULL,
+      nivel TEXT NOT NULL,
+      PRIMARY KEY (usuario_id, clave)
+    )
+  `);
+
   // Backfill: las suplencias que ya existían solo tenían el rango fecha_desde →
   // fecha_hasta. Se expande a días concretos en suplencia_dias para las que aún
   // no tengan ninguno, de modo que el nuevo filtro por fecha las incluya.

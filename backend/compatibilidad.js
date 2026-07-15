@@ -144,6 +144,24 @@ const DIMENSIONES = [
 // que es justo lo que veía el usuario antes de existir el cuestionario.
 const COBERTURA_MINIMA = 0.3;
 
+// Prioridades personales del dentista (Fase 3). Por defecto todas las dimensiones
+// pesan lo que dice DIMENSIONES: ese peso es NUESTRA opinión de cómo de importante
+// es cada cosa. Aquí el dentista la sustituye por la suya: marca cada dimensión
+// como más o menos importante y su peso efectivo se multiplica en consecuencia.
+//
+//   pesoEfectivo = pesoBase × multiplicador(nivel)
+//
+// "media" es el neutro (×1): un dentista que no toca nada obtiene exactamente el
+// mismo % que antes de existir esta fase. Es deliberadamente conservador —tres
+// niveles, factores suaves— para que priorizar reordene los matches sin convertir
+// el % en un botón de "todo o nada".
+const NIVELES_PRIORIDAD = ["alta", "media", "baja"];
+const MULTIPLICADOR_PRIORIDAD = { alta: 2, media: 1, baja: 0.5 };
+
+function multiplicadorPrioridad(nivel) {
+  return MULTIPLICADOR_PRIORIDAD[nivel] ?? 1;
+}
+
 // Qué equipamiento de la clínica aprovecha cada certificación del dentista. Es la
 // forma de puntuar "tecnología" en la Fase 1 sin preguntarle al dentista con qué
 // quiere trabajar: si está certificado en Invisalign, un escáner intraoral le sirve.
@@ -350,22 +368,32 @@ const PUNTUADORES = {
 /**
  * Calcula la compatibilidad entre un dentista y una oferta/suplencia.
  *
- * @param perfil  { salario_pretendido, jornada_buscada, disponibilidad: [YYYY-MM-DD], certificaciones: [string], preferencias: {clave: valor} }
+ * @param perfil  { salario_pretendido, jornada_buscada, disponibilidad: [YYYY-MM-DD], certificaciones: [string], preferencias: {clave: valor}, prioridades: {clave: "alta"|"media"|"baja"} }
  * @param oferta  { tipo, jornada, salario_min, salario_max, retribucion_tipo, dias: [YYYY-MM-DD], equipamiento: [string], preferencias: {clave: valor} }
  * @returns {{
  *   porcentaje: number|null,   // null si no hay cobertura suficiente para ser honesto
  *   suficiente: boolean,
  *   cobertura: number,         // fracción del peso total que se ha podido evaluar
- *   dimensiones: Array<{clave, etiqueta, peso, estado, puntuacion, detalle, falta}>
+ *   dimensiones: Array<{clave, etiqueta, peso, prioridad, estado, puntuacion, detalle, falta}>
  * }}
  */
 function calcularCompatibilidad(perfil = {}, oferta = {}) {
+  const prioridades = perfil.prioridades || {};
+
+  // La cobertura (¿hay datos para ser honestos?) se mide con los pesos BASE: es una
+  // pregunta sobre disponibilidad de datos, ajena a lo que priorice el dentista.
+  // Subir el peso de una dimensión sin dato no debe rebajar el umbral de honestidad
+  // ni al revés, así que las prioridades NO tocan pesoEvaluado/pesoTotal.
   let pesoEvaluado = 0;
   let pesoTotal = 0;
+  // El porcentaje, en cambio, sí pondera con el peso EFECTIVO (base × prioridad):
+  // es la nota "según lo que a ti te importa".
+  let pesoEfectivo = 0;
   let acumulado = 0;
 
   const dimensiones = DIMENSIONES.map(dim => {
     const { clave, etiqueta, peso } = dim;
+    const prioridad = NIVELES_PRIORIDAD.includes(prioridades[clave]) ? prioridades[clave] : "media";
     pesoTotal += peso;
     // Las tres primeras dimensiones tienen puntuador propio (derivan el dato de la
     // plataforma); las del cuestionario comparten los dos genéricos por tipo.
@@ -374,16 +402,19 @@ function calcularCompatibilidad(perfil = {}, oferta = {}) {
       : puntuarCuestionario(dim, perfil, oferta);
 
     if (resultado.puntuacion === null) {
-      return { clave, etiqueta, peso, estado: "sin_datos", puntuacion: null, detalle: resultado.detalle, falta: resultado.falta };
+      return { clave, etiqueta, peso, prioridad, estado: "sin_datos", puntuacion: null, detalle: resultado.detalle, falta: resultado.falta };
     }
 
+    const pesoEfectivoDim = peso * multiplicadorPrioridad(prioridad);
     pesoEvaluado += peso;
-    acumulado += resultado.puntuacion * peso;
+    pesoEfectivo += pesoEfectivoDim;
+    acumulado += resultado.puntuacion * pesoEfectivoDim;
 
     return {
       clave,
       etiqueta,
       peso,
+      prioridad,
       // Cada dimensión puede imponer su propio estado (ver puntuarSalario); si no,
       // se deriva de la puntuación con los umbrales genéricos.
       estado: resultado.estado || estadoDe(resultado.puntuacion),
@@ -399,7 +430,7 @@ function calcularCompatibilidad(perfil = {}, oferta = {}) {
   const suficiente = cobertura >= COBERTURA_MINIMA;
 
   return {
-    porcentaje: suficiente ? Math.round((acumulado / pesoEvaluado) * 100) : null,
+    porcentaje: suficiente ? Math.round((acumulado / pesoEfectivo) * 100) : null,
     suficiente,
     cobertura,
     dimensiones
@@ -411,5 +442,7 @@ module.exports = {
   DIMENSIONES,
   DIMENSIONES_CUESTIONARIO,
   AFINIDAD_TECNOLOGIA,
-  COBERTURA_MINIMA
+  COBERTURA_MINIMA,
+  NIVELES_PRIORIDAD,
+  MULTIPLICADOR_PRIORIDAD
 };

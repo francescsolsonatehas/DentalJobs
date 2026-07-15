@@ -1113,6 +1113,17 @@ const app = {
         }
       }
 
+      // Orden por compatibilidad: solo para dentistas (usa su perfil). Si una clínica
+      // lo tuviera seleccionado por lo que sea, se vuelve al orden por defecto.
+      const optCompat = document.getElementById("ordenCompatibilidad");
+      if (optCompat) {
+        const mostrarCompat = estadoApp.tipoUsuario === 'dentista';
+        optCompat.hidden = !mostrarCompat;
+        optCompat.style.display = mostrarCompat ? "" : "none";
+        const sel = document.getElementById("filterOrden");
+        if (!mostrarCompat && sel.value === 'compatibilidad') sel.value = 'recientes';
+      }
+
       const q = document.getElementById("filterQ").value;
       const ciudad = document.getElementById("filterCiudad").value;
       const radioKm = document.getElementById("filterRadio")?.value || "";
@@ -1853,10 +1864,17 @@ const app = {
       const ICONOS = { coincide: "✅", parcial: "🟡", discrepa: "❌", sin_datos: "➖" };
       const COLORES = { coincide: "#16a34a", parcial: "#f59e0b", discrepa: "#dc2626", sin_datos: "#9ca3af" };
 
+      // Marca las dimensiones que el dentista ha priorizado, para que el desglose
+      // explique por qué el % se inclina hacia unas cosas más que otras.
+      const MARCA_PRIORIDAD = {
+        alta: `<span title="Le das mucha importancia" style="color:#0F4C75; font-size:.75rem;">⬆ priorizas</span>`,
+        baja: `<span title="Le das poca importancia" style="color:#9ca3af; font-size:.75rem;">⬇ menos</span>`
+      };
+
       const filas = compat.dimensiones.map(d => `
         <div style="display: flex; align-items: baseline; gap: .5rem; padding: .45rem 0; border-top: 1px solid #eef2f7;">
           <span>${ICONOS[d.estado] || "➖"}</span>
-          <span style="font-weight: 600; color: #0F4C75; min-width: 8.5rem;">${utils.escapeHtml(d.etiqueta)}</span>
+          <span style="font-weight: 600; color: #0F4C75; min-width: 8.5rem;">${utils.escapeHtml(d.etiqueta)} ${MARCA_PRIORIDAD[d.prioridad] || ""}</span>
           <span style="color: ${COLORES[d.estado] || "#6b7280"}; font-size: .9rem;">${utils.escapeHtml(d.detalle || "")}</span>
         </div>
       `).join("");
@@ -5269,10 +5287,15 @@ const app = {
         }
 
         const esFavorito = misFavoritos.has(pub.id);
+        // Badge de compatibilidad: solo llega en el listado ordenado por % (dentista).
+        const compatBadge = (pub.compat_porcentaje != null) ? (() => {
+          const c = pub.compat_porcentaje >= 80 ? "#16a34a" : pub.compat_porcentaje >= 55 ? "#f59e0b" : "#dc2626";
+          return `<span style="background:${c}; color:#fff; border-radius:99px; padding:.15rem .55rem; font-size:.8rem; font-weight:700;" title="Tu compatibilidad con esta publicación">🧩 ${pub.compat_porcentaje}%</span>`;
+        })() : "";
         return `
           <div class="card ${tipoClase}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-              ${tipoBadge ? `<span class="card-type ${tipoClase}">${tipoBadge}</span>` : "<span></span>"}
+              <span style="display: flex; gap: .4rem; align-items: center;">${tipoBadge ? `<span class="card-type ${tipoClase}">${tipoBadge}</span>` : ""}${compatBadge}</span>
               ${estadoApp.usuario && ((estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'solicitud') || (estadoApp.tipoUsuario === 'dentista' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia'))) ? `<button onclick="app.favoritos.toggle(${pub.id}, this)" data-favorito="${esFavorito}" style="background: none; border: none; cursor: pointer; font-size: 1.3rem; padding: 0;" title="${esFavorito ? 'Quitar de favoritos' : 'Guardar en favoritos'}">${esFavorito ? '⭐' : '☆'}</button>` : ''}
             </div>
             <h3>${utils.escapeHtml(generatedTitle)}</h3>
@@ -6965,15 +6988,28 @@ const app = {
   preferencias: {
     dimensiones: [],
     respuestas: {},
+    // Prioridades personales (Fase 3): solo para dentistas
+    dimsPrioridad: [],
+    niveles: [],
+    prioridades: {},
 
     async cargar() {
       try {
-        const [catalogo, mias] = await Promise.all([
+        const esDentista = estadoApp.tipoUsuario === 'dentista';
+        const peticiones = [
           utils.request("/compatibilidad/catalogo"),
           utils.request("/preferencias")
-        ]);
+        ];
+        // El dentista, además del cuestionario, pondera las dimensiones (sus prioridades)
+        if (esDentista) peticiones.push(utils.request("/prioridades"));
+        const [catalogo, mias, prio] = await Promise.all(peticiones);
         this.dimensiones = catalogo.dimensiones || [];
         this.respuestas = mias.preferencias || {};
+        if (prio) {
+          this.dimsPrioridad = prio.dimensiones || [];
+          this.niveles = prio.niveles || [];
+          this.prioridades = prio.prioridades || {};
+        }
         this.renderizar();
       } catch (error) {
         console.error("Error al cargar el test de compatibilidad:", error);
@@ -7020,6 +7056,43 @@ const app = {
             ${opciones}
           </div>`;
       }).join("");
+
+      this.renderizarPrioridades();
+    },
+
+    // Bloque de prioridades: el dentista dice cuánto pesa cada dimensión en SU %.
+    // Solo para dentistas (la clínica es el lado evaluado, no quien pondera).
+    renderizarPrioridades() {
+      const cont = document.getElementById("compatibilidadPrioridades");
+      if (!cont) return;
+      if (estadoApp.tipoUsuario !== 'dentista') { cont.innerHTML = ""; return; }
+
+      const ETIQUETA_NIVEL = { alta: "Mucho", media: "Normal", baja: "Poco" };
+      const filas = this.dimsPrioridad.map(dim => {
+        const actual = this.prioridades[dim.clave] || "media";
+        const opciones = this.niveles.map(n => {
+          const id = `prio_${dim.clave}_${n}`;
+          return `
+            <label for="${id}" style="display:flex; align-items:center; gap:.3rem; cursor:pointer;">
+              <input type="radio" id="${id}" name="prio_${dim.clave}" value="${n}" ${n === actual ? 'checked' : ''}>
+              <span>${ETIQUETA_NIVEL[n] || n}</span>
+            </label>`;
+        }).join("");
+        return `
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:.45rem 0; border-top:1px solid #eef2f7;">
+            <span style="font-weight:600; color:#0F4C75;">${utils.escapeHtml(dim.etiqueta)}</span>
+            <div style="display:flex; gap:.9rem; flex-shrink:0;">${opciones}</div>
+          </div>`;
+      }).join("");
+
+      cont.innerHTML = `
+        <div style="background:#F8FAFF; border:1px solid #dbe4f0; border-radius:10px; padding:1rem; margin-top:1.25rem;">
+          <div style="font-weight:700; color:#0F4C75; margin-bottom:.15rem;">🎚️ ¿Qué es lo que más te importa?</div>
+          <div style="color:#6b7280; font-size:.8rem; margin-bottom:.5rem;">
+            Ajusta cuánto pesa cada aspecto en tu % de compatibilidad. Lo que marques como «Mucho» cuenta el doble; «Poco», la mitad.
+          </div>
+          ${filas}
+        </div>`;
     },
 
     async guardar() {
@@ -7035,8 +7108,20 @@ const app = {
       try {
         await utils.request("/preferencias", { method: 'PUT', body: JSON.stringify({ preferencias }) });
         this.respuestas = preferencias;
+
+        // El dentista guarda además sus prioridades (cuánto pesa cada dimensión).
+        if (estadoApp.tipoUsuario === 'dentista') {
+          const prioridades = {};
+          this.dimsPrioridad.forEach(dim => {
+            const val = document.querySelector(`input[name="prio_${dim.clave}"]:checked`)?.value;
+            if (val) prioridades[dim.clave] = val;
+          });
+          await utils.request("/prioridades", { method: 'PUT', body: JSON.stringify({ prioridades }) });
+          this.prioridades = prioridades;
+        }
+
         utils.mostrarAlerta("✅ Respuestas guardadas", "success");
-        app.onboarding.cargar();
+        app.onboarding.refrescar();
       } catch (error) {
         console.error("Error al guardar las preferencias:", error);
         utils.mostrarAlerta("Error al guardar las respuestas", "error");

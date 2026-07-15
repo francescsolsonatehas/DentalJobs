@@ -14,10 +14,11 @@ const compression = require("compression");
 const rateLimit = require("express-rate-limit");
 const path = require("path");
 const db = require("./db");
-const { verifyToken, generateToken } = require("./middleware/auth");
+const jwt = require("jsonwebtoken");
+const { verifyToken, generateToken, SECRET } = require("./middleware/auth");
 const { enviarEmail, plantilla, urlFrontend } = require("./email");
 const { ETIQUETAS_ESTADO, EQUIPAMIENTO_CATALOGO, CERTIFICACIONES_CATALOGO } = require("./catalogos");
-const { calcularCompatibilidad, DIMENSIONES_CUESTIONARIO } = require("./compatibilidad");
+const { calcularCompatibilidad, DIMENSIONES, DIMENSIONES_CUESTIONARIO, NIVELES_PRIORIDAD } = require("./compatibilidad");
 const { construirFiltros } = require("./filtros-publicaciones");
 const { generarCsv } = require("./exportaciones");
 const { geocodificarCiudad } = require("./municipios-coords");
@@ -220,9 +221,27 @@ function cargarPreferencias(usuarioId, callback) {
   });
 }
 
+// Prioridades del dentista sobre las dimensiones de compatibilidad, en la forma que
+// espera el motor: { clave: "alta"|"media"|"baja" }. Las dimensiones que el dentista
+// no ha tocado no aparecen (valen "media", peso base). Se descarta lo que ya no
+// esté en el catálogo para no ponderar contra basura.
+function cargarPrioridades(usuarioId, callback) {
+  db.all("SELECT clave, nivel FROM prioridades_compat WHERE usuario_id = ?", [usuarioId], (err, filas) => {
+    if (err) return callback(err);
+    const porClave = {};
+    (filas || []).forEach(({ clave, nivel }) => {
+      if (DIMENSIONES.some(d => d.clave === clave) && NIVELES_PRIORIDAD.includes(nivel)) {
+        porClave[clave] = nivel;
+      }
+    });
+    callback(null, porClave);
+  });
+}
+
 // Perfil del dentista tal y como lo consume el motor de compatibilidad: lo que
 // pide (su solicitud activa), cuándo puede (su calendario), qué sabe hacer (sus
-// certificaciones) y lo que respondió en el cuestionario.
+// certificaciones), lo que respondió en el cuestionario y cómo pondera él las
+// dimensiones (sus prioridades personales, Fase 3).
 function perfilCompatibilidad(usuarioId, callback) {
   db.get(
     `SELECT salario_min, jornada FROM publicaciones
@@ -237,12 +256,16 @@ function perfilCompatibilidad(usuarioId, callback) {
           if (err3) return callback(err3);
           cargarPreferencias(usuarioId, (err4, preferencias) => {
             if (err4) return callback(err4);
-            callback(null, {
-              salario_pretendido: solicitud ? solicitud.salario_min : null,
-              jornada_buscada: solicitud ? solicitud.jornada : null,
-              disponibilidad: (dias || []).map(d => d.fecha),
-              certificaciones: (certs || []).map(c => c.certificacion),
-              preferencias
+            cargarPrioridades(usuarioId, (err5, prioridades) => {
+              if (err5) return callback(err5);
+              callback(null, {
+                salario_pretendido: solicitud ? solicitud.salario_min : null,
+                jornada_buscada: solicitud ? solicitud.jornada : null,
+                disponibilidad: (dias || []).map(d => d.fecha),
+                certificaciones: (certs || []).map(c => c.certificacion),
+                preferencias,
+                prioridades
+              });
             });
           });
         });
@@ -1542,6 +1565,117 @@ app.get("/catalogos", (req, res) => {
    🔹 PUBLICACIONES
 =========================== */
 
+// Decodifica el usuario del token si lo hay, sin exigirlo (el listado es público).
+// Sirve para las funciones que enriquecen el listado solo cuando quien mira tiene
+// sesión, como el orden por compatibilidad.
+function usuarioDeToken(req) {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return null;
+  try {
+    return jwt.verify(token, SECRET);
+  } catch {
+    return null;
+  }
+}
+
+// Agrupa filas (clave, valor) de la tabla preferencias en la forma que espera el
+// motor: string para "eje", array para "multi". Igual que cargarPreferencias, pero
+// para un lote de usuarios (varias clínicas del listado a la vez).
+function agruparPreferencias(filas) {
+  const porUsuario = {};
+  (filas || []).forEach(({ usuario_id, clave, valor }) => {
+    const dim = DIMENSIONES_CUESTIONARIO.find(d => d.clave === clave);
+    if (!dim) return;
+    const destino = porUsuario[usuario_id] = porUsuario[usuario_id] || {};
+    if (dim.tipo === "multi") {
+      (destino[clave] = destino[clave] || []).push(valor);
+    } else {
+      destino[clave] = valor;
+    }
+  });
+  return porUsuario;
+}
+
+// Orden por compatibilidad (Fase 3). El % vive en compatibilidad.js, no en SQL, así
+// que no se puede ordenar en la consulta: se trae el conjunto filtrado (con un tope
+// de seguridad), se puntúa en bloque cargando de una sola vez el equipamiento, los
+// días y las respuestas de cada clínica, y se ordena y pagina en memoria. Cada
+// publicación sale anotada con su % para que el frontend lo pinte en la tarjeta.
+const TOPE_COMPATIBILIDAD = 200;
+
+function listarPorCompatibilidad(res, filtros, usuarioId, page, limit) {
+  const query = `SELECT p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad
+                 FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id
+                 WHERE p.activo = 1${filtros.sql}
+                 ORDER BY p.creado_en DESC LIMIT ?`;
+
+  db.all(query, [...filtros.params, TOPE_COMPATIBILIDAD], (err, pubs) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al obtener publicaciones" });
+    }
+
+    const responder = () => {
+      const inicio = (page - 1) * limit;
+      res.json(pubs.slice(inicio, inicio + limit));
+    };
+
+    // Solo ofertas y suplencias tienen compatibilidad; el resto queda al final.
+    const compatibles = pubs.filter(p => p.tipo === "oferta" || p.tipo === "suplencia");
+    if (compatibles.length === 0) return responder();
+
+    perfilCompatibilidad(usuarioId, (errP, perfil) => {
+      if (errP) {
+        console.error(errP);
+        return res.status(500).json({ error: "Error al calcular la compatibilidad" });
+      }
+
+      const ids = compatibles.map(p => p.id);
+      const marcadores = ids.map(() => "?").join(",");
+      const clinicaIds = [...new Set(compatibles.map(p => p.usuario_id).filter(Boolean))];
+      const marcadoresClinica = clinicaIds.map(() => "?").join(",");
+
+      db.all(`SELECT publicacion_id, equipo FROM publicacion_equipamiento WHERE publicacion_id IN (${marcadores})`, ids, (e1, equipos) => {
+        if (e1) { console.error(e1); return res.status(500).json({ error: "Error al calcular la compatibilidad" }); }
+        db.all(`SELECT publicacion_id, fecha FROM suplencia_dias WHERE publicacion_id IN (${marcadores}) ORDER BY fecha`, ids, (e2, dias) => {
+          if (e2) { console.error(e2); return res.status(500).json({ error: "Error al calcular la compatibilidad" }); }
+
+          const cargarPrefsClinica = clinicaIds.length
+            ? cb => db.all(`SELECT usuario_id, clave, valor FROM preferencias WHERE usuario_id IN (${marcadoresClinica})`, clinicaIds, cb)
+            : cb => cb(null, []);
+
+          cargarPrefsClinica((e3, prefs) => {
+            if (e3) { console.error(e3); return res.status(500).json({ error: "Error al calcular la compatibilidad" }); }
+
+            const equiposPorPub = {};
+            (equipos || []).forEach(({ publicacion_id, equipo }) => (equiposPorPub[publicacion_id] = equiposPorPub[publicacion_id] || []).push(equipo));
+            const diasPorPub = {};
+            (dias || []).forEach(({ publicacion_id, fecha }) => (diasPorPub[publicacion_id] = diasPorPub[publicacion_id] || []).push(fecha));
+            const prefsPorClinica = agruparPreferencias(prefs);
+
+            compatibles.forEach(pub => {
+              const oferta = {
+                ...pub,
+                equipamiento: equiposPorPub[pub.id] || [],
+                dias: diasPorPub[pub.id] || [],
+                preferencias: prefsPorClinica[pub.usuario_id] || {}
+              };
+              const compat = calcularCompatibilidad(perfil, oferta);
+              pub.compat_porcentaje = compat.porcentaje;
+            });
+
+            // Mayor % primero; las que no tienen % honesto (null) van detrás, y
+            // dentro de cada grupo se conserva el orden por fecha de la consulta.
+            const rango = p => (p.compat_porcentaje == null ? -1 : p.compat_porcentaje);
+            pubs.sort((a, b) => rango(b) - rango(a));
+            responder();
+          });
+        });
+      });
+    });
+  });
+}
+
 app.get("/publicaciones", (req, res) => {
   const { tipo, sort, paraUsuarioId } = req.query;
 
@@ -1581,6 +1715,16 @@ app.get("/publicaciones", (req, res) => {
   }
 
   const filtros = construirFiltros(filtrosQuery);
+
+  // Orden por compatibilidad: solo para un dentista con sesión (necesita su perfil).
+  // Se resuelve en JS aparte; si no hay sesión válida se ignora y cae al orden normal.
+  const usuario = usuarioDeToken(req);
+  if (sort === "compatibilidad" && usuario && usuario.tipo === "dentista") {
+    const limitC = Math.min(parseInt(req.query.limit) || 20, 500);
+    const pageC = Math.max(parseInt(req.query.page) || 1, 1);
+    return listarPorCompatibilidad(res, filtros, usuario.id, pageC, limitC);
+  }
+
   let query = `SELECT ${selectCols} FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id WHERE p.activo = 1${filtros.sql}`;
   const params = [...selectParams, ...filtros.params];
 
@@ -2450,6 +2594,66 @@ app.put("/preferencias", verifyToken, (req, res) => {
         return res.status(500).json({ error: "Error al guardar las preferencias" });
       }
       res.json({ mensaje: "Preferencias guardadas", guardadas: filas.length });
+    });
+  });
+});
+
+// Prioridades personales del dentista (Fase 3): con qué peso quiere que cuente cada
+// dimensión. Devuelve también el catálogo de las 8 dimensiones para pintar el
+// formulario, y los niveles posibles. Solo dentistas: la clínica es el lado evaluado.
+app.get("/prioridades", verifyToken, (req, res) => {
+  if (req.usuario.tipo !== "dentista") {
+    return res.status(403).json({ error: "Solo los dentistas priorizan las dimensiones" });
+  }
+  cargarPrioridades(req.usuario.id, (err, prioridades) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al obtener las prioridades" });
+    }
+    res.json({
+      dimensiones: DIMENSIONES.map(({ clave, etiqueta }) => ({ clave, etiqueta })),
+      niveles: NIVELES_PRIORIDAD,
+      prioridades
+    });
+  });
+});
+
+// Guardar mis prioridades. Foto final, como las preferencias: se reemplaza todo.
+// Solo se guardan las que se apartan del neutro ("media"); las claves/niveles fuera
+// del catálogo se descartan en silencio.
+app.put("/prioridades", verifyToken, (req, res) => {
+  if (req.usuario.tipo !== "dentista") {
+    return res.status(403).json({ error: "Solo los dentistas priorizan las dimensiones" });
+  }
+  const entrada = req.body && req.body.prioridades;
+  if (!entrada || typeof entrada !== "object") {
+    return res.status(400).json({ error: "Faltan las prioridades" });
+  }
+
+  const filas = [];
+  DIMENSIONES.forEach(({ clave }) => {
+    const nivel = entrada[clave];
+    if (NIVELES_PRIORIDAD.includes(nivel) && nivel !== "media") {
+      filas.push([clave, nivel]);
+    }
+  });
+
+  db.run("DELETE FROM prioridades_compat WHERE usuario_id = ?", [req.usuario.id], (err) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al guardar las prioridades" });
+    }
+    if (filas.length === 0) {
+      return res.json({ mensaje: "Prioridades guardadas", guardadas: 0 });
+    }
+    const stmt = db.prepare("INSERT OR REPLACE INTO prioridades_compat (usuario_id, clave, nivel) VALUES (?, ?, ?)");
+    filas.forEach(([clave, nivel]) => stmt.run(req.usuario.id, clave, nivel));
+    stmt.finalize((err2) => {
+      if (err2) {
+        console.error(err2);
+        return res.status(500).json({ error: "Error al guardar las prioridades" });
+      }
+      res.json({ mensaje: "Prioridades guardadas", guardadas: filas.length });
     });
   });
 });
