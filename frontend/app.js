@@ -1865,8 +1865,15 @@ const app = {
     // el desglose por dimensión, que es lo que lo hace accionable (y lo que evita
     // que parezca un modelo entrenado que no es). Si el backend dice que no hay
     // cobertura suficiente (porcentaje null), no se muestra número: se pide el dato.
-    renderCompatibilidad(compat) {
+    // `opts.contraparte`: con quién se compara ("esta clínica" para un dentista,
+    // "este dentista" para una clínica). `opts.ladoViewer`: qué valor de `falta`
+    // corresponde a quien mira ('dentista' | 'clinica'), para redactar bien el aviso
+    // de datos que faltan.
+    renderCompatibilidad(compat, opts = {}) {
       if (!compat || !Array.isArray(compat.dimensiones)) return "";
+
+      const contraparte = opts.contraparte || "esta clínica";
+      const ladoViewer = opts.ladoViewer || "dentista";
 
       const ICONOS = { coincide: "✅", parcial: "🟡", discrepa: "❌", sin_datos: "➖" };
       const COLORES = { coincide: "#16a34a", parcial: "#f59e0b", discrepa: "#dc2626", sin_datos: "#9ca3af" };
@@ -1889,14 +1896,18 @@ const app = {
       // Sin cobertura suficiente: en vez de un número inventado, se dice qué falta
       // y de quién es el dato (el motor lo devuelve en `falta`).
       if (compat.porcentaje === null) {
-        const faltaTuyo = compat.dimensiones.some(d => d.estado === 'sin_datos' && d.falta === 'dentista');
+        const faltaTuyo = compat.dimensiones.some(d => d.estado === 'sin_datos' && d.falta === ladoViewer);
+        const msgTuyo = ladoViewer === 'clinica'
+          ? `Responde el test de compatibilidad de tu perfil y te diremos cuánto encajáis con ${contraparte}.`
+          : "Completa tu solicitud (salario y jornada que buscas), tu calendario, tus certificaciones y el test de compatibilidad de tu perfil, y te diremos cuánto encajas con esta clínica.";
+        const msgOtro = ladoViewer === 'clinica'
+          ? "Este dentista aún no ha respondido el test de compatibilidad de su perfil."
+          : "Esta clínica aún no ha detallado lo suficiente su oferta para calcular tu compatibilidad.";
         return `
           <div style="background: #F8FAFF; border: 1px solid #dbe4f0; border-left: 4px solid #9ca3af; border-radius: 10px; padding: 1rem; margin-bottom: 1.25rem;">
             <div style="font-weight: 700; color: #0F4C75; margin-bottom: .25rem;">🧩 Compatibilidad: faltan datos</div>
             <p style="color: #6b7280; font-size: .9rem; margin: 0 0 .5rem;">
-              ${faltaTuyo
-                ? "Completa tu solicitud (salario y jornada que buscas), tu calendario, tus certificaciones y el test de compatibilidad de tu perfil, y te diremos cuánto encajas con esta clínica."
-                : "Esta clínica aún no ha detallado lo suficiente su oferta para calcular tu compatibilidad."}
+              ${faltaTuyo ? msgTuyo : msgOtro}
             </p>
             ${filas}
           </div>`;
@@ -1921,7 +1932,7 @@ const app = {
           <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: .6rem;">
             <div style="font-size: 2.1rem; font-weight: 800; color: ${color}; line-height: 1;">${pct}%</div>
             <div>
-              <div style="font-weight: 700; color: #0F4C75;">de compatibilidad con esta clínica</div>
+              <div style="font-weight: 700; color: #0F4C75;">de compatibilidad con ${contraparte}</div>
               <div style="color: #6b7280; font-size: .85rem;">
                 Según ${utils.escapeHtml(base)}${faltan ? ` · faltan ${faltan} de ${compat.dimensiones.length} por responder` : ""}
               </div>
@@ -1976,16 +1987,22 @@ const app = {
         } catch (error) { /* sin días */ }
       }
 
-      // Compatibilidad: solo tiene sentido para un dentista mirando una oferta o
-      // suplencia ajena. Si el backend no puede dar un porcentaje honesto, la
+      // Compatibilidad, en los dos sentidos: un dentista mirando una oferta/suplencia
+      // ajena («…con esta clínica»), o una clínica mirando la solicitud de un dentista
+      // («…con este dentista»). Si el backend no puede dar un porcentaje honesto, la
       // tarjeta lo dice y pide el dato que falta en vez de inventarse un número.
       let compatibilidadHtml = "";
-      const esDentista = estadoApp.usuario?.tipo === 'dentista';
+      const tipoViewer = estadoApp.usuario?.tipo;
       const esAjena = publicacion.usuario_id !== estadoApp.usuario?.id;
-      if (esDentista && esAjena && (publicacion.tipo === 'oferta' || publicacion.tipo === 'suplencia')) {
+      const dentistaVeOferta = tipoViewer === 'dentista' && (publicacion.tipo === 'oferta' || publicacion.tipo === 'suplencia');
+      const clinicaVeSolicitud = tipoViewer === 'clinica' && publicacion.tipo === 'solicitud';
+      if (esAjena && (dentistaVeOferta || clinicaVeSolicitud)) {
         try {
           const compat = await utils.request(`/publicaciones/${publicacion.id}/compatibilidad`);
-          compatibilidadHtml = app.modal.renderCompatibilidad(compat);
+          const opts = clinicaVeSolicitud
+            ? { contraparte: "este dentista", ladoViewer: "clinica" }
+            : { contraparte: "esta clínica", ladoViewer: "dentista" };
+          compatibilidadHtml = app.modal.renderCompatibilidad(compat, opts);
         } catch (error) {
           console.error("Error al calcular la compatibilidad:", error);
         }

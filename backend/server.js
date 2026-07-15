@@ -2557,63 +2557,72 @@ app.get("/publicaciones/:id/equipamiento", (req, res) => {
   );
 });
 
-// Compatibilidad del dentista autenticado con una oferta o suplencia concreta.
-// El cálculo vive en compatibilidad.js; aquí solo se reúnen los dos lados.
-// Devuelve siempre el desglose por dimensión: el porcentaje a secas no es
-// accionable, y viene a null cuando falta demasiado dato para ser honesto.
+// Compatibilidad del usuario autenticado con una publicación, en los dos sentidos:
+//   - un DENTISTA mirando una oferta/suplencia de una clínica: se evalúan las 8
+//     dimensiones (la vacante aporta salario, jornada y equipamiento).
+//   - una CLÍNICA mirando la solicitud de un dentista: no hay vacante que fije
+//     salario/horarios/tecnología, así que se comparan solo las 5 del cuestionario
+//     (dentista autor ↔ clínica que mira). El número es el mismo en ambos sentidos.
+// El cálculo vive en compatibilidad.js; aquí solo se reúnen los dos lados. Devuelve
+// siempre el desglose por dimensión; el porcentaje viene a null cuando falta
+// demasiado dato para ser honesto.
 app.get("/publicaciones/:id/compatibilidad", verifyToken, (req, res) => {
-  if (req.usuario.tipo !== "dentista") {
-    return res.status(403).json({ error: "La compatibilidad solo se calcula para dentistas" });
+  const viewer = req.usuario;
+  if (viewer.tipo !== "dentista" && viewer.tipo !== "clinica") {
+    return res.status(403).json({ error: "La compatibilidad solo se calcula para dentistas y clínicas" });
   }
+
+  const error500 = (e) => { console.error(e); return res.status(500).json({ error: "Error al calcular la compatibilidad" }); };
 
   db.get(
     "SELECT id, tipo, jornada, salario_min, salario_max, retribucion_tipo, usuario_id FROM publicaciones WHERE id = ? AND activo = 1",
     [req.params.id],
     (err, pub) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al calcular la compatibilidad" });
-      }
-      if (!pub) {
-        return res.status(404).json({ error: "Publicación no encontrada" });
-      }
-      if (pub.tipo !== "oferta" && pub.tipo !== "suplencia") {
-        return res.status(400).json({ error: "Solo las ofertas y suplencias tienen compatibilidad" });
-      }
+      if (err) return error500(err);
+      if (!pub) return res.status(404).json({ error: "Publicación no encontrada" });
 
-      db.all("SELECT equipo FROM publicacion_equipamiento WHERE publicacion_id = ?", [pub.id], (err2, equipos) => {
-        if (err2) {
-          console.error(err2);
-          return res.status(500).json({ error: "Error al calcular la compatibilidad" });
-        }
-        db.all("SELECT fecha FROM suplencia_dias WHERE publicacion_id = ? ORDER BY fecha", [pub.id], (err3, dias) => {
-          if (err3) {
-            console.error(err3);
-            return res.status(500).json({ error: "Error al calcular la compatibilidad" });
-          }
-          perfilCompatibilidad(req.usuario.id, (err4, perfil) => {
-            if (err4) {
-              console.error(err4);
-              return res.status(500).json({ error: "Error al calcular la compatibilidad" });
-            }
-            // La oferta hereda las respuestas al cuestionario de la clínica que la
-            // publica: son rasgos de la clínica, no de la vacante.
-            cargarPreferencias(pub.usuario_id, (err5, preferenciasClinica) => {
-              if (err5) {
-                console.error(err5);
-                return res.status(500).json({ error: "Error al calcular la compatibilidad" });
-              }
-              const oferta = {
-                ...pub,
-                equipamiento: (equipos || []).map(e => e.equipo),
-                dias: (dias || []).map(d => d.fecha),
-                preferencias: preferenciasClinica
-              };
-              res.json(calcularCompatibilidad(perfil, oferta));
+      // Caso A: dentista ↔ oferta/suplencia de una clínica (8 dimensiones).
+      if (viewer.tipo === "dentista" && (pub.tipo === "oferta" || pub.tipo === "suplencia")) {
+        db.all("SELECT equipo FROM publicacion_equipamiento WHERE publicacion_id = ?", [pub.id], (err2, equipos) => {
+          if (err2) return error500(err2);
+          db.all("SELECT fecha FROM suplencia_dias WHERE publicacion_id = ? ORDER BY fecha", [pub.id], (err3, dias) => {
+            if (err3) return error500(err3);
+            perfilCompatibilidad(viewer.id, (err4, perfil) => {
+              if (err4) return error500(err4);
+              // La oferta hereda las respuestas al cuestionario de la clínica que la
+              // publica: son rasgos de la clínica, no de la vacante.
+              cargarPreferencias(pub.usuario_id, (err5, preferenciasClinica) => {
+                if (err5) return error500(err5);
+                const oferta = {
+                  ...pub,
+                  equipamiento: (equipos || []).map(e => e.equipo),
+                  dias: (dias || []).map(d => d.fecha),
+                  preferencias: preferenciasClinica
+                };
+                res.json(calcularCompatibilidad(perfil, oferta));
+              });
             });
           });
         });
-      });
+        return;
+      }
+
+      // Caso B: clínica ↔ solicitud de un dentista (solo cuestionario). El lado
+      // dentista es el AUTOR de la solicitud; el lado clínica es quien mira.
+      if (viewer.tipo === "clinica" && pub.tipo === "solicitud") {
+        perfilCompatibilidad(pub.usuario_id, (err2, perfil) => {
+          if (err2) return error500(err2);
+          cargarPreferencias(viewer.id, (err3, preferenciasClinica) => {
+            if (err3) return error500(err3);
+            res.json(calcularCompatibilidad(perfil, { preferencias: preferenciasClinica }, { soloCuestionario: true, perspectiva: "clinica" }));
+          });
+        });
+        return;
+      }
+
+      // Cualquier otra combinación (dentista↔solicitud, clínica↔oferta) sería del
+      // mismo tipo a ambos lados: no hay compatibilidad que calcular.
+      return res.status(400).json({ error: "No hay compatibilidad para esta combinación de perfil y publicación" });
     }
   );
 });

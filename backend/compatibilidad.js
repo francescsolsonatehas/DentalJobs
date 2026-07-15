@@ -299,16 +299,20 @@ function puntuarTecnologia(perfil, oferta) {
 
 // Eje ordinal: la nota cae con la distancia entre las posiciones elegidas.
 // Con 3 opciones: misma posición = 1, a un paso = 0,5, extremos opuestos = 0.
-function puntuarEje(dim, valorDentista, valorClinica) {
+function puntuarEje(dim, valorDentista, valorClinica, perspectiva = "dentista") {
   const i = dim.opciones.indexOf(valorDentista);
   const j = dim.opciones.indexOf(valorClinica);
   if (i === -1 || j === -1) return null;
 
   const pasos = dim.opciones.length - 1;
   const puntuacion = pasos === 0 ? 1 : 1 - Math.abs(i - j) / pasos;
+  // El desglose se dirige a quien mira: por defecto al dentista ("tú buscas"); desde
+  // una clínica, el "tú" es la clínica y el otro lado es el dentista.
   const detalle = i === j
     ? `Coincidís: ${valorClinica.toLowerCase()}`
-    : `Tú buscas «${valorDentista.toLowerCase()}» y la clínica es «${valorClinica.toLowerCase()}»`;
+    : (perspectiva === "clinica"
+        ? `El dentista busca «${valorDentista.toLowerCase()}» y tu clínica es «${valorClinica.toLowerCase()}»`
+        : `Tú buscas «${valorDentista.toLowerCase()}» y la clínica es «${valorClinica.toLowerCase()}»`);
 
   return { puntuacion, detalle };
 }
@@ -316,23 +320,27 @@ function puntuarEje(dim, valorDentista, valorClinica) {
 // Multiselección: qué fracción de lo que busca el dentista cubre la clínica.
 // Deliberadamente asimétrico (no es Jaccard): que la clínica ofrezca cosas que al
 // dentista no le interesan no debe penalizarla, solo no le suma.
-function puntuarMulti(dim, valoresDentista, valoresClinica) {
+function puntuarMulti(dim, valoresDentista, valoresClinica, perspectiva = "dentista") {
   const busca = (valoresDentista || []).filter(v => dim.opciones.includes(v));
   const ofrece = (valoresClinica || []).filter(v => dim.opciones.includes(v));
   if (busca.length === 0 || ofrece.length === 0) return null;
 
   const cubiertos = busca.filter(v => ofrece.includes(v));
   const puntuacion = cubiertos.length / busca.length;
-  const detalle = cubiertos.length
-    ? `La clínica cubre ${cubiertos.length} de las ${busca.length} que buscas: ${cubiertos.join(", ").toLowerCase()}`
-    : `La clínica no cubre ninguna de las ${busca.length} que buscas`;
+  const detalle = perspectiva === "clinica"
+    ? (cubiertos.length
+        ? `Cubrís ${cubiertos.length} de las ${busca.length} que busca el dentista: ${cubiertos.join(", ").toLowerCase()}`
+        : `No cubrís ninguna de las ${busca.length} que busca el dentista`)
+    : (cubiertos.length
+        ? `La clínica cubre ${cubiertos.length} de las ${busca.length} que buscas: ${cubiertos.join(", ").toLowerCase()}`
+        : `La clínica no cubre ninguna de las ${busca.length} que buscas`);
 
   return { puntuacion, detalle, coincidencias: cubiertos };
 }
 
 // Puntuador de una dimensión del cuestionario: resuelve qué lado tiene el hueco
 // cuando falta una respuesta, para poder pedírsela a quien toca.
-function puntuarCuestionario(dim, perfil, oferta) {
+function puntuarCuestionario(dim, perfil, oferta, perspectiva = "dentista") {
   const respuestaDentista = (perfil.preferencias || {})[dim.clave];
   const respuestaClinica = (oferta.preferencias || {})[dim.clave];
 
@@ -342,17 +350,18 @@ function puntuarCuestionario(dim, perfil, oferta) {
 
   if (faltaDentista || faltaClinica) {
     const falta = faltaDentista && faltaClinica ? "ambos" : (faltaDentista ? "dentista" : "clinica");
+    const esClinica = perspectiva === "clinica";
     const detalle = faltaDentista && faltaClinica
-      ? "Ni tú ni la clínica habéis respondido a esta pregunta"
+      ? (esClinica ? "Ni tu clínica ni el dentista habéis respondido a esta pregunta" : "Ni tú ni la clínica habéis respondido a esta pregunta")
       : faltaDentista
-        ? "No has respondido a esta pregunta en tu perfil"
-        : "La clínica no ha respondido a esta pregunta";
+        ? (esClinica ? "El dentista no ha respondido a esta pregunta en su perfil" : "No has respondido a esta pregunta en tu perfil")
+        : (esClinica ? "No has respondido a esta pregunta en tu perfil" : "La clínica no ha respondido a esta pregunta");
     return sinDatos(falta, detalle);
   }
 
   const resultado = dim.tipo === "eje"
-    ? puntuarEje(dim, respuestaDentista, respuestaClinica)
-    : puntuarMulti(dim, respuestaDentista, respuestaClinica);
+    ? puntuarEje(dim, respuestaDentista, respuestaClinica, perspectiva)
+    : puntuarMulti(dim, respuestaDentista, respuestaClinica, perspectiva);
 
   // Respuestas fuera del catálogo (p. ej. tras cambiar las opciones): se tratan
   // como si no estuvieran, en vez de puntuar 0 y mentir.
@@ -377,8 +386,18 @@ const PUNTUADORES = {
  *   dimensiones: Array<{clave, etiqueta, peso, prioridad, estado, puntuacion, detalle, falta}>
  * }}
  */
-function calcularCompatibilidad(perfil = {}, oferta = {}) {
+function calcularCompatibilidad(perfil = {}, oferta = {}, opts = {}) {
   const prioridades = perfil.prioridades || {};
+
+  // `soloCuestionario`: para comparar dos perfiles (dentista ↔ clínica) fuera del
+  // contexto de una oferta concreta —p. ej. una clínica mirando la solicitud de un
+  // dentista—, donde salario/horarios/tecnología no existen (no hay vacante que los
+  // fije). Se evalúan solo las 5 dimensiones del cuestionario, así el desglose no
+  // enseña «la clínica no ha indicado el salario» cuando ni siquiera hay oferta.
+  const dimsAEvaluar = opts.soloCuestionario ? DIMENSIONES_CUESTIONARIO : DIMENSIONES;
+  // Perspectiva del desglose: por defecto el dentista ("tú buscas"); desde una
+  // clínica, "tú" es la clínica y el otro lado el dentista.
+  const perspectiva = opts.perspectiva === "clinica" ? "clinica" : "dentista";
 
   // La cobertura (¿hay datos para ser honestos?) se mide con los pesos BASE: es una
   // pregunta sobre disponibilidad de datos, ajena a lo que priorice el dentista.
@@ -391,7 +410,7 @@ function calcularCompatibilidad(perfil = {}, oferta = {}) {
   let pesoEfectivo = 0;
   let acumulado = 0;
 
-  const dimensiones = DIMENSIONES.map(dim => {
+  const dimensiones = dimsAEvaluar.map(dim => {
     const { clave, etiqueta, peso } = dim;
     const prioridad = NIVELES_PRIORIDAD.includes(prioridades[clave]) ? prioridades[clave] : "media";
     pesoTotal += peso;
@@ -399,7 +418,7 @@ function calcularCompatibilidad(perfil = {}, oferta = {}) {
     // plataforma); las del cuestionario comparten los dos genéricos por tipo.
     const resultado = PUNTUADORES[clave]
       ? PUNTUADORES[clave](perfil, oferta)
-      : puntuarCuestionario(dim, perfil, oferta);
+      : puntuarCuestionario(dim, perfil, oferta, perspectiva);
 
     if (resultado.puntuacion === null) {
       return { clave, etiqueta, peso, prioridad, estado: "sin_datos", puntuacion: null, detalle: resultado.detalle, falta: resultado.falta };

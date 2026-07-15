@@ -144,6 +144,35 @@ test("motor: dimensiones del cuestionario (unitario)", async (t) => {
     assert.equal(dim.estado, "sin_datos");
     assert.equal(dim.puntuacion, null);
   });
+
+  await t.test("soloCuestionario evalúa las 5 del cuestionario e ignora salario/horarios/tecnología", () => {
+    // Es el modo para comparar dos perfiles fuera de una oferta (clínica ↔ solicitud
+    // de dentista): aunque haya datos de salario/jornada, no se miran.
+    const r = calcularCompatibilidad(
+      { ...BASE_PERFIL, preferencias: RESPUESTAS },
+      { preferencias: RESPUESTAS },
+      { soloCuestionario: true }
+    );
+    assert.equal(r.dimensiones.length, 5);
+    const claves = DIMENSIONES_CUESTIONARIO.map(d => d.clave);
+    assert.ok(r.dimensiones.every(d => claves.includes(d.clave)));
+    assert.equal(r.porcentaje, 100);
+    assert.equal(r.cobertura, 1); // 5 de 5 evaluadas: el denominador es solo el cuestionario
+  });
+
+  await t.test("con perspectiva de clínica, el desglose se dirige a la clínica y no dice «que buscas»", () => {
+    const r = calcularCompatibilidad(
+      { preferencias: { ...RESPUESTAS, ambiente: "Grupo grande y estructurado" } }, // dentista
+      { preferencias: { ...RESPUESTAS, ambiente: "Clínica pequeña y familiar" } },   // clínica
+      { soloCuestionario: true, perspectiva: "clinica" }
+    );
+    const ambiente = r.dimensiones.find(d => d.clave === "ambiente");
+    assert.match(ambiente.detalle, /el dentista busca/i);
+    assert.match(ambiente.detalle, /tu clínica/i);
+    const pacientes = r.dimensiones.find(d => d.clave === "pacientes");
+    assert.match(pacientes.detalle, /busca el dentista/i);
+    assert.doesNotMatch(pacientes.detalle, /que buscas/i);
+  });
 });
 
 test("endpoints del cuestionario", async (t) => {
@@ -257,6 +286,40 @@ test("endpoints del cuestionario", async (t) => {
     assert.equal(res.body.dimensiones.length, 8);
     assert.equal(res.body.cobertura, 1); // las 8 evaluadas, sin preguntar nada en la oferta
     assert.equal(res.body.porcentaje, 100);
+  });
+
+  await t.test("una clínica ve su compatibilidad con la solicitud de un dentista (solo cuestionario)", async () => {
+    // Tanto la clínica como el dentista han respondido el mismo cuestionario más
+    // arriba en este bloque. La clínica abre el detalle de la solicitud del dentista.
+    const solicitud = await request(app)
+      .post("/publicaciones")
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .send({ tipo: "solicitud", ciudad: "Bilbao", descripcion: "Busco puesto", nombre_contacto: "Dani Cuest", email_contacto: "dentista-cuest@test.com" });
+
+    const res = await request(app)
+      .get(`/publicaciones/${solicitud.body.id}/compatibilidad`)
+      .set("Authorization", `Bearer ${clinica.token}`);
+
+    assert.equal(res.status, 200);
+    // Fuera del contexto de una oferta no hay salario/horarios/tecnología: solo las 5
+    const claves = DIMENSIONES_CUESTIONARIO.map(d => d.clave);
+    assert.equal(res.body.dimensiones.length, 5);
+    assert.ok(res.body.dimensiones.every(d => claves.includes(d.clave)));
+    assert.equal(res.body.porcentaje, 100); // respuestas idénticas
+    assert.equal(res.body.cobertura, 1);
+  });
+
+  await t.test("un dentista no tiene compatibilidad con la solicitud de otro dentista", async () => {
+    const solicitud = await request(app)
+      .post("/publicaciones")
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .send({ tipo: "solicitud", ciudad: "Bilbao", descripcion: "Otra", nombre_contacto: "x", email_contacto: "x@test.com" });
+    const otro = await registrar(app, { nombre: "Otro Den", email: "otro-den@test.com", tipo: "dentista" });
+
+    const res = await request(app)
+      .get(`/publicaciones/${solicitud.body.id}/compatibilidad`)
+      .set("Authorization", `Bearer ${otro.token}`);
+    assert.equal(res.status, 400);
   });
 
   await t.test("el onboarding pide el test mientras no esté respondido", async () => {

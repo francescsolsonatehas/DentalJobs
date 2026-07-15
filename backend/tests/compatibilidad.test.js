@@ -196,11 +196,11 @@ test("endpoint de compatibilidad", async (t) => {
     assert.equal(res.body.dimensiones.length, 8);
   });
 
-  await t.test("una clínica no puede pedir la compatibilidad", async () => {
+  await t.test("una clínica no tiene compatibilidad con una oferta (sería clínica↔clínica)", async () => {
     const res = await request(app)
       .get(`/publicaciones/${ofertaId}/compatibilidad`)
       .set("Authorization", `Bearer ${clinica.token}`);
-    assert.equal(res.status, 403);
+    assert.equal(res.status, 400);
   });
 
   await t.test("sin sesión no se puede pedir la compatibilidad", async () => {
