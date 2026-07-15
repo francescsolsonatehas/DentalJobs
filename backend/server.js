@@ -21,7 +21,7 @@ const { ETIQUETAS_ESTADO, EQUIPAMIENTO_CATALOGO, CERTIFICACIONES_CATALOGO } = re
 const { calcularCompatibilidad, DIMENSIONES, DIMENSIONES_CUESTIONARIO, NIVELES_PRIORIDAD } = require("./compatibilidad");
 const { construirFiltros } = require("./filtros-publicaciones");
 const { generarCsv } = require("./exportaciones");
-const { geocodificarCiudad } = require("./municipios-coords");
+const { geocodificarCiudad, distanciaKm } = require("./municipios-coords");
 const { expandirRango, sanearDias } = require("./fechas");
 const crypto = require("crypto");
 
@@ -120,12 +120,45 @@ function listarClinicasPotencialesParaDentista(usuarioId, callback) {
   );
 }
 
-// Dentistas que casan con una suplencia: disponibles en alguno de sus días,
-// misma ciudad y con especialidad compatible (o la suplencia no exige ninguna).
-// Reutilizable por el surfacing en la app y, más adelante, por los avisos.
+// Km que un dentista está dispuesto a desplazarse por una suplencia cuando no lo ha
+// personalizado (radio_km NULL). radio_km = 0 significa "solo mi ciudad".
+const RADIO_MATCHING_DEFECTO = 25;
+
+// Coincidencia textual de ciudad entre dentista (alias u) y publicación (alias p),
+// el criterio histórico del matching. Se mantiene como red de seguridad para cuando
+// falten coordenadas de un lado.
+const CIUDAD_COINCIDE_SQL =
+  "(u.ciudad = p.ciudad OR u.ciudad LIKE '%' || p.ciudad || '%' OR p.ciudad LIKE '%' || u.ciudad || '%')";
+
+// Prefiltro geográfico laxo en SQL: pasa si las ciudades coinciden textualmente o si
+// ambos lados tienen coordenadas (en cuyo caso se afina por distancia real en JS con
+// dentroDeRadioMatching). Así ninguna coincidencia histórica por ciudad se pierde y,
+// además, entran las de poblaciones cercanas dentro del radio.
+const GEO_MATCH_SQL =
+  `(${CIUDAD_COINCIDE_SQL} OR (u.lat IS NOT NULL AND u.lon IS NOT NULL AND p.lat IS NOT NULL AND p.lon IS NOT NULL))`;
+
+// Columnas que hay que seleccionar (con estos alias) para poder afinar en JS.
+const GEO_MATCH_COLS =
+  `u.lat AS u_lat, u.lon AS u_lon, u.radio_km AS radio_km, p.lat AS pub_lat, p.lon AS pub_lon,
+   CASE WHEN ${CIUDAD_COINCIDE_SQL} THEN 1 ELSE 0 END AS ciudad_coincide`;
+
+// Filtro fino: una fila casa si las ciudades coinciden textualmente (siempre vale) o
+// si la distancia real entra en el radio de desplazamiento del dentista. radio_km = 0
+// deja solo la coincidencia por ciudad; NULL usa el radio por defecto.
+function dentroDeRadioMatching(fila) {
+  if (fila.ciudad_coincide) return true;
+  if (fila.u_lat == null || fila.pub_lat == null) return false;
+  const radio = fila.radio_km == null ? RADIO_MATCHING_DEFECTO : fila.radio_km;
+  return distanciaKm(fila.u_lat, fila.u_lon, fila.pub_lat, fila.pub_lon) <= radio;
+}
+
+// Dentistas que casan con una suplencia: disponibles en alguno de sus días, dentro de
+// su radio de desplazamiento (o misma ciudad) y con especialidad compatible (o la
+// suplencia no exige ninguna). Reutilizable por el surfacing en la app y los avisos.
 function dentistasDisponiblesParaSuplencia(pubId, callback) {
   db.all(
-    `SELECT DISTINCT u.id, u.nombre, u.ciudad, u.provincia, u.anyos_experiencia
+    `SELECT DISTINCT u.id, u.nombre, u.ciudad, u.provincia, u.anyos_experiencia,
+       ${GEO_MATCH_COLS}
      FROM usuarios u
      JOIN publicaciones p ON p.id = ? AND p.tipo = 'suplencia' AND p.activo = 1
      WHERE u.tipo = 'dentista'
@@ -134,7 +167,7 @@ function dentistasDisponiblesParaSuplencia(pubId, callback) {
          JOIN suplencia_dias sd ON sd.fecha = dd.fecha
          WHERE dd.usuario_id = u.id AND sd.publicacion_id = p.id
        )
-       AND (u.ciudad = p.ciudad OR u.ciudad LIKE '%' || p.ciudad || '%' OR p.ciudad LIKE '%' || u.ciudad || '%')
+       AND ${GEO_MATCH_SQL}
        AND (
          NOT EXISTS (SELECT 1 FROM publicacion_especialidades pe WHERE pe.publicacion_id = p.id)
          OR EXISTS (
@@ -147,7 +180,10 @@ function dentistasDisponiblesParaSuplencia(pubId, callback) {
     [pubId],
     (err, dentistas) => {
       if (err) return callback(err);
-      if (!dentistas || dentistas.length === 0) return callback(null, []);
+      // Afinar por distancia real: el prefiltro SQL deja pasar a todo el que tiene
+      // coordenadas; aquí se descarta a quien cae fuera de su radio de desplazamiento.
+      dentistas = (dentistas || []).filter(dentroDeRadioMatching);
+      if (dentistas.length === 0) return callback(null, []);
       // Adjuntar a cada dentista los días concretos en los que coincide
       db.all(
         `SELECT dd.usuario_id, dd.fecha
@@ -160,7 +196,15 @@ function dentistasDisponiblesParaSuplencia(pubId, callback) {
           if (err2) return callback(err2);
           const porDentista = {};
           (pares || []).forEach(p => { (porDentista[p.usuario_id] = porDentista[p.usuario_id] || []).push(p.fecha); });
-          dentistas.forEach(d => { d.dias_coincidentes = porDentista[d.id] || []; });
+          dentistas.forEach(d => {
+            d.dias_coincidentes = porDentista[d.id] || [];
+            // Distancia real a la suplencia (para mostrarla a la clínica), cuando hay
+            // coordenadas de ambos lados. Después se retiran los campos internos de geo.
+            const dist = distanciaKm(d.u_lat, d.u_lon, d.pub_lat, d.pub_lon);
+            d.km = Number.isFinite(dist) ? Math.round(dist) : null;
+            delete d.u_lat; delete d.u_lon; delete d.pub_lat; delete d.pub_lon;
+            delete d.radio_km; delete d.ciudad_coincide;
+          });
           callback(null, dentistas);
         }
       );
@@ -670,9 +714,13 @@ app.put("/auth/actualizar-perfil", verifyToken, (req, res) => {
   // Preferencia de avisos por email: si el cliente no la envía, se mantiene activada
   const recibirEmails = req.body.recibir_emails === false || req.body.recibir_emails === 0 ? 0 : 1;
 
+  // Geocodificar la ciudad para casar suplencias por radio. Si no se reconoce, se
+  // dejan las coordenadas a NULL y el matching cae en la coincidencia por ciudad.
+  const geo = geocodificarCiudad(ciudad);
+
   db.run(
-    "UPDATE usuarios SET nombre = ?, telefono = ?, movil = ?, direccion = ?, codigo_postal = ?, pais = ?, ciudad = ?, provincia = ?, descripcion = ?, anyos_experiencia = ?, recibir_emails = ? WHERE id = ?",
-    [nombre, telefono || null, movil || null, direccion || null, codigo_postal || null, pais || null, ciudad || null, provincia || null, (descripcion || "").trim() || null, experiencia, recibirEmails, usuarioId],
+    "UPDATE usuarios SET nombre = ?, telefono = ?, movil = ?, direccion = ?, codigo_postal = ?, pais = ?, ciudad = ?, provincia = ?, descripcion = ?, anyos_experiencia = ?, recibir_emails = ?, lat = ?, lon = ? WHERE id = ?",
+    [nombre, telefono || null, movil || null, direccion || null, codigo_postal || null, pais || null, ciudad || null, provincia || null, (descripcion || "").trim() || null, experiencia, recibirEmails, geo ? geo.lat : null, geo ? geo.lon : null, usuarioId],
     (err) => {
       if (err) {
         console.error(err);
@@ -1402,14 +1450,15 @@ app.delete("/idiomas/:id", verifyToken, (req, res) => {
 // en notificaciones_suplencia para no repetir. Pensado para un cron diario.
 app.post("/admin/matching-suplencias", verificarAdmin, (req, res) => {
   db.all(
-    `SELECT DISTINCT u.id AS usuario_id, p.id AS publicacion_id, p.urgente
+    `SELECT DISTINCT u.id AS usuario_id, p.id AS publicacion_id, p.urgente,
+       ${GEO_MATCH_COLS}
      FROM usuarios u
      JOIN disponibilidad_dentista dd ON dd.usuario_id = u.id
      JOIN suplencia_dias sd ON sd.fecha = dd.fecha
      JOIN publicaciones p ON p.id = sd.publicacion_id AND p.tipo = 'suplencia' AND p.activo = 1
      WHERE u.tipo = 'dentista'
        AND sd.fecha >= date('now')
-       AND (u.ciudad = p.ciudad OR u.ciudad LIKE '%' || p.ciudad || '%' OR p.ciudad LIKE '%' || u.ciudad || '%')
+       AND ${GEO_MATCH_SQL}
        AND (
          NOT EXISTS (SELECT 1 FROM publicacion_especialidades pe WHERE pe.publicacion_id = p.id)
          OR EXISTS (
@@ -1425,7 +1474,8 @@ app.post("/admin/matching-suplencias", verificarAdmin, (req, res) => {
         console.error(err);
         return res.status(500).json({ error: "Error al calcular el matching de suplencias" });
       }
-      pares = pares || [];
+      // Afinar por distancia real, igual que en dentistasDisponiblesParaSuplencia.
+      pares = (pares || []).filter(dentroDeRadioMatching);
 
       // Agrupar por dentista para enviar un solo email-resumen a cada uno
       const porDentista = {};
@@ -2023,7 +2073,19 @@ app.get("/disponibilidad", verifyToken, (req, res) => {
         console.error(err);
         return res.status(500).json({ error: "Error al obtener la disponibilidad" });
       }
-      res.json({ dias: (filas || []).map(f => f.fecha) });
+      // Además de los días, el radio de desplazamiento (para el matching por km).
+      // NULL = por defecto; el frontend lo interpreta con RADIO_MATCHING_DEFECTO.
+      db.get("SELECT radio_km FROM usuarios WHERE id = ?", [req.usuario.id], (err2, u) => {
+        if (err2) {
+          console.error(err2);
+          return res.status(500).json({ error: "Error al obtener la disponibilidad" });
+        }
+        res.json({
+          dias: (filas || []).map(f => f.fecha),
+          radio_km: u && u.radio_km != null ? u.radio_km : null,
+          radio_km_defecto: RADIO_MATCHING_DEFECTO
+        });
+      });
     }
   );
 });
@@ -2035,19 +2097,36 @@ app.put("/disponibilidad", verifyToken, (req, res) => {
   }
   const dias = sanearDias(req.body.dias, 366);
 
-  // Reemplazo completo: borrar y reinsertar. Se completan todas las escrituras
-  // antes de responder para no dejar ninguna en vuelo (rompería la limpieza en tests).
-  db.run("DELETE FROM disponibilidad_dentista WHERE usuario_id = ?", [req.usuario.id], (err) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Error al guardar la disponibilidad" });
-    }
-    if (dias.length === 0) {
-      return res.json({ success: true, dias: [] });
-    }
-    const stmt = db.prepare("INSERT OR IGNORE INTO disponibilidad_dentista (usuario_id, fecha) VALUES (?, ?)");
-    dias.forEach(dia => stmt.run(req.usuario.id, dia));
-    stmt.finalize(() => res.json({ success: true, dias }));
+  // Radio de desplazamiento (km). Solo se toca si viene en el cuerpo: así guardar el
+  // calendario sin tocar el radio lo respeta. null/"" = volver al valor por defecto;
+  // 0 = solo mi ciudad; se acota a [0, 500].
+  const tocarRadio = "radio_km" in (req.body || {});
+  const radio = !tocarRadio ? null
+    : (req.body.radio_km == null || req.body.radio_km === "" ? null
+      : Math.min(Math.max(parseInt(req.body.radio_km) || 0, 0), 500));
+
+  const guardarRadio = (cb) => {
+    if (!tocarRadio) return cb();
+    db.run("UPDATE usuarios SET radio_km = ? WHERE id = ?", [radio, req.usuario.id], () => cb());
+  };
+
+  // Reemplazo completo del calendario: borrar y reinsertar. Se completan todas las
+  // escrituras antes de responder para no dejar ninguna en vuelo (rompería la
+  // limpieza en tests).
+  guardarRadio(() => {
+    db.run("DELETE FROM disponibilidad_dentista WHERE usuario_id = ?", [req.usuario.id], (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al guardar la disponibilidad" });
+      }
+      const responder = () => res.json({ success: true, dias, ...(tocarRadio ? { radio_km: radio } : {}) });
+      if (dias.length === 0) {
+        return responder();
+      }
+      const stmt = db.prepare("INSERT OR IGNORE INTO disponibilidad_dentista (usuario_id, fecha) VALUES (?, ?)");
+      dias.forEach(dia => stmt.run(req.usuario.id, dia));
+      stmt.finalize(() => responder());
+    });
   });
 });
 

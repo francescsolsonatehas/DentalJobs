@@ -457,6 +457,25 @@ db.serialize(() => {
     stmt.finalize();
   });
 
+  // Coordenadas del usuario (geocodificadas desde su ciudad) y radio de
+  // desplazamiento del dentista, para casar suplencias por distancia real y no solo
+  // por coincidencia exacta de ciudad. radio_km NULL = valor por defecto (ver
+  // server.js, RADIO_MATCHING_DEFECTO); radio_km = 0 = solo mi ciudad.
+  db.run(`ALTER TABLE usuarios ADD COLUMN lat REAL`, () => {});
+  db.run(`ALTER TABLE usuarios ADD COLUMN lon REAL`, () => {});
+  db.run(`ALTER TABLE usuarios ADD COLUMN radio_km INTEGER`, () => {});
+
+  // Backfill: geocodificar la ciudad de los usuarios que aún no tienen coordenadas
+  db.all("SELECT id, ciudad FROM usuarios WHERE lat IS NULL AND ciudad IS NOT NULL", (err, filas) => {
+    if (err || !filas) return;
+    const stmt = db.prepare("UPDATE usuarios SET lat = ?, lon = ? WHERE id = ?");
+    filas.forEach(fila => {
+      const geo = geocodificarCiudad(fila.ciudad);
+      if (geo) stmt.run(geo.lat, geo.lon, fila.id);
+    });
+    stmt.finalize();
+  });
+
   // Días concretos que cubre una suplencia. Permite días sueltos o recurrentes,
   // no solo un rango continuo. En publicaciones, fecha_desde/fecha_hasta se
   // conservan como resumen (min/max de los días) para el listado, el SEO y el

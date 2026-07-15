@@ -435,6 +435,9 @@ const app = {
       try {
         const data = await utils.request("/disponibilidad");
         app.calendario.crear("disponibilidadCalendario", { seleccion: data.dias || [] });
+        const sel = document.getElementById("radioDesplazamiento");
+        // radio_km null = por defecto: se muestra el valor sugerido por el backend
+        if (sel) sel.value = String(data.radio_km != null ? data.radio_km : (data.radio_km_defecto ?? 25));
       } catch (error) {
         app.calendario.crear("disponibilidadCalendario", { seleccion: [] });
       }
@@ -442,10 +445,12 @@ const app = {
 
     async guardar() {
       const dias = app.calendario.obtener("disponibilidadCalendario");
+      const sel = document.getElementById("radioDesplazamiento");
+      const radio_km = sel ? parseInt(sel.value) : NaN;
       try {
         await utils.request("/disponibilidad", {
           method: "PUT",
-          body: JSON.stringify({ dias })
+          body: JSON.stringify({ dias, ...(Number.isNaN(radio_km) ? {} : { radio_km }) })
         });
         utils.mostrarAlerta(dias.length ? `Disponibilidad guardada (${dias.length} día${dias.length === 1 ? "" : "s"})` : "Disponibilidad vaciada", "success");
       } catch (error) {
@@ -581,12 +586,13 @@ const app = {
       body.innerHTML = `<p style="color:#6b7280;margin:0 0 1rem;">${dentistas.length} dentista${dentistas.length===1?"":"s"} con disponibilidad en tus días:</p>` +
         dentistas.map(d => {
           const ciudad = d.ciudad ? (d.provincia ? `${d.ciudad} (${d.provincia})` : d.ciudad) : "Ubicación no indicada";
+          const dist = (d.km != null && d.km > 0) ? ` · 📏 a ~${d.km} km` : "";
           const exp = (d.anyos_experiencia !== null && d.anyos_experiencia !== undefined) ? ` · 🎓 ${d.anyos_experiencia} años` : "";
           const chips = (d.dias_coincidentes || []).map(f => `<span class="badge">${utils.escapeHtml(utils.formatearDia(f))}</span>`).join("");
           return `<div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">
             <div style="flex:1;">
               <strong style="color:#0f4c75;display:block;">${utils.escapeHtml(d.nombre)}</strong>
-              <p style="margin:0.2rem 0;color:#6b7280;font-size:0.9rem;">📍 ${utils.escapeHtml(ciudad)}${exp}</p>
+              <p style="margin:0.2rem 0;color:#6b7280;font-size:0.9rem;">📍 ${utils.escapeHtml(ciudad)}${dist}${exp}</p>
               <div style="margin-top:0.4rem;"><span style="font-size:0.82rem;color:#059669;font-weight:600;">Coincide:</span> <span class="badges" style="gap:0.3rem;">${chips}</span></div>
             </div>
             <button class="btn-secondary" onclick="document.getElementById('modalDisponibles').classList.remove('active'); app.perfiles.verDetalle(${d.id})" style="white-space:nowrap;">Ver perfil</button>

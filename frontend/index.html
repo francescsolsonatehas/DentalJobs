@@ -822,6 +822,17 @@
                 <h4 style="color: #0f4c75; margin: 0 0 0.5rem 0;">🗓️ Mi disponibilidad para suplencias</h4>
                 <p style="color: #6b7280; font-size: 0.9rem; margin: 0 0 1rem;">Marca los días en los que podrías cubrir una suplencia. Ayuda a las clínicas a saber cuándo cuentan contigo, y podrás filtrar las suplencias por tus días libres.</p>
                 <div id="disponibilidadCalendario"></div>
+                <div style="margin-top: 1rem; padding: 0.85rem 1rem; background:#F8FAFF; border:1px solid #dbe4f0; border-radius:10px;">
+                    <label for="radioDesplazamiento" style="font-weight:600; color:#0f4c75; display:block; margin-bottom:.25rem;">📍 ¿Hasta dónde te desplazas?</label>
+                    <p style="color:#6b7280; font-size:.82rem; margin:0 0 .5rem;">Te avisaremos de suplencias dentro de este radio desde tu ciudad, no solo en tu ciudad exacta.</p>
+                    <select id="radioDesplazamiento" style="padding:.5rem .6rem; border:1px solid #cbd5e1; border-radius:6px; font-size:.9rem;">
+                        <option value="0">Solo mi ciudad</option>
+                        <option value="10">Hasta 10 km</option>
+                        <option value="25">Hasta 25 km</option>
+                        <option value="50">Hasta 50 km</option>
+                        <option value="100">Hasta 100 km</option>
+                    </select>
+                </div>
                 <button class="btn-primary" style="margin-top: 1rem;" onclick="app.disponibilidad.guardar()">Guardar disponibilidad</button>
             </div>
 
