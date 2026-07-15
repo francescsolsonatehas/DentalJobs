@@ -763,6 +763,7 @@ const app = {
       switch (accion) {
         case "perfil": app.modal.abrirPerfil(); break;
         case "disponibilidad": abrirPerfilEn("tabDisponibilidad"); break;
+        case "compatibilidad": abrirPerfilEn("tabCompatibilidad"); break;
         case "cv": abrirPerfilEn("tabCv"); break;
         case "sedes": abrirPerfilEn("tabSedes"); break;
         case "publicar": app.modal.abrirPublicar(); break;
@@ -1869,7 +1870,7 @@ const app = {
             <div style="font-weight: 700; color: #0F4C75; margin-bottom: .25rem;">🧩 Compatibilidad: faltan datos</div>
             <p style="color: #6b7280; font-size: .9rem; margin: 0 0 .5rem;">
               ${faltaTuyo
-                ? "Completa tu solicitud (salario y jornada que buscas), tu calendario y tus certificaciones y te diremos cuánto encajas con esta clínica."
+                ? "Completa tu solicitud (salario y jornada que buscas), tu calendario, tus certificaciones y el test de compatibilidad de tu perfil, y te diremos cuánto encajas con esta clínica."
                 : "Esta clínica aún no ha detallado lo suficiente su oferta para calcular tu compatibilidad."}
             </p>
             ${filas}
@@ -1879,13 +1880,26 @@ const app = {
       const pct = compat.porcentaje;
       const color = pct >= 80 ? "#16a34a" : pct >= 55 ? "#f59e0b" : "#dc2626";
 
+      // El subtítulo nombra SIEMPRE las dimensiones que de verdad han entrado en el
+      // cálculo (las que no tienen dato quedan fuera): así el % nunca aparenta
+      // apoyarse en más información de la que tiene.
+      const evaluadas = compat.dimensiones
+        .filter(d => d.estado !== 'sin_datos')
+        .map(d => d.etiqueta.toLowerCase());
+      const base = evaluadas.length > 1
+        ? `${evaluadas.slice(0, -1).join(", ")} y ${evaluadas[evaluadas.length - 1]}`
+        : evaluadas[0] || "";
+      const faltan = compat.dimensiones.filter(d => d.estado === 'sin_datos').length;
+
       return `
         <div style="background: #F8FAFF; border: 1px solid #dbe4f0; border-left: 4px solid ${color}; border-radius: 10px; padding: 1rem; margin-bottom: 1.25rem;">
           <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: .6rem;">
             <div style="font-size: 2.1rem; font-weight: 800; color: ${color}; line-height: 1;">${pct}%</div>
             <div>
               <div style="font-weight: 700; color: #0F4C75;">de compatibilidad con esta clínica</div>
-              <div style="color: #6b7280; font-size: .85rem;">Según lo que buscas: salario, horarios y tecnología</div>
+              <div style="color: #6b7280; font-size: .85rem;">
+                Según ${utils.escapeHtml(base)}${faltan ? ` · faltan ${faltan} de ${compat.dimensiones.length} por responder` : ""}
+              </div>
             </div>
           </div>
           <div style="background: #e5e7eb; border-radius: 99px; height: 7px; overflow: hidden; margin-bottom: .5rem;">
@@ -4226,6 +4240,8 @@ const app = {
         document.getElementById("tabCv").style.display = "none";
         document.getElementById("tabPortfolio").style.display = "none";
         document.getElementById("tabDisponibilidad").style.display = "none";
+        // El test de compatibilidad lo responden los dos: la clínica dice cómo es
+        document.getElementById("tabCompatibilidad").style.display = "inline-block";
         document.getElementById("tabFotos").style.display = "inline-block";
         document.getElementById("tabSedes").style.display = "inline-block";
         document.getElementById("perfilTitle").textContent = "Datos de la Empresa";
@@ -4236,6 +4252,7 @@ const app = {
         document.getElementById("tabCv").style.display = "inline-block";
         document.getElementById("tabPortfolio").style.display = "inline-block";
         document.getElementById("tabDisponibilidad").style.display = "inline-block";
+        document.getElementById("tabCompatibilidad").style.display = "inline-block";
         document.getElementById("tabFotos").style.display = "none";
         document.getElementById("tabSedes").style.display = "none";
         document.getElementById("perfilTitle").textContent = "Mi perfil";
@@ -4266,6 +4283,10 @@ const app = {
       }
       if (tab === 'disponibilidad' && estadoApp.tipoUsuario === 'dentista') {
         app.disponibilidad.cargar();
+      }
+      // El test de compatibilidad lo responden los dos lados con las mismas preguntas
+      if (tab === 'compatibilidad') {
+        app.preferencias.cargar();
       }
     },
 
@@ -6929,6 +6950,97 @@ const app = {
         select.innerHTML = `<option value="">Todas las especialidades</option>${opcionesHTML}`;
         select.value = valorActual;
       });
+    }
+  },
+
+  // ============================================
+  // Módulo: Test de compatibilidad (preferencias)
+  //
+  // Las mismas 5 preguntas para los dos lados: el dentista responde lo que busca
+  // y la clínica lo que es. Cambia solo el enunciado, que viene del catálogo del
+  // backend. Las ofertas heredan las respuestas de su clínica, así que esto se
+  // rellena una vez y ya.
+  // ============================================
+
+  preferencias: {
+    dimensiones: [],
+    respuestas: {},
+
+    async cargar() {
+      try {
+        const [catalogo, mias] = await Promise.all([
+          utils.request("/compatibilidad/catalogo"),
+          utils.request("/preferencias")
+        ]);
+        this.dimensiones = catalogo.dimensiones || [];
+        this.respuestas = mias.preferencias || {};
+        this.renderizar();
+      } catch (error) {
+        console.error("Error al cargar el test de compatibilidad:", error);
+        const cont = document.getElementById("compatibilidadPreguntas");
+        if (cont) cont.innerHTML = `<p style="color:#dc2626;">No se ha podido cargar el test. Inténtalo de nuevo.</p>`;
+      }
+    },
+
+    renderizar() {
+      const esDentista = estadoApp.tipoUsuario === 'dentista';
+      const intro = document.getElementById("compatibilidadIntro");
+      if (intro) {
+        intro.textContent = esDentista
+          ? "5 preguntas sobre cómo quieres trabajar. Con ellas calculamos tu % de encaje con cada clínica, y verás en qué coincidís y en qué no."
+          : "5 preguntas sobre cómo es tu clínica. Los dentistas verán su % de encaje contigo, así que atraerás a quien de verdad encaja. Se responden una vez y valen para todas tus ofertas.";
+      }
+
+      const cont = document.getElementById("compatibilidadPreguntas");
+      if (!cont) return;
+
+      cont.innerHTML = this.dimensiones.map(dim => {
+        const enunciado = esDentista ? dim.pregunta_dentista : dim.pregunta_clinica;
+        const guardado = this.respuestas[dim.clave];
+
+        const opciones = dim.opciones.map((op, i) => {
+          const id = `pref_${dim.clave}_${i}`;
+          const marcado = dim.tipo === 'multi'
+            ? Array.isArray(guardado) && guardado.includes(op)
+            : guardado === op;
+          return `
+            <label for="${id}" style="display:flex; align-items:center; gap:.5rem; padding:.35rem 0; cursor:pointer;">
+              <input type="${dim.tipo === 'multi' ? 'checkbox' : 'radio'}"
+                     id="${id}" name="pref_${dim.clave}" value="${utils.escapeHtml(op)}" ${marcado ? 'checked' : ''}>
+              <span>${utils.escapeHtml(op)}</span>
+            </label>`;
+        }).join("");
+
+        return `
+          <div style="background:#F8FAFF; border:1px solid #dbe4f0; border-radius:10px; padding:1rem; margin-bottom:1rem;">
+            <div style="font-weight:700; color:#0F4C75; margin-bottom:.15rem;">${utils.escapeHtml(enunciado)}</div>
+            <div style="color:#6b7280; font-size:.8rem; margin-bottom:.5rem;">
+              ${dim.tipo === 'multi' ? 'Puedes marcar varias' : 'Elige una'}
+            </div>
+            ${opciones}
+          </div>`;
+      }).join("");
+    },
+
+    async guardar() {
+      const preferencias = {};
+      this.dimensiones.forEach(dim => {
+        const marcados = Array.from(
+          document.querySelectorAll(`input[name="pref_${dim.clave}"]:checked`)
+        ).map(el => el.value);
+        if (marcados.length === 0) return;
+        preferencias[dim.clave] = dim.tipo === 'multi' ? marcados : marcados[0];
+      });
+
+      try {
+        await utils.request("/preferencias", { method: 'PUT', body: JSON.stringify({ preferencias }) });
+        this.respuestas = preferencias;
+        utils.mostrarAlerta("✅ Respuestas guardadas", "success");
+        app.onboarding.cargar();
+      } catch (error) {
+        console.error("Error al guardar las preferencias:", error);
+        utils.mostrarAlerta("Error al guardar las respuestas", "error");
+      }
     }
   },
 

@@ -795,8 +795,17 @@
                 <button class="tab-btn" id="tabCv" onclick="app.perfil.switchTab('cv')">Mi CV</button>
                 <button class="tab-btn" id="tabPortfolio" onclick="app.perfil.switchTab('portfolio')">Portfolio</button>
                 <button class="tab-btn" id="tabDisponibilidad" onclick="app.perfil.switchTab('disponibilidad')">🗓️ Disponibilidad</button>
+                <button class="tab-btn" id="tabCompatibilidad" onclick="app.perfil.switchTab('compatibilidad')">🧩 Compatibilidad</button>
                 <button class="tab-btn" id="tabFotos" onclick="app.perfil.switchTab('fotos')">Fotos</button>
                 <button class="tab-btn" id="tabSedes" onclick="app.perfil.switchTab('sedes')">Sedes</button>
+            </div>
+
+            <!-- Tab: Test de compatibilidad (mismas preguntas para dentistas y clínicas) -->
+            <div id="tab-compatibilidad" class="tab-content">
+                <h4 style="color: #0f4c75; margin: 0 0 0.5rem 0;">🧩 Test de compatibilidad</h4>
+                <p id="compatibilidadIntro" style="color: #6b7280; font-size: 0.9rem; margin: 0 0 1rem;"></p>
+                <div id="compatibilidadPreguntas"></div>
+                <button class="btn-primary" style="margin-top: 1rem;" onclick="app.preferencias.guardar()">Guardar respuestas</button>
             </div>
 
             <!-- Tab: Mis datos -->

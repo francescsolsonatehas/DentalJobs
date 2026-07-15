@@ -21,7 +21,14 @@ const PERFIL_COMPLETO = {
 };
 
 test("motor de compatibilidad (unitario)", async (t) => {
-  await t.test("coincidencia total en las tres dimensiones da 100%", () => {
+  // Estos tests aíslan las tres dimensiones DERIVADAS (salario, horarios,
+  // tecnología). Las cinco del cuestionario no se responden aquí, así que salen
+  // como "sin datos" y no entran en el cálculo; se prueban en
+  // compatibilidad-cuestionario.test.js.
+  const DERIVADAS = ["salario", "horarios", "tecnologia"];
+  const soloDerivadas = r => r.dimensiones.filter(d => DERIVADAS.includes(d.clave));
+
+  await t.test("coincidencia total en las tres dimensiones derivadas da 100%", () => {
     const r = calcularCompatibilidad(PERFIL_COMPLETO, {
       tipo: "oferta",
       jornada: "Completa",
@@ -31,8 +38,8 @@ test("motor de compatibilidad (unitario)", async (t) => {
     });
     assert.equal(r.porcentaje, 100);
     assert.equal(r.suficiente, true);
-    assert.equal(r.cobertura, 1);
-    assert.ok(r.dimensiones.every(d => d.estado === "coincide"));
+    assert.equal(r.cobertura, 8 / 19); // las 3 derivadas, de los 19 de peso total
+    assert.ok(soloDerivadas(r).every(d => d.estado === "coincide"));
   });
 
   await t.test("un salario por debajo de lo pretendido baja la puntuación en proporción", () => {
@@ -99,18 +106,18 @@ test("motor de compatibilidad (unitario)", async (t) => {
     assert.equal(tecnologia.falta, "dentista"); // el dato que falta es del dentista
     // Salario y horarios son perfectos, y la tecnología no arrastra el resultado
     assert.equal(r.porcentaje, 100);
-    assert.equal(r.cobertura, 0.75);
+    assert.equal(r.cobertura, 6 / 19); // salario (3) + horarios (3) de los 19 de peso total
   });
 
   await t.test("sin cobertura suficiente NO se devuelve porcentaje", () => {
-    // Perfil vacío: solo se puede evaluar la tecnología (2 de 8 de peso = 25%)
+    // Perfil vacío: solo se puede evaluar la tecnología (2 de los 19 de peso)
     const r = calcularCompatibilidad(
       { certificaciones: ["Invisalign"] },
       { tipo: "oferta", jornada: "Completa", salario_min: 40000, equipamiento: ["Escáner intraoral", "CAD-CAM"] }
     );
     assert.equal(r.porcentaje, null);
     assert.equal(r.suficiente, false);
-    assert.equal(r.cobertura, 0.25);
+    assert.equal(r.cobertura, 2 / 19);
     // Y se dice de quién es el dato que falta, para poder pedírselo
     assert.equal(r.dimensiones.find(d => d.clave === "salario").falta, "dentista");
   });
@@ -155,7 +162,11 @@ test("endpoint de compatibilidad", async (t) => {
     assert.equal(res.status, 200);
     assert.equal(res.body.porcentaje, null);
     assert.equal(res.body.suficiente, false);
-    assert.ok(res.body.dimensiones.every(d => d.estado === "sin_datos" && d.falta === "dentista"));
+    assert.ok(res.body.dimensiones.every(d => d.estado === "sin_datos"));
+    // En las derivadas el hueco es del dentista (la clínica sí publicó sus datos);
+    // en las del cuestionario no ha respondido ninguno de los dos.
+    const derivadas = res.body.dimensiones.filter(d => ["salario", "horarios", "tecnologia"].includes(d.clave));
+    assert.ok(derivadas.every(d => d.falta === "dentista"));
   });
 
   await t.test("con el perfil del dentista completo devuelve el porcentaje y su desglose", async () => {
@@ -179,9 +190,10 @@ test("endpoint de compatibilidad", async (t) => {
 
     assert.equal(res.status, 200);
     assert.equal(res.body.suficiente, true);
-    // Salario (45.000 ≥ 40.000), jornada (Completa) y tecnología (escáner + CAD-CAM) casan
+    // Salario (45.000 ≥ 40.000), jornada (Completa) y tecnología (escáner + CAD-CAM) casan.
+    // El cuestionario no lo ha respondido nadie, pero las derivadas bastan para el %.
     assert.equal(res.body.porcentaje, 100);
-    assert.equal(res.body.dimensiones.length, 3);
+    assert.equal(res.body.dimensiones.length, 8);
   });
 
   await t.test("una clínica no puede pedir la compatibilidad", async () => {

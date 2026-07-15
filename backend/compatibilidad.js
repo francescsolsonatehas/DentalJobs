@@ -1,7 +1,8 @@
 // Motor de compatibilidad dentista ↔ oferta/suplencia.
 //
-// Fase 1: solo puntúa las dimensiones que se pueden calcular con datos que YA
-// existen en la plataforma, sin pedir nada nuevo a nadie:
+// Ocho dimensiones, de dos naturalezas distintas.
+//
+// Derivadas de datos que YA existen en la plataforma (Fase 1), sin preguntar nada:
 //
 //   - Nivel salarial: lo que ofrece la publicación vs. lo que pide el dentista
 //     en su solicitud activa (salario_min).
@@ -10,9 +11,9 @@
 //   - Tecnología: equipamiento de la clínica vs. el que aprovechan las
 //     certificaciones del dentista (ver AFINIDAD_TECNOLOGIA).
 //
-// Las otras cinco variables del modelo (filosofía de trabajo, tipo de pacientes,
-// ambiente, formación continua y objetivos profesionales) llegan en la Fase 2 con
-// su cuestionario; el catálogo DIMENSIONES es el sitio donde se enchufan.
+// Preguntadas en el cuestionario del perfil (Fase 2), porque no se pueden derivar
+// de nada: filosofía de trabajo, tipo de pacientes, ambiente, formación continua y
+// objetivos profesionales (ver DIMENSIONES_CUESTIONARIO).
 //
 // Dos reglas que sostienen la credibilidad del porcentaje:
 //
@@ -27,16 +28,121 @@
 
 const { EQUIPAMIENTO_CATALOGO } = require("./catalogos");
 
+// Las cinco dimensiones del cuestionario (Fase 2). A diferencia de las tres
+// primeras, estas no se pueden derivar de nada: hay que preguntarlas. Se
+// preguntan UNA vez en el perfil, a los dos lados, con las mismas opciones:
+//
+//   - el dentista responde lo que busca,
+//   - la clínica responde lo que es/ofrece,
+//
+// y las ofertas de una clínica heredan sus respuestas (filosofía, ambiente o
+// tipo de pacientes son rasgos de la clínica, no de la vacante concreta: pedirlos
+// en cada publicación sería fricción por nada y acabarían vacíos).
+//
+// Dos tipos de comparación:
+//   - "eje": opción única sobre un eje ordenado. Puntúa por cercanía entre las
+//     posiciones elegidas, no por igualdad: estar a un paso no es lo mismo que
+//     estar en el extremo opuesto.
+//   - "multi": varias opciones. Puntúa qué fracción de LO QUE EL DENTISTA BUSCA
+//     cubre la clínica (no al revés: que la clínica haga cosas que al dentista no
+//     le interesan no le resta, simplemente no le suma).
+const DIMENSIONES_CUESTIONARIO = [
+  {
+    clave: "filosofia",
+    etiqueta: "Filosofía de trabajo",
+    peso: 3,
+    tipo: "eje",
+    pregunta_dentista: "¿Cómo te gusta trabajar?",
+    pregunta_clinica: "¿Cómo trabajáis en la clínica?",
+    opciones: [
+      "Mínimamente invasiva: preservar todo lo posible",
+      "Equilibrada, según cada caso",
+      "Resolutiva: tratamientos completos y rápidos"
+    ]
+  },
+  {
+    clave: "pacientes",
+    etiqueta: "Tipo de pacientes",
+    peso: 2,
+    tipo: "multi",
+    pregunta_dentista: "¿Con qué pacientes quieres trabajar?",
+    pregunta_clinica: "¿Qué pacientes atendéis principalmente?",
+    opciones: [
+      "Familias y niños",
+      "Adultos, odontología general",
+      "Estética",
+      "Implantología y pacientes mayores",
+      "Ortodoncia",
+      "Urgencias",
+      "Pacientes de aseguradora"
+    ]
+  },
+  {
+    clave: "ambiente",
+    etiqueta: "Ambiente de trabajo",
+    peso: 2,
+    tipo: "eje",
+    pregunta_dentista: "¿En qué ambiente quieres trabajar?",
+    pregunta_clinica: "¿Cómo es el ambiente de la clínica?",
+    opciones: [
+      "Clínica pequeña y familiar",
+      "Equipo mediano",
+      "Grupo grande y estructurado"
+    ]
+  },
+  {
+    clave: "formacion_continua",
+    etiqueta: "Formación continua",
+    peso: 2,
+    tipo: "eje",
+    pregunta_dentista: "¿Cuánto te importa la formación continua?",
+    pregunta_clinica: "¿Cuánta formación continua ofrecéis?",
+    opciones: [
+      "No es una prioridad",
+      "Cursos puntuales",
+      "Formación pagada y frecuente"
+    ]
+  },
+  {
+    clave: "objetivos",
+    etiqueta: "Objetivos profesionales",
+    peso: 2,
+    tipo: "multi",
+    pregunta_dentista: "¿Qué buscas en tu carrera ahora mismo?",
+    pregunta_clinica: "¿Qué podéis ofrecer a quien se incorpore?",
+    opciones: [
+      "Estabilidad a largo plazo",
+      "Crecer hacia dirección clínica",
+      "Especializarme",
+      "Casos complejos",
+      "Conciliación y flexibilidad",
+      "Maximizar ingresos"
+    ]
+  }
+];
+
 // Peso relativo de cada dimensión. Al normalizar por el peso realmente evaluado,
 // estos números son proporciones, no porcentajes: subir uno no obliga a bajar otro.
 const DIMENSIONES = [
   { clave: "salario", etiqueta: "Nivel salarial", peso: 3 },
   { clave: "horarios", etiqueta: "Horarios", peso: 3 },
-  { clave: "tecnologia", etiqueta: "Tecnología", peso: 2 }
+  { clave: "tecnologia", etiqueta: "Tecnología", peso: 2 },
+  ...DIMENSIONES_CUESTIONARIO
 ];
 
 // Fracción mínima del peso total que hay que poder evaluar para enseñar un %.
-const COBERTURA_MINIMA = 0.5;
+//
+// El listón está donde está por una razón concreta: salario + horarios (las dos
+// más pesadas, 6 de los 19 puntos = 0,32) son la base mínima honesta para hablar
+// de compatibilidad, y se calculan sin preguntarle nada a nadie. Una dimensión
+// suelta (3 de 19 = 0,16 como mucho) nunca lo es.
+//
+// Cuidado al tocar los pesos o al añadir dimensiones: subir este número por encima
+// de 0,32 dejaría sin porcentaje a las ofertas que solo tienen salario y jornada
+// (el equipamiento es opcional y muchas no lo rellenan), y subirlo por encima de
+// 0,42 se lo quitaría incluso a las que tienen las tres dimensiones derivadas,
+// que es justo lo que veía el usuario antes de existir el cuestionario.
+const COBERTURA_MINIMA = 0.3;
 
 // Qué equipamiento de la clínica aprovecha cada certificación del dentista. Es la
 // forma de puntuar "tecnología" en la Fase 1 sin preguntarle al dentista con qué
@@ -167,6 +273,74 @@ function puntuarTecnologia(perfil, oferta) {
   return { puntuacion, detalle, equipos_coincidentes: presentes };
 }
 
+// --- Dimensiones del cuestionario (Fase 2) ------------------------------------
+// Las respuestas llegan en `perfil.preferencias` y `oferta.preferencias`, ambas
+// con la forma { clave: valor }, donde valor es un string ("eje") o un array de
+// strings ("multi"). Una respuesta que no esté en el catálogo se ignora: no se
+// puntúa contra basura.
+
+// Eje ordinal: la nota cae con la distancia entre las posiciones elegidas.
+// Con 3 opciones: misma posición = 1, a un paso = 0,5, extremos opuestos = 0.
+function puntuarEje(dim, valorDentista, valorClinica) {
+  const i = dim.opciones.indexOf(valorDentista);
+  const j = dim.opciones.indexOf(valorClinica);
+  if (i === -1 || j === -1) return null;
+
+  const pasos = dim.opciones.length - 1;
+  const puntuacion = pasos === 0 ? 1 : 1 - Math.abs(i - j) / pasos;
+  const detalle = i === j
+    ? `Coincidís: ${valorClinica.toLowerCase()}`
+    : `Tú buscas «${valorDentista.toLowerCase()}» y la clínica es «${valorClinica.toLowerCase()}»`;
+
+  return { puntuacion, detalle };
+}
+
+// Multiselección: qué fracción de lo que busca el dentista cubre la clínica.
+// Deliberadamente asimétrico (no es Jaccard): que la clínica ofrezca cosas que al
+// dentista no le interesan no debe penalizarla, solo no le suma.
+function puntuarMulti(dim, valoresDentista, valoresClinica) {
+  const busca = (valoresDentista || []).filter(v => dim.opciones.includes(v));
+  const ofrece = (valoresClinica || []).filter(v => dim.opciones.includes(v));
+  if (busca.length === 0 || ofrece.length === 0) return null;
+
+  const cubiertos = busca.filter(v => ofrece.includes(v));
+  const puntuacion = cubiertos.length / busca.length;
+  const detalle = cubiertos.length
+    ? `La clínica cubre ${cubiertos.length} de las ${busca.length} que buscas: ${cubiertos.join(", ").toLowerCase()}`
+    : `La clínica no cubre ninguna de las ${busca.length} que buscas`;
+
+  return { puntuacion, detalle, coincidencias: cubiertos };
+}
+
+// Puntuador de una dimensión del cuestionario: resuelve qué lado tiene el hueco
+// cuando falta una respuesta, para poder pedírsela a quien toca.
+function puntuarCuestionario(dim, perfil, oferta) {
+  const respuestaDentista = (perfil.preferencias || {})[dim.clave];
+  const respuestaClinica = (oferta.preferencias || {})[dim.clave];
+
+  const vacia = r => r == null || r === "" || (Array.isArray(r) && r.length === 0);
+  const faltaDentista = vacia(respuestaDentista);
+  const faltaClinica = vacia(respuestaClinica);
+
+  if (faltaDentista || faltaClinica) {
+    const falta = faltaDentista && faltaClinica ? "ambos" : (faltaDentista ? "dentista" : "clinica");
+    const detalle = faltaDentista && faltaClinica
+      ? "Ni tú ni la clínica habéis respondido a esta pregunta"
+      : faltaDentista
+        ? "No has respondido a esta pregunta en tu perfil"
+        : "La clínica no ha respondido a esta pregunta";
+    return sinDatos(falta, detalle);
+  }
+
+  const resultado = dim.tipo === "eje"
+    ? puntuarEje(dim, respuestaDentista, respuestaClinica)
+    : puntuarMulti(dim, respuestaDentista, respuestaClinica);
+
+  // Respuestas fuera del catálogo (p. ej. tras cambiar las opciones): se tratan
+  // como si no estuvieran, en vez de puntuar 0 y mentir.
+  return resultado || sinDatos("ambos", "Las respuestas guardadas ya no están en el catálogo de opciones");
+}
+
 const PUNTUADORES = {
   salario: puntuarSalario,
   horarios: puntuarHorarios,
@@ -176,8 +350,8 @@ const PUNTUADORES = {
 /**
  * Calcula la compatibilidad entre un dentista y una oferta/suplencia.
  *
- * @param perfil  { salario_pretendido, jornada_buscada, disponibilidad: [YYYY-MM-DD], certificaciones: [string] }
- * @param oferta  { tipo, jornada, salario_min, salario_max, retribucion_tipo, dias: [YYYY-MM-DD], equipamiento: [string] }
+ * @param perfil  { salario_pretendido, jornada_buscada, disponibilidad: [YYYY-MM-DD], certificaciones: [string], preferencias: {clave: valor} }
+ * @param oferta  { tipo, jornada, salario_min, salario_max, retribucion_tipo, dias: [YYYY-MM-DD], equipamiento: [string], preferencias: {clave: valor} }
  * @returns {{
  *   porcentaje: number|null,   // null si no hay cobertura suficiente para ser honesto
  *   suficiente: boolean,
@@ -190,9 +364,14 @@ function calcularCompatibilidad(perfil = {}, oferta = {}) {
   let pesoTotal = 0;
   let acumulado = 0;
 
-  const dimensiones = DIMENSIONES.map(({ clave, etiqueta, peso }) => {
+  const dimensiones = DIMENSIONES.map(dim => {
+    const { clave, etiqueta, peso } = dim;
     pesoTotal += peso;
-    const resultado = PUNTUADORES[clave](perfil, oferta);
+    // Las tres primeras dimensiones tienen puntuador propio (derivan el dato de la
+    // plataforma); las del cuestionario comparten los dos genéricos por tipo.
+    const resultado = PUNTUADORES[clave]
+      ? PUNTUADORES[clave](perfil, oferta)
+      : puntuarCuestionario(dim, perfil, oferta);
 
     if (resultado.puntuacion === null) {
       return { clave, etiqueta, peso, estado: "sin_datos", puntuacion: null, detalle: resultado.detalle, falta: resultado.falta };
@@ -211,7 +390,8 @@ function calcularCompatibilidad(perfil = {}, oferta = {}) {
       puntuacion: resultado.puntuacion,
       detalle: resultado.detalle,
       ...(resultado.dias_coincidentes ? { dias_coincidentes: resultado.dias_coincidentes } : {}),
-      ...(resultado.equipos_coincidentes ? { equipos_coincidentes: resultado.equipos_coincidentes } : {})
+      ...(resultado.equipos_coincidentes ? { equipos_coincidentes: resultado.equipos_coincidentes } : {}),
+      ...(resultado.coincidencias ? { coincidencias: resultado.coincidencias } : {})
     };
   });
 
@@ -226,4 +406,10 @@ function calcularCompatibilidad(perfil = {}, oferta = {}) {
   };
 }
 
-module.exports = { calcularCompatibilidad, DIMENSIONES, AFINIDAD_TECNOLOGIA, COBERTURA_MINIMA };
+module.exports = {
+  calcularCompatibilidad,
+  DIMENSIONES,
+  DIMENSIONES_CUESTIONARIO,
+  AFINIDAD_TECNOLOGIA,
+  COBERTURA_MINIMA
+};

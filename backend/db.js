@@ -507,6 +507,21 @@ db.serialize(() => {
     )
   `);
 
+  // Respuestas al cuestionario de compatibilidad. Una sola tabla para los dos
+  // lados: el dentista responde lo que busca y la clínica lo que es/ofrece, con
+  // las mismas claves del catálogo (ver compatibilidad.js). Las ofertas heredan
+  // las respuestas de la clínica que las publica, así que no se pregunta nada por
+  // publicación. Las dimensiones de multiselección guardan una fila por opción.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS preferencias (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      clave TEXT NOT NULL,
+      valor TEXT NOT NULL,
+      UNIQUE(usuario_id, clave, valor)
+    )
+  `);
+
   // Backfill: las suplencias que ya existían solo tenían el rango fecha_desde →
   // fecha_hasta. Se expande a días concretos en suplencia_dias para las que aún
   // no tengan ninguno, de modo que el nuevo filtro por fecha las incluya.

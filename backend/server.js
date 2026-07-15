@@ -17,7 +17,7 @@ const db = require("./db");
 const { verifyToken, generateToken } = require("./middleware/auth");
 const { enviarEmail, plantilla, urlFrontend } = require("./email");
 const { ETIQUETAS_ESTADO, EQUIPAMIENTO_CATALOGO, CERTIFICACIONES_CATALOGO } = require("./catalogos");
-const { calcularCompatibilidad } = require("./compatibilidad");
+const { calcularCompatibilidad, DIMENSIONES_CUESTIONARIO } = require("./compatibilidad");
 const { construirFiltros } = require("./filtros-publicaciones");
 const { generarCsv } = require("./exportaciones");
 const { geocodificarCiudad } = require("./municipios-coords");
@@ -199,9 +199,30 @@ function avisarInstantaneoSuplencia(pubId, callback) {
   });
 }
 
+// Respuestas de un usuario al cuestionario de compatibilidad, en la forma que
+// espera el motor: { clave: "valor" } para las de opción única y
+// { clave: ["a","b"] } para las de multiselección. Sirve igual a dentistas (lo
+// que buscan) que a clínicas (lo que son).
+function cargarPreferencias(usuarioId, callback) {
+  db.all("SELECT clave, valor FROM preferencias WHERE usuario_id = ?", [usuarioId], (err, filas) => {
+    if (err) return callback(err);
+    const porClave = {};
+    (filas || []).forEach(({ clave, valor }) => {
+      const dim = DIMENSIONES_CUESTIONARIO.find(d => d.clave === clave);
+      if (!dim) return; // clave fuera del catálogo: se ignora
+      if (dim.tipo === "multi") {
+        (porClave[clave] = porClave[clave] || []).push(valor);
+      } else {
+        porClave[clave] = valor;
+      }
+    });
+    callback(null, porClave);
+  });
+}
+
 // Perfil del dentista tal y como lo consume el motor de compatibilidad: lo que
-// pide (su solicitud activa), cuándo puede (su calendario) y qué sabe hacer (sus
-// certificaciones). Todo son datos que el dentista ya introduce hoy.
+// pide (su solicitud activa), cuándo puede (su calendario), qué sabe hacer (sus
+// certificaciones) y lo que respondió en el cuestionario.
 function perfilCompatibilidad(usuarioId, callback) {
   db.get(
     `SELECT salario_min, jornada FROM publicaciones
@@ -214,11 +235,15 @@ function perfilCompatibilidad(usuarioId, callback) {
         if (err2) return callback(err2);
         db.all("SELECT certificacion FROM certificaciones WHERE usuario_id = ?", [usuarioId], (err3, certs) => {
           if (err3) return callback(err3);
-          callback(null, {
-            salario_pretendido: solicitud ? solicitud.salario_min : null,
-            jornada_buscada: solicitud ? solicitud.jornada : null,
-            disponibilidad: (dias || []).map(d => d.fecha),
-            certificaciones: (certs || []).map(c => c.certificacion)
+          cargarPreferencias(usuarioId, (err4, preferencias) => {
+            if (err4) return callback(err4);
+            callback(null, {
+              salario_pretendido: solicitud ? solicitud.salario_min : null,
+              jornada_buscada: solicitud ? solicitud.jornada : null,
+              disponibilidad: (dias || []).map(d => d.fecha),
+              certificaciones: (certs || []).map(c => c.certificacion),
+              preferencias
+            });
           });
         });
       });
@@ -428,6 +453,7 @@ app.delete("/auth/mi-cuenta", verifyToken, (req, res) => {
       ["DELETE FROM formacion WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM idiomas WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM certificaciones WHERE usuario_id = ?", [usuarioId]],
+      ["DELETE FROM preferencias WHERE usuario_id = ?", [usuarioId]],
       // Historial compartido: anonimizar, no borrar
       ["UPDATE mensajes SET remitente_nombre = 'Usuario eliminado', remitente_email = '' WHERE usuario_id = ?", [usuarioId]],
       // La fila de usuario se anonimiza para mantener íntegras las referencias (reseñas, mensajes)
@@ -1999,8 +2025,9 @@ app.get("/onboarding", verifyToken, (req, res) => {
          (SELECT COUNT(*) FROM usuario_especialidades WHERE usuario_id = ?) AS especialidades,
          (SELECT COUNT(*) FROM disponibilidad_dentista WHERE usuario_id = ?) AS disponibilidad,
          (SELECT COUNT(*) FROM archivos WHERE usuario_id = ? AND tipo = 'cv') AS cv,
-         (SELECT COUNT(*) FROM candidaturas WHERE usuario_id = ?) AS candidaturas`,
-      [uid, uid, uid, uid, uid],
+         (SELECT COUNT(*) FROM candidaturas WHERE usuario_id = ?) AS candidaturas,
+         (SELECT COUNT(DISTINCT clave) FROM preferencias WHERE usuario_id = ?) AS preferencias`,
+      [uid, uid, uid, uid, uid, uid],
       (err, r) => {
         if (err) {
           console.error(err);
@@ -2012,6 +2039,8 @@ app.get("/onboarding", verifyToken, (req, res) => {
             titulo: "Completa tu perfil", descripcion: "Indica tu ciudad y especialidad para aparecer en las búsquedas y en el matching." },
           { id: "disponibilidad", hecho: r.disponibilidad > 0, opcional: false, accion: "disponibilidad",
             titulo: "Marca tu disponibilidad", descripcion: "Señala los días que puedes cubrir suplencias y recibe avisos cuando encajen." },
+          { id: "compatibilidad", hecho: r.preferencias >= DIMENSIONES_CUESTIONARIO.length, opcional: false, accion: "compatibilidad",
+            titulo: "Responde el test de compatibilidad", descripcion: "5 preguntas sobre cómo quieres trabajar. Verás tu % de encaje con cada clínica." },
           { id: "cv", hecho: r.cv > 0, opcional: true, accion: "cv",
             titulo: "Sube tu CV", descripcion: "Opcional. Refuerza tus candidaturas ante las clínicas." },
           { id: "postular", hecho: r.candidaturas > 0, opcional: false, accion: "explorar",
@@ -2025,8 +2054,9 @@ app.get("/onboarding", verifyToken, (req, res) => {
       `SELECT
          (SELECT descripcion FROM usuarios WHERE id = ?) AS descripcion,
          (SELECT COUNT(*) FROM sedes WHERE usuario_id = ?) AS sedes,
-         (SELECT COUNT(*) FROM publicaciones WHERE usuario_id = ? AND tipo IN ('oferta','suplencia')) AS publicaciones`,
-      [uid, uid, uid],
+         (SELECT COUNT(*) FROM publicaciones WHERE usuario_id = ? AND tipo IN ('oferta','suplencia')) AS publicaciones,
+         (SELECT COUNT(DISTINCT clave) FROM preferencias WHERE usuario_id = ?) AS preferencias`,
+      [uid, uid, uid, uid],
       (err, r) => {
         if (err) {
           console.error(err);
@@ -2038,6 +2068,8 @@ app.get("/onboarding", verifyToken, (req, res) => {
             titulo: "Crea tu primera sede", descripcion: "Tus ofertas y suplencias heredan la ubicación y el equipamiento de la sede." },
           { id: "publicar", hecho: r.publicaciones > 0, opcional: false, accion: "publicar",
             titulo: "Publica tu primera oferta o suplencia", descripcion: "Empieza a recibir candidaturas de dentistas." },
+          { id: "compatibilidad", hecho: r.preferencias >= DIMENSIONES_CUESTIONARIO.length, opcional: false, accion: "compatibilidad",
+            titulo: "Responde el test de compatibilidad", descripcion: "5 preguntas sobre cómo es tu clínica. Los dentistas verán su % de encaje contigo." },
           { id: "descripcion", hecho: !!(r.descripcion && r.descripcion.trim()), opcional: true, accion: "perfil",
             titulo: "Presenta tu clínica", descripcion: "Opcional. Una descripción y fotos dan confianza a los candidatos." }
         ];
@@ -2312,7 +2344,7 @@ app.get("/publicaciones/:id/compatibilidad", verifyToken, (req, res) => {
   }
 
   db.get(
-    "SELECT id, tipo, jornada, salario_min, salario_max, retribucion_tipo FROM publicaciones WHERE id = ? AND activo = 1",
+    "SELECT id, tipo, jornada, salario_min, salario_max, retribucion_tipo, usuario_id FROM publicaciones WHERE id = ? AND activo = 1",
     [req.params.id],
     (err, pub) => {
       if (err) {
@@ -2341,17 +2373,85 @@ app.get("/publicaciones/:id/compatibilidad", verifyToken, (req, res) => {
               console.error(err4);
               return res.status(500).json({ error: "Error al calcular la compatibilidad" });
             }
-            const oferta = {
-              ...pub,
-              equipamiento: (equipos || []).map(e => e.equipo),
-              dias: (dias || []).map(d => d.fecha)
-            };
-            res.json(calcularCompatibilidad(perfil, oferta));
+            // La oferta hereda las respuestas al cuestionario de la clínica que la
+            // publica: son rasgos de la clínica, no de la vacante.
+            cargarPreferencias(pub.usuario_id, (err5, preferenciasClinica) => {
+              if (err5) {
+                console.error(err5);
+                return res.status(500).json({ error: "Error al calcular la compatibilidad" });
+              }
+              const oferta = {
+                ...pub,
+                equipamiento: (equipos || []).map(e => e.equipo),
+                dias: (dias || []).map(d => d.fecha),
+                preferencias: preferenciasClinica
+              };
+              res.json(calcularCompatibilidad(perfil, oferta));
+            });
           });
         });
       });
     }
   );
+});
+
+// Catálogo del cuestionario: lo consume el frontend para pintar los formularios
+// (dentista y clínica comparten opciones, cambia solo el enunciado).
+app.get("/compatibilidad/catalogo", (req, res) => {
+  res.json({ dimensiones: DIMENSIONES_CUESTIONARIO });
+});
+
+// Mis respuestas al cuestionario.
+app.get("/preferencias", verifyToken, (req, res) => {
+  cargarPreferencias(req.usuario.id, (err, preferencias) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al obtener las preferencias" });
+    }
+    res.json({ preferencias });
+  });
+});
+
+// Guardar mis respuestas. Se reemplazan por completo (como las certificaciones):
+// el cuerpo es la foto final, no un parche. Solo se aceptan claves y valores del
+// catálogo; lo que no esté se descarta en silencio en vez de guardar basura que
+// luego el motor no sabría puntuar.
+app.put("/preferencias", verifyToken, (req, res) => {
+  const entrada = req.body && req.body.preferencias;
+  if (!entrada || typeof entrada !== "object") {
+    return res.status(400).json({ error: "Faltan las preferencias" });
+  }
+
+  const filas = [];
+  DIMENSIONES_CUESTIONARIO.forEach(dim => {
+    const valor = entrada[dim.clave];
+    if (valor == null) return;
+    const valores = dim.tipo === "multi"
+      ? (Array.isArray(valor) ? valor : [valor])
+      : [valor];
+    valores
+      .filter(v => dim.opciones.includes(v))
+      .forEach(v => filas.push([dim.clave, v]));
+  });
+
+  db.run("DELETE FROM preferencias WHERE usuario_id = ?", [req.usuario.id], (err) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al guardar las preferencias" });
+    }
+    if (filas.length === 0) {
+      return res.json({ mensaje: "Preferencias guardadas", guardadas: 0 });
+    }
+    const stmt = db.prepare("INSERT OR IGNORE INTO preferencias (usuario_id, clave, valor) VALUES (?, ?, ?)");
+    filas.forEach(([clave, valor]) => stmt.run(req.usuario.id, clave, valor));
+    stmt.finalize((err2) => {
+      if (err2) {
+        console.error(err2);
+        return res.status(500).json({ error: "Error al guardar las preferencias" });
+      }
+      res.json({ mensaje: "Preferencias guardadas", guardadas: filas.length });
+    });
+  });
 });
 
 app.get("/publicaciones/:id/especialidades", (req, res) => {
