@@ -1654,8 +1654,8 @@ function agruparPreferencias(filas) {
 const TOPE_COMPATIBILIDAD = 200;
 
 function listarPorCompatibilidad(res, filtros, usuarioId, page, limit) {
-  const query = `SELECT p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad
-                 FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id
+  const query = `SELECT p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad, s.nombre as sede_nombre
+                 FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id LEFT JOIN sedes s ON s.id = p.sede_id
                  WHERE p.activo = 1${filtros.sql}
                  ORDER BY p.creado_en DESC LIMIT ?`;
 
@@ -1729,7 +1729,9 @@ function listarPorCompatibilidad(res, filtros, usuarioId, page, limit) {
 app.get("/publicaciones", (req, res) => {
   const { tipo, sort, paraUsuarioId } = req.query;
 
-  let selectCols = "p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad";
+  // sede_nombre: la clínica ve el nombre de la sede en sus propias publicaciones (una
+  // clínica con varias sedes necesita distinguirlas; su propio nombre no le dice nada).
+  let selectCols = "p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad, s.nombre as sede_nombre";
   const selectParams = [];
 
   const usarRelevancia = sort === 'relevancia' && paraUsuarioId;
@@ -1775,7 +1777,7 @@ app.get("/publicaciones", (req, res) => {
     return listarPorCompatibilidad(res, filtros, usuario.id, pageC, limitC);
   }
 
-  let query = `SELECT ${selectCols} FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id WHERE p.activo = 1${filtros.sql}`;
+  let query = `SELECT ${selectCols} FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id LEFT JOIN sedes s ON s.id = p.sede_id WHERE p.activo = 1${filtros.sql}`;
   const params = [...selectParams, ...filtros.params];
 
   if (sort === 'salario') {

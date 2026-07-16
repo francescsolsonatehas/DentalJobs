@@ -5269,11 +5269,16 @@ const app = {
           console.error("Error al obtener especialidades:", error);
         }
         const ciudadLabel = utils.escapeHtml(pub.provincia ? `${pub.ciudad} (${pub.provincia})` : pub.ciudad);
+        // En sus propias publicaciones, la clínica ve la SEDE (su nombre de cuenta no
+        // le distingue nada si tiene varias); si la publicación no tiene sede asignada,
+        // se cae al nombre de la clínica. Quien mira desde fuera sigue viendo la clínica.
+        const esMia = estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id);
+        const nombreClinica = (esMia && pub.sede_nombre) ? pub.sede_nombre : (pub.usuario_nombre || 'Clínica');
         const generatedTitle = pub.tipo === 'solicitud'
           ? `${ciudadLabel} - ${pub.usuario_nombre || 'Dentista'}`
           : pub.tipo === 'suplencia'
-            ? `Suplencia en ${ciudadLabel} - ${pub.usuario_nombre || 'Clínica'}`
-            : `${ciudadLabel} - ${pub.usuario_nombre || 'Clínica'}`;
+            ? `Suplencia en ${ciudadLabel} - ${nombreClinica}`
+            : `${ciudadLabel} - ${nombreClinica}`;
         let tipoBadge, tipoClase;
         if (pub.tipo === "oferta") {
           tipoBadge = "";
@@ -5332,7 +5337,7 @@ const app = {
               <span class="badge" style="margin-left: auto;">${utils.formatearFecha(pub.creado_en)}</span>
             </div>
             <div class="card-footer" style="display: flex; gap: 0.5rem;">
-              <button class="btn-primary" onclick="app.modal.abrirDetalleConManejo(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver detalles</button>
+              <button class="btn-primary" onclick="app.modal.abrirDetalleConManejo(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver Publicación</button>
               ${(() => {
                 if (estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id)) {
                   return `${(pub.tipo === 'oferta' || pub.tipo === 'suplencia') ? `<button class="btn-outline" onclick="app.publicaciones.copiarEnlacePublico(${pub.id})" style="flex: 1;" title="Copiar el enlace público de esta publicación">🔗 Compartir</button>` : ''}
