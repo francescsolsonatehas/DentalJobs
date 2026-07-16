@@ -360,13 +360,36 @@ app.use(limiterGlobal);
 app.use("/auth/login", limiterAuth);
 app.use("/auth/registro", limiterAuth);
 
-// Configurar multer para uploads en memoria
+// Máximo por tipo de archivo, en MB. Ojo: los archivos se guardan como BLOB en la
+// propia BD (tabla archivos) y multer los carga ENTEROS en memoria, así que subir
+// estos números tiene coste de RAM en el servidor y de tamaño de fila en Turso. Para
+// permitir archivos mucho más grandes habría que sacarlos de la BD a un
+// almacenamiento de objetos (S3/R2) y guardar solo el enlace.
+const MAX_MB_POR_TIPO = { cv: 5, portfolio: 25, foto: 10 };
+const MAX_SUBIDA_MB = Math.max(...Object.values(MAX_MB_POR_TIPO));
+
+// Configurar multer para uploads en memoria. El límite es el mayor de todos los
+// tipos; el ajuste fino por tipo se valida en el endpoint.
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10 MB máximo
+    fileSize: MAX_SUBIDA_MB * 1024 * 1024
   }
 });
+
+// Multer aborta con un error propio cuando el archivo pasa del límite. Sin este
+// envoltorio, ese error acaba en el manejador por defecto de Express (un 500 con
+// HTML) y el usuario no se entera de que su archivo era demasiado grande.
+function subirArchivo(req, res, next) {
+  upload.single("archivo")(req, res, (err) => {
+    if (!err) return next();
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({ error: `El archivo supera el máximo permitido (${MAX_SUBIDA_MB} MB)` });
+    }
+    console.error(err);
+    return res.status(400).json({ error: "No se ha podido procesar el archivo" });
+  });
+}
 
 /* ===========================
    🔹 AUTH
@@ -4086,7 +4109,7 @@ app.get("/chat/no-leidos", verifyToken, (req, res) => {
    🔹 ARCHIVOS
 =========================== */
 
-app.post("/archivos/upload", verifyToken, upload.single("archivo"), (req, res) => {
+app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No se envió ningún archivo" });
   }
@@ -4096,13 +4119,21 @@ app.post("/archivos/upload", verifyToken, upload.single("archivo"), (req, res) =
     return res.status(400).json({ error: "Tipo de archivo inválido" });
   }
 
-  if (tipo === "foto" && !(req.file.mimetype || "").startsWith("image/")) {
+  const mime = req.file.mimetype || "";
+
+  if (tipo === "foto" && !mime.startsWith("image/")) {
     return res.status(400).json({ error: "Las fotos deben ser imágenes" });
   }
 
-  const maxSize = tipo === "cv" ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
+  // El Book (portfolio) admite PDF o imágenes, lo mismo que ofrece el formulario. Se
+  // valida también aquí: el `accept` del input es una comodidad, no una defensa.
+  if (tipo === "portfolio" && mime !== "application/pdf" && !mime.startsWith("image/")) {
+    return res.status(400).json({ error: "El Book solo admite PDF o imágenes" });
+  }
+
+  const maxSize = MAX_MB_POR_TIPO[tipo] * 1024 * 1024;
   if (req.file.size > maxSize) {
-    return res.status(400).json({ error: `Archivo demasiado grande (máx ${maxSize / 1024 / 1024} MB)` });
+    return res.status(400).json({ error: `Archivo demasiado grande (máx ${MAX_MB_POR_TIPO[tipo]} MB)` });
   }
 
   db.run(
