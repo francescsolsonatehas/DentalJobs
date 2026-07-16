@@ -2873,15 +2873,34 @@ const app = {
       document.getElementById("modalInteresados").classList.add("active");
     },
 
-    mostrarListaDentistas(dentistas, titulo) {
+    async mostrarListaDentistas(dentistas, titulo) {
       if (dentistas.length === 0) {
         utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
         return;
       }
 
+      // Al dentista que se ha postulado a alguna de nuestras publicaciones se le enseña
+      // lo mismo que en "Postulaciones Recibidas" (estado, mensaje, acciones), en vez de
+      // una ficha de contacto suelta: es el mismo dentista, no tiene sentido verlo de
+      // dos formas distintas según por dónde se entre.
+      const porUsuario = {};
+      if (estadoApp.tipoUsuario === 'clinica' && estadoApp.usuario) {
+        try {
+          const postulados = await utils.request(`/stats/candidatos-interesados-lista/${estadoApp.usuario.id}`);
+          (postulados || []).forEach(c => { (porUsuario[c.usuario_id] = porUsuario[c.usuario_id] || []).push(c); });
+        } catch (error) {
+          console.error("Error al cargar las postulaciones recibidas:", error);
+        }
+      }
+
       let html = `<div class="candidatos-list">`;
 
       dentistas.forEach(d => {
+        const postulaciones = porUsuario[d.usuario_id] || [];
+        if (postulaciones.length) {
+          html += postulaciones.map(c => app.stats.tarjetaCandidatoHtml(c)).join("");
+          return;
+        }
         html += `
           <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
             <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75; font-size: 1.1rem; font-weight: 700;">${utils.escapeHtml(d.nombre)}</h4>
@@ -2891,6 +2910,9 @@ const app = {
             ${d.movil ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📱 Móvil:</strong> ${utils.escapeHtml(d.movil)}</p>` : ''}
             <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📍 Ciudad:</strong> ${utils.escapeHtml(d.ciudad)}</p>
             ${d.direccion ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>🏠 Dirección:</strong> ${utils.escapeHtml(d.direccion)}</p>` : ''}
+            <div style="margin-top: 0.75rem;">
+              <button onclick="app.stats.abrirSolicitudDeDentista(${d.usuario_id})" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
+            </div>
           </div>
         `;
       });
@@ -3817,6 +3839,52 @@ const app = {
       document.getElementById("modalInteresados").classList.add("active");
     },
 
+    // Tarjeta de un dentista que se ha postulado a una de nuestras publicaciones: su
+    // estado, su mensaje, las respuestas de criba y las acciones. Es la de
+    // "Postulaciones Recibidas", extraída aparte porque la lista de "Dentistas"
+    // enseña exactamente lo mismo para quien se haya postulado.
+    tarjetaCandidatoHtml(c) {
+      const estadoColor = utils.colorEstado(c.estado);
+      const abrir = `app.stats.abrirSolicitudDeDentista(${c.usuario_id})`;
+      return `
+        <div style="background: white; padding: 1rem; border-radius: 6px; margin-bottom: 0.75rem; border-left: 3px solid ${estadoColor};">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div style="flex: 1; cursor: pointer;" onclick="${abrir}">
+              <strong>${utils.escapeHtml(c.nombre)}</strong>
+              <p style="margin: 0.3rem 0 0 0; font-size: 0.85rem; color: #6b7280;">${utils.escapeHtml(c.email)}</p>
+              ${c.ciudad ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: #6b7280;">📍 ${utils.escapeHtml(c.ciudad)}</p>` : ''}
+            </div>
+            <span style="background: ${estadoColor}; color: white; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.8rem; text-transform: capitalize; white-space: nowrap; margin-left: 1rem;">${utils.textoEstado(c.estado)}</span>
+          </div>
+          ${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; padding: 0.75rem; background: #f0f9ff; border-radius: 4px; border-left: 2px solid #0ea5e9; color: #0c4a6e;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}
+          ${utils.respuestasCribaHtml(c.respuestas)}
+          <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+            <button onclick="${abrir}" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
+            ${utils.selectorEstado(c.id, c.estado, `app.stats.cambiarEstadoCandidatura(${c.id}, this.value)`)}
+            ${c.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${c.id}, '${utils.escapeHtml(c.nombre.replace(/'/g, "\\'"))}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
+          </div>
+        </div>
+      `;
+    },
+
+    // "Ver Detalles" de un dentista: abre lo mismo que en "Publicaciones de dentistas",
+    // es decir, el modal de su solicitud (con su % de compatibilidad). Si no tuviera
+    // solicitud publicada, se cae a su ficha de perfil, que es lo más parecido.
+    async abrirSolicitudDeDentista(usuarioId) {
+      const cerrarLista = () => document.getElementById("modalInteresados")?.classList.remove("active");
+      try {
+        const sols = await utils.request(`/publicaciones?tipo=solicitud&usuario_id=${usuarioId}&limit=1`);
+        if (sols && sols.length) {
+          cerrarLista();
+          return app.modal.abrirDetalleConManejo(sols[0]);
+        }
+      } catch (error) {
+        console.error("Error al abrir la solicitud del dentista:", error);
+      }
+      cerrarLista();
+      app.perfiles.verDetalle(usuarioId);
+    },
+
     async mostrarListaCandidatos(candidatos, titulo) {
       if (candidatos.length === 0) {
         utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
@@ -3860,26 +3928,7 @@ const app = {
         `;
 
         oferta.candidatos.forEach(c => {
-          const estadoColor = utils.colorEstado(c.estado);
-          html += `
-            <div style="background: white; padding: 1rem; border-radius: 6px; margin-bottom: 0.75rem; border-left: 3px solid ${estadoColor};">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div style="flex: 1; cursor: pointer;" onclick="app.stats.mostrarPerfilDentista(${JSON.stringify(c).replace(/"/g, '&quot;')})">
-                  <strong>${utils.escapeHtml(c.nombre)}</strong>
-                  <p style="margin: 0.3rem 0 0 0; font-size: 0.85rem; color: #6b7280;">${utils.escapeHtml(c.email)}</p>
-                  ${c.ciudad ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: #6b7280;">📍 ${utils.escapeHtml(c.ciudad)}</p>` : ''}
-                </div>
-                <span style="background: ${estadoColor}; color: white; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.8rem; text-transform: capitalize; white-space: nowrap; margin-left: 1rem;">${utils.textoEstado(c.estado)}</span>
-              </div>
-              ${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; padding: 0.75rem; background: #f0f9ff; border-radius: 4px; border-left: 2px solid #0ea5e9; color: #0c4a6e;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}
-              ${utils.respuestasCribaHtml(c.respuestas)}
-              <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
-                <button onclick="app.stats.mostrarPerfilDentista(${JSON.stringify(c).replace(/"/g, '&quot;')})" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
-                ${utils.selectorEstado(c.id, c.estado, `app.stats.cambiarEstadoCandidatura(${c.id}, this.value)`)}
-                ${c.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${c.id}, '${utils.escapeHtml(c.nombre.replace(/'/g, "\\'"))}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
-              </div>
-            </div>
-          `;
+          html += app.stats.tarjetaCandidatoHtml(c);
         });
 
         html += `
