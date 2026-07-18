@@ -1851,6 +1851,20 @@ select:focus {
   font-size: 0.95rem;
 }
 
+/* Separador que indica de qué publicación venían los mensajes que siguen. Solo
+   aparece al cambiar de contexto dentro del hilo único de una persona. */
+.chat-contexto {
+  align-self: center;
+  margin: 0.8rem 0 0.4rem;
+  padding: 0.15rem 0.7rem;
+  background: #f1f5f9;
+  color: #64748b;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .chat-burbuja p {
   margin: 0;
   white-space: pre-wrap;

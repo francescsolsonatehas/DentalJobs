@@ -3911,14 +3911,47 @@ app.get("/mensajes/no-leidos/count", verifyToken, (req, res) => {
    🔹 CHAT
 =========================== */
 
-// Estado "escribiendo…" en memoria: clave `${remitente}:${destinatario}:${publicacion}` → timestamp
+// Estado "escribiendo…" en memoria: clave `${remitente}:${destinatario}` → timestamp
 const escribiendoStatus = new Map();
 const ESCRIBIENDO_TTL_MS = 5000;
 
-// Último aviso por email de mensajes de chat, por conversación (throttle 1 h)
+// Último aviso por email de mensajes de chat, por interlocutor (throttle 1 h)
 const ultimaNotificacionChat = new Map();
 
-// Bandeja de conversaciones del usuario, agrupadas por publicación e interlocutor
+// Con quién puede chatear un usuario: hace falta al menos una relación aceptada
+// entre los dos, sea una candidatura (a una publicación de cualquiera de ellos) o un
+// contacto de perfil. Antes el permiso era por publicación, porque cada publicación
+// abría su propio hilo; ahora que hay un solo hilo por persona, basta con que exista
+// una vía aceptada: si ya podían hablar de una oferta, pueden hablar.
+function viasDeChat(unoId, otroId, callback) {
+  db.all(
+    `SELECT c.id, c.publicacion_id, p.ciudad, p.tipo
+       FROM candidaturas c
+       JOIN publicaciones p ON p.id = c.publicacion_id
+      WHERE c.estado = 'aceptada'
+        AND ((c.usuario_id = ? AND p.usuario_id = ?) OR (c.usuario_id = ? AND p.usuario_id = ?))`,
+    [unoId, otroId, otroId, unoId],
+    (err, candidaturas) => {
+      if (err) return callback(err);
+      db.all(
+        `SELECT id FROM contactos_perfil
+          WHERE estado = 'aceptada'
+            AND ((solicitante_id = ? AND perfil_id = ?) OR (solicitante_id = ? AND perfil_id = ?))`,
+        [unoId, otroId, otroId, unoId],
+        (err2, contactos) => {
+          if (err2) return callback(err2);
+          callback(null, {
+            candidaturas: candidaturas || [],
+            contactos: contactos || [],
+            puedeChatear: (candidaturas || []).length > 0 || (contactos || []).length > 0
+          });
+        }
+      );
+    }
+  );
+}
+
+// Bandeja de conversaciones del usuario, una por interlocutor
 app.get("/chat/conversaciones", verifyToken, (req, res) => {
   const usuarioId = req.usuario.id;
 
@@ -3938,19 +3971,14 @@ app.get("/chat/conversaciones", verifyToken, (req, res) => {
         return res.status(500).json({ error: "Error al obtener conversaciones" });
       }
 
+      // Una conversación por interlocutor: da igual de qué publicación saliera cada
+      // mensaje, con una persona se habla en un único sitio.
       const conversaciones = {};
       (mensajes || []).forEach(m => {
         const otroId = m.usuario_id === usuarioId ? m.destinatario_id : m.usuario_id;
         const otroNombre = m.usuario_id === usuarioId ? m.destinatario_nombre : (m.remitente_nombre_usuario || m.remitente_nombre);
-        const esPerfil = !!m.contacto_perfil_id;
-        const clave = esPerfil ? `perfil:${m.contacto_perfil_id}` : `${m.publicacion_id}:${otroId}`;
-        if (!conversaciones[clave]) {
-          conversaciones[clave] = {
-            publicacion_id: m.publicacion_id,
-            publicacion_ciudad: m.publicacion_ciudad,
-            publicacion_tipo: m.publicacion_tipo,
-            contacto_perfil_id: m.contacto_perfil_id || null,
-            es_perfil: esPerfil,
+        if (!conversaciones[otroId]) {
+          conversaciones[otroId] = {
             otro_id: otroId,
             otro_nombre: otroNombre,
             ultimo_mensaje: null,
@@ -3958,10 +3986,10 @@ app.get("/chat/conversaciones", verifyToken, (req, res) => {
             no_leidos: 0
           };
         }
-        conversaciones[clave].ultimo_mensaje = m.cuerpo;
-        conversaciones[clave].ultima_fecha = m.creado_en;
+        conversaciones[otroId].ultimo_mensaje = m.cuerpo;
+        conversaciones[otroId].ultima_fecha = m.creado_en;
         if (m.destinatario_id === usuarioId && m.leido === 0) {
-          conversaciones[clave].no_leidos++;
+          conversaciones[otroId].no_leidos++;
         }
       });
 
@@ -3973,18 +4001,25 @@ app.get("/chat/conversaciones", verifyToken, (req, res) => {
   );
 });
 
-// Hilo de una conversación: mensajes en ambos sentidos + estado "escribiendo…" del interlocutor.
-// Marca como leídos los mensajes entrantes.
-app.get("/chat/mensajes/:publicacionId/:otroId", verifyToken, (req, res) => {
+// Hilo con una persona: TODOS los mensajes entre los dos, vengan de la publicación
+// que vengan o de un contacto de perfil. Marca como leídos los entrantes.
+//
+// Cada mensaje conserva de qué publicación salió (`publicacion_ciudad`/`_tipo`) para
+// que el frontend pueda etiquetarlo: en un hilo único conviene saber sobre qué se
+// hablaba. Los mensajes nuevos no cuelgan de ninguna publicación y no llevan etiqueta.
+app.get("/chat/con/:otroId", verifyToken, (req, res) => {
   const usuarioId = req.usuario.id;
-  const publicacionId = parseInt(req.params.publicacionId);
   const otroId = parseInt(req.params.otroId);
+
+  if (!otroId || otroId === usuarioId) {
+    return res.status(400).json({ error: "Interlocutor inválido" });
+  }
 
   // Primero marcar como leídos los mensajes entrantes y después devolver el hilo,
   // para no dejar escrituras en vuelo tras responder
   db.run(
-    "UPDATE mensajes SET leido = 1 WHERE publicacion_id = ? AND usuario_id = ? AND destinatario_id = ? AND leido = 0",
-    [publicacionId, otroId, usuarioId],
+    "UPDATE mensajes SET leido = 1 WHERE usuario_id = ? AND destinatario_id = ? AND leido = 0",
+    [otroId, usuarioId],
     (err) => {
       if (err) {
         console.error(err);
@@ -3992,21 +4027,22 @@ app.get("/chat/mensajes/:publicacionId/:otroId", verifyToken, (req, res) => {
       }
 
       db.all(
-        `SELECT m.*, ur.nombre as remitente_nombre_usuario
+        `SELECT m.*, ur.nombre as remitente_nombre_usuario,
+                p.ciudad as publicacion_ciudad, p.tipo as publicacion_tipo
          FROM mensajes m
          LEFT JOIN usuarios ur ON m.usuario_id = ur.id
-         WHERE m.publicacion_id = ?
-           AND ((m.usuario_id = ? AND m.destinatario_id = ?) OR (m.usuario_id = ? AND m.destinatario_id = ?))
+         LEFT JOIN publicaciones p ON m.publicacion_id = p.id
+         WHERE (m.usuario_id = ? AND m.destinatario_id = ?)
+            OR (m.usuario_id = ? AND m.destinatario_id = ?)
          ORDER BY m.creado_en ASC`,
-        [publicacionId, usuarioId, otroId, otroId, usuarioId],
+        [usuarioId, otroId, otroId, usuarioId],
         (err, mensajes) => {
           if (err) {
             console.error(err);
             return res.status(500).json({ error: "Error al obtener mensajes" });
           }
 
-          const claveEscribiendo = `${otroId}:${usuarioId}:${publicacionId}`;
-          const ultimaEscritura = escribiendoStatus.get(claveEscribiendo);
+          const ultimaEscritura = escribiendoStatus.get(`${otroId}:${usuarioId}`);
           const escribiendo = !!ultimaEscritura && (Date.now() - ultimaEscritura) < ESCRIBIENDO_TTL_MS;
 
           res.json({ mensajes: mensajes || [], escribiendo });
@@ -4016,93 +4052,73 @@ app.get("/chat/mensajes/:publicacionId/:otroId", verifyToken, (req, res) => {
   );
 });
 
-app.post("/chat/mensajes", verifyToken, (req, res) => {
-  const { publicacion_id, destinatario_id, cuerpo } = req.body;
+// Enviar un mensaje a una persona. No hace falta decir de qué publicación se habla:
+// el hilo es uno solo. Basta con que exista alguna relación aceptada entre los dos.
+app.post("/chat/con/:otroId", verifyToken, (req, res) => {
   const usuarioId = req.usuario.id;
-  const destinatarioId = parseInt(destinatario_id);
+  const otroId = parseInt(req.params.otroId);
+  const { cuerpo } = req.body;
 
-  if (!publicacion_id || !destinatario_id || !cuerpo || !cuerpo.trim()) {
+  if (!otroId || !cuerpo || !cuerpo.trim()) {
     return res.status(400).json({ error: "Faltan datos obligatorios" });
   }
-
-  if (destinatarioId === usuarioId) {
+  if (otroId === usuarioId) {
     return res.status(400).json({ error: "No puedes enviarte mensajes a ti mismo" });
   }
 
-  db.get("SELECT id, usuario_id FROM publicaciones WHERE id = ?", [publicacion_id], (err, pub) => {
+  viasDeChat(usuarioId, otroId, (err, vias) => {
     if (err) {
       console.error(err);
       return res.status(500).json({ error: "Error al enviar mensaje" });
     }
-    if (!pub) {
-      return res.status(404).json({ error: "Publicación no encontrada" });
-    }
-    if (pub.usuario_id !== usuarioId && pub.usuario_id !== destinatarioId) {
-      return res.status(403).json({ error: "No puedes enviar mensajes para esta publicación" });
+    if (!vias.puedeChatear) {
+      return res.status(403).json({ error: "Solo puedes chatear tras una postulación o un contacto aceptados" });
     }
 
-    // El chat solo se habilita cuando la postulación del interesado a esta publicación fue aceptada
-    const postulanteId = pub.usuario_id === usuarioId ? destinatarioId : usuarioId;
+    db.get("SELECT nombre, email FROM usuarios WHERE id = ?", [usuarioId], (err2, remitente) => {
+      if (err2 || !remitente) {
+        console.error(err2);
+        return res.status(500).json({ error: "Error al enviar mensaje" });
+      }
 
-    db.get(
-      "SELECT id FROM candidaturas WHERE publicacion_id = ? AND usuario_id = ? AND estado = 'aceptada'",
-      [publicacion_id, postulanteId],
-      (err, candidatura) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).json({ error: "Error al enviar mensaje" });
-        }
-        if (!candidatura) {
-          return res.status(403).json({ error: "Solo puedes chatear tras una postulación aceptada" });
-        }
-
-        db.get("SELECT nombre, email FROM usuarios WHERE id = ?", [usuarioId], (err, remitente) => {
-          if (err || !remitente) {
-            console.error(err);
+      db.run(
+        `INSERT INTO mensajes (publicacion_id, contacto_perfil_id, usuario_id, destinatario_id, remitente_nombre, remitente_email, cuerpo)
+         VALUES (NULL, NULL, ?, ?, ?, ?, ?)`,
+        [usuarioId, otroId, remitente.nombre, remitente.email, cuerpo.trim()],
+        function(err3) {
+          if (err3) {
+            console.error(err3);
             return res.status(500).json({ error: "Error al enviar mensaje" });
           }
+          res.json({ mensaje: "Mensaje enviado", id: this.lastID });
 
-          db.run(
-            `INSERT INTO mensajes (publicacion_id, usuario_id, destinatario_id, remitente_nombre, remitente_email, cuerpo)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [publicacion_id, usuarioId, destinatario_id, remitente.nombre, remitente.email, cuerpo.trim()],
-            function(err) {
-              if (err) {
-                console.error(err);
-                return res.status(500).json({ error: "Error al enviar mensaje" });
-              }
-              escribiendoStatus.delete(`${usuarioId}:${destinatario_id}:${publicacion_id}`);
-              res.json({ mensaje: "Mensaje enviado", id: this.lastID });
-
-              // Aviso por email al destinatario, como mucho uno por conversación y hora
-              const claveNotif = `${destinatario_id}:${usuarioId}:${publicacion_id}`;
-              const ultima = ultimaNotificacionChat.get(claveNotif);
-              if (!ultima || Date.now() - ultima > 60 * 60 * 1000) {
-                ultimaNotificacionChat.set(claveNotif, Date.now());
-                notificarUsuario(
-                  destinatario_id,
-                  `💬 Mensaje nuevo de ${remitente.nombre} en DentalJobs`,
-                  "Tienes un mensaje nuevo",
-                  `${remitente.nombre} te ha escrito en el chat de DentalJobs. Entra para leerlo y responder.`,
-                  "Abrir el chat",
-                  { tipo: "mensaje", enlace: `#chat=${publicacion_id}-${usuarioId}` }
-                );
-              }
-            }
-          );
-        });
-      }
-    );
+          // Aviso por email, como mucho uno por interlocutor y hora
+          const claveNotif = `${otroId}:${usuarioId}`;
+          const ultima = ultimaNotificacionChat.get(claveNotif);
+          if (!ultima || Date.now() - ultima > 60 * 60 * 1000) {
+            ultimaNotificacionChat.set(claveNotif, Date.now());
+            notificarUsuario(
+              otroId,
+              `💬 Mensaje nuevo de ${remitente.nombre} en DentalJobs`,
+              "Tienes un mensaje nuevo",
+              `${remitente.nombre} te ha escrito en el chat de DentalJobs. Entra para leerlo y responder.`,
+              "Abrir el chat",
+              { tipo: "mensaje", enlace: `#chat=${usuarioId}` }
+            );
+          }
+        }
+      );
+    });
   });
 });
 
 // Señal de "escribiendo…" (se guarda solo en memoria, expira a los pocos segundos)
 app.post("/chat/escribiendo", verifyToken, (req, res) => {
-  const { publicacion_id, destinatario_id } = req.body;
-  if (!publicacion_id || !destinatario_id) {
+  const { destinatario_id } = req.body;
+  if (!destinatario_id) {
     return res.status(400).json({ error: "Faltan datos obligatorios" });
   }
-  escribiendoStatus.set(`${req.usuario.id}:${destinatario_id}:${publicacion_id}`, Date.now());
+  escribiendoStatus.set(`${req.usuario.id}:${destinatario_id}`, Date.now());
   res.json({ success: true });
 });
 
@@ -5128,77 +5144,6 @@ app.put("/contactos-perfil/:id", verifyToken, (req, res) => {
 });
 
 // Hilo de chat de un contacto de perfil (mensajes con contacto_perfil_id). Marca como leídos los entrantes.
-app.get("/chat/perfil/:contactoId/mensajes", verifyToken, (req, res) => {
-  const usuarioId = req.usuario.id;
-  const contactoId = parseInt(req.params.contactoId);
-
-  db.get("SELECT * FROM contactos_perfil WHERE id = ?", [contactoId], (err, c) => {
-    if (err) { console.error(err); return res.status(500).json({ error: "Error al obtener mensajes" }); }
-    if (!c) return res.status(404).json({ error: "Contacto no encontrado" });
-    if (c.solicitante_id !== usuarioId && c.perfil_id !== usuarioId) return res.status(403).json({ error: "No autorizado" });
-    const otroId = c.solicitante_id === usuarioId ? c.perfil_id : c.solicitante_id;
-
-    db.run(
-      "UPDATE mensajes SET leido = 1 WHERE contacto_perfil_id = ? AND destinatario_id = ? AND leido = 0",
-      [contactoId, usuarioId],
-      (err2) => {
-        if (err2) { console.error(err2); return res.status(500).json({ error: "Error al obtener mensajes" }); }
-        db.all(
-          `SELECT m.*, ur.nombre as remitente_nombre_usuario FROM mensajes m
-           LEFT JOIN usuarios ur ON m.usuario_id = ur.id
-           WHERE m.contacto_perfil_id = ? ORDER BY m.creado_en ASC`,
-          [contactoId],
-          (err3, mensajes) => {
-            if (err3) { console.error(err3); return res.status(500).json({ error: "Error al obtener mensajes" }); }
-            res.json({ mensajes: mensajes || [], otro_id: otroId, estado: c.estado });
-          }
-        );
-      }
-    );
-  });
-});
-
-app.post("/chat/perfil/mensajes", verifyToken, (req, res) => {
-  const { contacto_perfil_id, cuerpo } = req.body;
-  const usuarioId = req.usuario.id;
-  if (!contacto_perfil_id || !cuerpo || !cuerpo.trim()) return res.status(400).json({ error: "Faltan datos obligatorios" });
-
-  db.get("SELECT * FROM contactos_perfil WHERE id = ?", [contacto_perfil_id], (err, c) => {
-    if (err) { console.error(err); return res.status(500).json({ error: "Error al enviar mensaje" }); }
-    if (!c) return res.status(404).json({ error: "Contacto no encontrado" });
-    if (c.solicitante_id !== usuarioId && c.perfil_id !== usuarioId) return res.status(403).json({ error: "No autorizado" });
-    if (c.estado !== 'aceptada') return res.status(403).json({ error: "Solo puedes chatear tras aceptar el contacto" });
-    const destinatarioId = c.solicitante_id === usuarioId ? c.perfil_id : c.solicitante_id;
-
-    db.get("SELECT nombre, email FROM usuarios WHERE id = ?", [usuarioId], (err2, remitente) => {
-      if (err2 || !remitente) { console.error(err2); return res.status(500).json({ error: "Error al enviar mensaje" }); }
-      db.run(
-        `INSERT INTO mensajes (publicacion_id, contacto_perfil_id, usuario_id, destinatario_id, remitente_nombre, remitente_email, cuerpo)
-         VALUES (NULL, ?, ?, ?, ?, ?, ?)`,
-        [contacto_perfil_id, usuarioId, destinatarioId, remitente.nombre, remitente.email, cuerpo.trim()],
-        function(err3) {
-          if (err3) { console.error(err3); return res.status(500).json({ error: "Error al enviar mensaje" }); }
-          res.json({ mensaje: "Mensaje enviado", id: this.lastID });
-
-          const claveNotif = `perfil:${destinatarioId}:${usuarioId}:${contacto_perfil_id}`;
-          const ultima = ultimaNotificacionChat.get(claveNotif);
-          if (!ultima || Date.now() - ultima > 60 * 60 * 1000) {
-            ultimaNotificacionChat.set(claveNotif, Date.now());
-            notificarUsuario(
-              destinatarioId,
-              `💬 Mensaje nuevo de ${remitente.nombre} en DentalJobs`,
-              "Tienes un mensaje nuevo",
-              `${remitente.nombre} te ha escrito en el chat de DentalJobs. Entra para leerlo y responder.`,
-              "Abrir el chat",
-              { tipo: "mensaje", enlace: `#chat-perfil=${contacto_perfil_id}-${usuarioId}` }
-            );
-          }
-        }
-      );
-    });
-  });
-});
-
 /* ===========================
    🔹 INICIAR SERVIDOR
 =========================== */

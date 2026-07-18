@@ -10,6 +10,19 @@ async function registrarYLoguear(app, { nombre, email, tipo }) {
   return { token: res.body.token, usuario: res.body.usuario };
 }
 
+// Postula al dentista a una publicación de la clínica y la acepta: es lo que
+// habilita el chat entre los dos.
+async function postularYAceptar(app, { dentista, clinica, publicacionId }) {
+  const candidatura = await request(app)
+    .post("/candidaturas")
+    .set("Authorization", `Bearer ${dentista.token}`)
+    .send({ publicacion_id: publicacionId });
+  await request(app)
+    .put(`/candidaturas/${candidatura.body.candidatura_id}`)
+    .set("Authorization", `Bearer ${clinica.token}`)
+    .send({ estado: "aceptada" });
+}
+
 test("chat", async (t) => {
   const { app, dbPath } = createTestApp();
   t.after(() => cleanupTestApp(dbPath));
@@ -25,28 +38,20 @@ test("chat", async (t) => {
 
   await t.test("no se puede chatear sin una postulación aceptada", async () => {
     const res = await request(app)
-      .post("/chat/mensajes")
+      .post(`/chat/con/${clinica.usuario.id}`)
       .set("Authorization", `Bearer ${dentista.token}`)
-      .send({ publicacion_id: ofertaId, destinatario_id: clinica.usuario.id, cuerpo: "Hola, me interesa la oferta" });
+      .send({ cuerpo: "Hola, me interesa la oferta" });
 
     assert.equal(res.status, 403);
   });
 
-  const candidatura = await request(app)
-    .post("/candidaturas")
-    .set("Authorization", `Bearer ${dentista.token}`)
-    .send({ publicacion_id: ofertaId });
+  await postularYAceptar(app, { dentista, clinica, publicacionId: ofertaId });
 
-  await request(app)
-    .put(`/candidaturas/${candidatura.body.candidatura_id}`)
-    .set("Authorization", `Bearer ${clinica.token}`)
-    .send({ estado: "aceptada" });
-
-  await t.test("un dentista puede enviar un mensaje al dueño de la publicación tras ser aceptado", async () => {
+  await t.test("un dentista puede escribir a la clínica tras ser aceptado", async () => {
     const res = await request(app)
-      .post("/chat/mensajes")
+      .post(`/chat/con/${clinica.usuario.id}`)
       .set("Authorization", `Bearer ${dentista.token}`)
-      .send({ publicacion_id: ofertaId, destinatario_id: clinica.usuario.id, cuerpo: "Hola, me interesa la oferta" });
+      .send({ cuerpo: "Hola, me interesa la oferta" });
 
     assert.equal(res.status, 200);
     assert.ok(res.body.id);
@@ -54,9 +59,9 @@ test("chat", async (t) => {
 
   await t.test("no se puede enviar un mensaje a uno mismo", async () => {
     const res = await request(app)
-      .post("/chat/mensajes")
+      .post(`/chat/con/${dentista.usuario.id}`)
       .set("Authorization", `Bearer ${dentista.token}`)
-      .send({ publicacion_id: ofertaId, destinatario_id: dentista.usuario.id, cuerpo: "hola yo" });
+      .send({ cuerpo: "hola yo" });
 
     assert.equal(res.status, 400);
   });
@@ -67,9 +72,7 @@ test("chat", async (t) => {
       .set("Authorization", `Bearer ${clinica.token}`);
 
     assert.equal(res.status, 200);
-    const conv = res.body.conversaciones.find(
-      (c) => c.publicacion_id === ofertaId && c.otro_id === dentista.usuario.id
-    );
+    const conv = res.body.conversaciones.find((c) => c.otro_id === dentista.usuario.id);
     assert.ok(conv);
     assert.equal(conv.no_leidos, 1);
     assert.equal(conv.ultimo_mensaje, "Hola, me interesa la oferta");
@@ -86,7 +89,7 @@ test("chat", async (t) => {
 
   await t.test("abrir el hilo marca los mensajes como leídos (doble check para el emisor)", async () => {
     const hilo = await request(app)
-      .get(`/chat/mensajes/${ofertaId}/${dentista.usuario.id}`)
+      .get(`/chat/con/${dentista.usuario.id}`)
       .set("Authorization", `Bearer ${clinica.token}`);
 
     assert.equal(hilo.status, 200);
@@ -94,7 +97,7 @@ test("chat", async (t) => {
 
     // Ahora el emisor debería ver su mensaje como leído
     const hiloEmisor = await request(app)
-      .get(`/chat/mensajes/${ofertaId}/${clinica.usuario.id}`)
+      .get(`/chat/con/${clinica.usuario.id}`)
       .set("Authorization", `Bearer ${dentista.token}`);
     assert.equal(hiloEmisor.body.mensajes[0].leido, 1);
 
@@ -108,31 +111,68 @@ test("chat", async (t) => {
     await request(app)
       .post("/chat/escribiendo")
       .set("Authorization", `Bearer ${clinica.token}`)
-      .send({ publicacion_id: ofertaId, destinatario_id: dentista.usuario.id });
+      .send({ destinatario_id: dentista.usuario.id });
 
     const hilo = await request(app)
-      .get(`/chat/mensajes/${ofertaId}/${clinica.usuario.id}`)
+      .get(`/chat/con/${clinica.usuario.id}`)
       .set("Authorization", `Bearer ${dentista.token}`);
     assert.equal(hilo.body.escribiendo, true);
 
     // Para el otro lado (la clínica) no debe aparecer como escribiendo
     const hiloClinica = await request(app)
-      .get(`/chat/mensajes/${ofertaId}/${dentista.usuario.id}`)
+      .get(`/chat/con/${dentista.usuario.id}`)
       .set("Authorization", `Bearer ${clinica.token}`);
     assert.equal(hiloClinica.body.escribiendo, false);
   });
 
   await t.test("la conversación es bidireccional", async () => {
     await request(app)
-      .post("/chat/mensajes")
+      .post(`/chat/con/${dentista.usuario.id}`)
       .set("Authorization", `Bearer ${clinica.token}`)
-      .send({ publicacion_id: ofertaId, destinatario_id: dentista.usuario.id, cuerpo: "Genial, hablemos" });
+      .send({ cuerpo: "Genial, hablemos" });
 
     const hilo = await request(app)
-      .get(`/chat/mensajes/${ofertaId}/${clinica.usuario.id}`)
+      .get(`/chat/con/${clinica.usuario.id}`)
       .set("Authorization", `Bearer ${dentista.token}`);
 
     assert.equal(hilo.body.mensajes.length, 2);
     assert.equal(hilo.body.mensajes[1].cuerpo, "Genial, hablemos");
+  });
+
+  // El motivo de que el hilo sea por persona y no por publicación: con alguien se
+  // habla en un solo sitio, aunque coincidáis en varias ofertas.
+  await t.test("una segunda publicación con la misma persona NO abre otro chat", async () => {
+    const segunda = await request(app)
+      .post("/publicaciones")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ tipo: "oferta", ciudad: "Lleida", descripcion: "Segunda oferta" });
+    await postularYAceptar(app, { dentista, clinica, publicacionId: segunda.body.id });
+
+    await request(app)
+      .post(`/chat/con/${clinica.usuario.id}`)
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .send({ cuerpo: "Y esta otra oferta, ¿sigue abierta?" });
+
+    const res = await request(app)
+      .get("/chat/conversaciones")
+      .set("Authorization", `Bearer ${clinica.token}`);
+    const conDentista = res.body.conversaciones.filter((c) => c.otro_id === dentista.usuario.id);
+    assert.equal(conDentista.length, 1, "debe haber un único hilo con esa persona");
+
+    // Y el hilo acumula los mensajes de las dos ofertas
+    const hilo = await request(app)
+      .get(`/chat/con/${dentista.usuario.id}`)
+      .set("Authorization", `Bearer ${clinica.token}`);
+    assert.equal(hilo.body.mensajes.length, 3);
+  });
+
+  await t.test("un tercero sin relación aceptada no puede escribir", async () => {
+    const extraño = await registrarYLoguear(app, { nombre: "Extraño", email: "extrano-chat@test.com", tipo: "dentista" });
+    const res = await request(app)
+      .post(`/chat/con/${clinica.usuario.id}`)
+      .set("Authorization", `Bearer ${extraño.token}`)
+      .send({ cuerpo: "Hola" });
+
+    assert.equal(res.status, 403);
   });
 });

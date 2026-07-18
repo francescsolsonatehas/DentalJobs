@@ -46,9 +46,9 @@ test("contactos de perfil y su chat", async (t) => {
 
   await t.test("no se puede chatear antes de aceptar el contacto", async () => {
     const res = await request(app)
-      .post("/chat/perfil/mensajes")
+      .post(`/chat/con/${dentista.usuario.id}`)
       .set("Authorization", `Bearer ${clinica.token}`)
-      .send({ contacto_perfil_id: contactoId, cuerpo: "Hola" });
+      .send({ cuerpo: "Hola" });
     assert.equal(res.status, 403);
   });
 
@@ -68,18 +68,17 @@ test("contactos de perfil y su chat", async (t) => {
     assert.equal(aceptar.status, 200);
 
     const enviar = await request(app)
-      .post("/chat/perfil/mensajes")
+      .post(`/chat/con/${dentista.usuario.id}`)
       .set("Authorization", `Bearer ${clinica.token}`)
-      .send({ contacto_perfil_id: contactoId, cuerpo: "¡Hola! ¿Hablamos?" });
+      .send({ cuerpo: "¡Hola! ¿Hablamos?" });
     assert.equal(enviar.status, 200);
 
     const hilo = await request(app)
-      .get(`/chat/perfil/${contactoId}/mensajes`)
+      .get(`/chat/con/${clinica.usuario.id}`)
       .set("Authorization", `Bearer ${dentista.token}`);
     assert.equal(hilo.status, 200);
     assert.equal(hilo.body.mensajes.length, 1);
     assert.equal(hilo.body.mensajes[0].cuerpo, "¡Hola! ¿Hablamos?");
-    assert.equal(hilo.body.estado, "aceptada");
   });
 });
 

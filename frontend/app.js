@@ -760,9 +760,11 @@ const app = {
           case "publicacion":
             return await this.abrirPublicacion(argumento);
           case "chat":
-            return await this.abrirChat(argumento);
+          // Notificaciones anteriores al hilo único: "#chat=<publicacion>-<persona>"
+          // y "#chat-perfil=<contacto>-<persona>". En ambas el interlocutor es el
+          // último segmento, que es lo único que hace falta ahora.
           case "chat-perfil":
-            return await this.abrirChatPerfil(argumento);
+            return await this.abrirChat(argumento);
           // Estas dos listas existen para los dos roles, pero con nombre y función
           // distintos: quien mira decide cuál toca. Una misma notificación ("tienes
           // una nueva postulación") le llega tanto a la clínica en su oferta como al
@@ -806,38 +808,22 @@ const app = {
     // `argumento` es "publicacionId-otroId". El nombre del interlocutor no viaja en
     // el enlace: se busca en la lista de conversaciones, que ya lo trae. Si no está
     // (conversación aún sin mensajes), se abre la bandeja y que elija.
+    // El interlocutor es el último segmento del argumento, así funcionan tanto los
+    // enlaces nuevos ("#chat=48") como los antiguos ("#chat=53-48"). Sin argumento
+    // se abre la bandeja, que es lo que quieren las notificaciones de contacto.
     async abrirChat(argumento) {
-      const [publicacionId, otroId] = String(argumento || "").split("-");
       await app.chat.abrir();
-      if (!publicacionId || !otroId) return;
+      const partes = String(argumento || "").split("-").filter(Boolean);
+      const otroId = partes[partes.length - 1];
+      if (!otroId) return;
 
-      const conv = await this.buscarConversacion(c =>
-        String(c.publicacion_id) === String(publicacionId) && String(c.otro_id) === String(otroId)
-      );
-      if (conv) {
-        await app.chat.abrirConversacion(conv.publicacion_id, conv.otro_id, conv.otro_nombre);
-      }
-    },
-
-    // Contactos hechos desde un perfil (no cuelgan de ninguna publicación)
-    async abrirChatPerfil(argumento) {
-      const [contactoId, otroId] = String(argumento || "").split("-");
-      await app.chat.abrir();
-      if (!contactoId || !otroId) return;
-
-      const conv = await this.buscarConversacion(c =>
-        String(c.contacto_perfil_id) === String(contactoId) && String(c.otro_id) === String(otroId)
-      );
-      if (conv) {
-        await app.chat.abrirConversacionPerfil(conv.contacto_perfil_id, conv.otro_id, conv.otro_nombre);
-      }
-    },
-
-    // El nombre del interlocutor no viaja en el enlace: se busca en la bandeja, que
-    // ya lo trae. Si no aparece, se queda la bandeja abierta y que elija.
-    async buscarConversacion(coincide) {
+      // El nombre no viaja en el enlace: se busca en la bandeja, que ya lo trae. Si
+      // no aparece, se queda la bandeja abierta y que elija.
       const data = await utils.requestOpcional("/chat/conversaciones");
-      return (data?.conversaciones || []).find(coincide) || null;
+      const conv = (data?.conversaciones || []).find(c => String(c.otro_id) === String(otroId));
+      if (conv) {
+        await app.chat.abrirConversacion(conv.otro_id, conv.otro_nombre);
+      }
     },
 
     async abrirAlerta(id) {
@@ -6899,7 +6885,10 @@ const app = {
       }
       app.modal.cerrarTodosModales();
       document.getElementById("modalChat").classList.add("active");
-      await this.abrirConversacion(publicacionId, otroId, otroNombre);
+      // `publicacionId` ya no hace falta para identificar el hilo (hay uno por
+      // persona), pero el parámetro se conserva porque lo pasa el detalle de una
+      // publicación, que es desde donde se abre el chat.
+      await this.abrirConversacion(otroId, otroNombre);
       this.iniciarPolling();
     },
 
@@ -6924,20 +6913,22 @@ const app = {
         const data = await utils.request("/chat/conversaciones");
         const conversaciones = data.conversaciones || [];
 
-        // Contactos de perfil: pendientes (para aceptar) y aceptados (para poder abrir el chat aunque aún no haya mensajes)
+        // Contactos de perfil: los pendientes se aceptan aquí; los ya aceptados se
+        // añaden a la lista aunque no tengan mensajes, para poder escribir el primero.
+        // Se indexa por persona (no por contacto): con alguien hay un solo hilo.
         let pendientes = [];
         try {
           const c = await utils.request("/contactos-perfil");
           pendientes = (c.recibidos || []).filter(x => x.estado === 'pendiente');
 
-          const yaEnLista = new Set(conversaciones.filter(cv => cv.es_perfil).map(cv => cv.contacto_perfil_id));
-          const añadirAceptado = (contactoId, otroId, otroNombre, fecha) => {
-            if (yaEnLista.has(contactoId)) return;
-            yaEnLista.add(contactoId);
-            conversaciones.push({ es_perfil: true, contacto_perfil_id: contactoId, otro_id: otroId, otro_nombre: otroNombre, ultimo_mensaje: "", ultima_fecha: fecha, no_leidos: 0 });
+          const yaEnLista = new Set(conversaciones.map(cv => cv.otro_id));
+          const añadirAceptado = (otroId, otroNombre, fecha) => {
+            if (!otroId || yaEnLista.has(otroId)) return;
+            yaEnLista.add(otroId);
+            conversaciones.push({ otro_id: otroId, otro_nombre: otroNombre, ultimo_mensaje: "", ultima_fecha: fecha, no_leidos: 0 });
           };
-          (c.enviados || []).filter(x => x.estado === 'aceptada').forEach(x => añadirAceptado(x.id, x.perfil_id, x.perfil_nombre, x.actualizado_en));
-          (c.recibidos || []).filter(x => x.estado === 'aceptada').forEach(x => añadirAceptado(x.id, x.solicitante_id, x.solicitante_nombre, x.actualizado_en));
+          (c.enviados || []).filter(x => x.estado === 'aceptada').forEach(x => añadirAceptado(x.perfil_id, x.perfil_nombre, x.actualizado_en));
+          (c.recibidos || []).filter(x => x.estado === 'aceptada').forEach(x => añadirAceptado(x.solicitante_id, x.solicitante_nombre, x.actualizado_en));
         } catch (e) { /* sin contactos */ }
 
         document.getElementById("chatTitle").textContent = "💬 Mensajes";
@@ -6970,18 +6961,11 @@ const app = {
 
         let html = pendientesHtml + `<div class="chat-conversaciones">`;
         conversaciones.forEach(c => {
-          const etiqueta = c.es_perfil
-            ? '👤 Contacto de perfil'
-            : `${c.publicacion_tipo === 'oferta' ? 'Oferta' : 'Solicitud'} · ${utils.escapeHtml(c.publicacion_ciudad || '')}`;
           const nombreEsc = utils.escapeHtml(c.otro_nombre || 'Usuario').replace(/'/g, "\\'");
-          const onclick = c.es_perfil
-            ? `app.chat.abrirConversacionPerfil(${c.contacto_perfil_id}, ${c.otro_id}, '${nombreEsc}')`
-            : `app.chat.abrirConversacion(${c.publicacion_id}, ${c.otro_id}, '${nombreEsc}')`;
           html += `
-            <div class="chat-conversacion-item" onclick="${onclick}">
+            <div class="chat-conversacion-item" onclick="app.chat.abrirConversacion(${c.otro_id}, '${nombreEsc}')">
               <div class="chat-conversacion-info">
                 <strong>${utils.escapeHtml(c.otro_nombre || 'Usuario')}</strong>
-                <span class="chat-conversacion-pub">${etiqueta}</span>
                 <p class="chat-conversacion-ultimo">${utils.escapeHtml((c.ultimo_mensaje || '').slice(0, 60))}${(c.ultimo_mensaje || '').length > 60 ? '…' : ''}</p>
               </div>
               <div class="chat-conversacion-meta">
@@ -7023,16 +7007,9 @@ const app = {
       `;
     },
 
-    async abrirConversacion(publicacionId, otroId, otroNombre) {
-      this.conversacionActual = { es_perfil: false, publicacion_id: publicacionId, otro_id: otroId, otro_nombre: otroNombre };
-      this.renderHiloUI(otroNombre);
-      await this.refrescarHilo(true);
-      const input = document.getElementById("chatInput");
-      if (input) input.focus();
-    },
-
-    async abrirConversacionPerfil(contactoId, otroId, otroNombre) {
-      this.conversacionActual = { es_perfil: true, contacto_perfil_id: contactoId, otro_id: otroId, otro_nombre: otroNombre };
+    // Con una persona hay un solo hilo: basta su id para identificarlo.
+    async abrirConversacion(otroId, otroNombre) {
+      this.conversacionActual = { otro_id: otroId, otro_nombre: otroNombre };
       this.renderHiloUI(otroNombre);
       await this.refrescarHilo(true);
       const input = document.getElementById("chatInput");
@@ -7049,10 +7026,7 @@ const app = {
       if (!conv) return;
 
       try {
-        const url = conv.es_perfil
-          ? `/chat/perfil/${conv.contacto_perfil_id}/mensajes`
-          : `/chat/mensajes/${conv.publicacion_id}/${conv.otro_id}`;
-        const data = await utils.request(url);
+        const data = await utils.request(`/chat/con/${conv.otro_id}`);
         const mensajes = data.mensajes || [];
         const contenedor = document.getElementById("chatMensajes");
         if (!contenedor) return;
@@ -7063,13 +7037,27 @@ const app = {
         if (mensajes.length === 0) {
           contenedor.innerHTML = `<p style="color: #9ca3af; text-align: center;">Todavía no hay mensajes. ¡Escribe el primero!</p>`;
         } else {
+          // En un hilo único conviene saber sobre qué se hablaba. Los mensajes que
+          // salieron de una publicación llevan una etiqueta, y solo se pinta cuando
+          // cambia respecto al anterior: repetirla en cada burbuja sería ruido.
+          let contextoAnterior = null;
           contenedor.innerHTML = mensajes.map(m => {
             const esMio = m.usuario_id === estadoApp.usuario.id;
             const ticks = esMio
               ? `<span class="chat-ticks ${m.leido ? 'chat-ticks-leido' : ''}">${m.leido ? '✓✓' : '✓'}</span>`
               : '';
             const hora = new Date(m.creado_en).toLocaleTimeString("es-ES", { hour: '2-digit', minute: '2-digit' });
-            return `
+
+            const contexto = m.publicacion_id
+              ? `${m.publicacion_tipo === 'oferta' ? 'Oferta' : m.publicacion_tipo === 'suplencia' ? 'Suplencia' : 'Solicitud'}${m.publicacion_ciudad ? ' de ' + m.publicacion_ciudad : ''}`
+              : m.contacto_perfil_id ? 'Contacto de perfil' : null;
+            let separador = '';
+            if (contexto && contexto !== contextoAnterior) {
+              separador = `<div class="chat-contexto">sobre: ${utils.escapeHtml(contexto)}</div>`;
+            }
+            contextoAnterior = contexto;
+
+            return separador + `
               <div class="chat-burbuja ${esMio ? 'chat-burbuja-mia' : 'chat-burbuja-otro'}">
                 <p>${utils.escapeHtml(m.cuerpo)}</p>
                 <span class="chat-burbuja-meta">${utils.formatearFecha(m.creado_en)} ${hora} ${ticks}</span>
@@ -7080,7 +7068,7 @@ const app = {
 
         const escribiendoEl = document.getElementById("chatEscribiendo");
         if (escribiendoEl) {
-          escribiendoEl.style.visibility = (!conv.es_perfil && data.escribiendo) ? "visible" : "hidden";
+          escribiendoEl.style.visibility = data.escribiendo ? "visible" : "hidden";
         }
 
         if (estabaAbajo) {
@@ -7100,21 +7088,10 @@ const app = {
       input.value = "";
 
       try {
-        if (conv.es_perfil) {
-          await utils.request("/chat/perfil/mensajes", {
-            method: "POST",
-            body: JSON.stringify({ contacto_perfil_id: conv.contacto_perfil_id, cuerpo })
-          });
-        } else {
-          await utils.request("/chat/mensajes", {
-            method: "POST",
-            body: JSON.stringify({
-              publicacion_id: conv.publicacion_id,
-              destinatario_id: conv.otro_id,
-              cuerpo
-            })
-          });
-        }
+        await utils.request(`/chat/con/${conv.otro_id}`, {
+          method: "POST",
+          body: JSON.stringify({ cuerpo })
+        });
         await this.refrescarHilo(true);
       } catch (error) {
         input.value = cuerpo;
@@ -7124,7 +7101,7 @@ const app = {
 
     notificarEscribiendo() {
       const conv = this.conversacionActual;
-      if (!conv || conv.es_perfil) return;
+      if (!conv) return;
       // Throttle: como mucho una señal cada 2 segundos
       const ahora = Date.now();
       if (ahora - this.ultimaSenalEscribiendo < 2000) return;
@@ -7132,10 +7109,7 @@ const app = {
 
       utils.request("/chat/escribiendo", {
         method: "POST",
-        body: JSON.stringify({
-          publicacion_id: conv.publicacion_id,
-          destinatario_id: conv.otro_id
-        })
+        body: JSON.stringify({ destinatario_id: conv.otro_id })
       }).catch(err => console.error("Error señal escribiendo:", err));
     },
 
