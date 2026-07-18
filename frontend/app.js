@@ -720,12 +720,10 @@ const app = {
     },
 
     abrir(id, enlace) {
-      // Marca esa notificación como leída y navega si hay un enlace interno
+      // Marca esa notificación como leída y lleva a donde se resuelve lo que anuncia
       utils.request("/notificaciones/leer", { method: "PUT", body: JSON.stringify({ id }) }).catch(() => {});
       document.getElementById("notifPanel").style.display = "none";
-      if (enlace && enlace.startsWith("#")) {
-        window.location.hash = enlace;
-      }
+      app.rutas.ir(enlace);
     },
 
     async marcarTodasLeidas() {
@@ -736,6 +734,111 @@ const app = {
       const badge = document.getElementById("notifBadge");
       if (badge) badge.style.display = "none";
       this.render();
+    }
+  },
+
+  // ============================================
+  // Módulo: Rutas (enlaces internos de las notificaciones)
+  // ============================================
+  //
+  // Una notificación sirve de poco si no lleva a donde se resuelve lo que anuncia.
+  // El backend guarda en cada una un `enlace` con uno de los destinos de abajo y
+  // este módulo lo traduce a la pantalla correspondiente.
+  //
+  // Son destinos internos, no URLs: la app es de una sola página y el estado vive
+  // en memoria, así que "navegar" es abrir el modal o la lista que toca.
+
+  rutas: {
+    async ir(enlace) {
+      if (!enlace || typeof enlace !== "string") return;
+      const destino = enlace.replace(/^#/, "");
+      const [nombre, argumento] = destino.split("=");
+      const esClinica = estadoApp.tipoUsuario === "clinica";
+
+      try {
+        switch (nombre) {
+          case "publicacion":
+            return await this.abrirPublicacion(argumento);
+          case "chat":
+            return await this.abrirChat(argumento);
+          case "chat-perfil":
+            return await this.abrirChatPerfil(argumento);
+          // Estas dos listas existen para los dos roles, pero con nombre y función
+          // distintos: quien mira decide cuál toca. Una misma notificación ("tienes
+          // una nueva postulación") le llega tanto a la clínica en su oferta como al
+          // dentista en su solicitud, así que el enlace no puede fijar la función.
+          case "postulaciones-recibidas":
+            return esClinica
+              ? await app.stats.mostrarCandidatosInteresados()
+              : await app.stats.mostrarPostulacionesRecibidas();
+          case "mis-postulaciones":
+            return esClinica
+              ? await app.stats.mostrarMisPostulacionesDentistas()
+              : await app.stats.mostrarMisPostulaciones();
+          case "dentistas-potenciales":
+            return await app.stats.mostrarPosiblesCandidatos();
+          case "clinicas-potenciales":
+            return await app.stats.mostrarClinicasPotenciales();
+          case "suplencias":
+            return app.filtros.mostrarSuplencias();
+          case "alerta":
+            return await this.abrirAlerta(argumento);
+          default:
+            // Enlace desconocido (p. ej. de una versión anterior): no romper nada
+            console.warn("Enlace de notificación no reconocido:", enlace);
+        }
+      } catch (e) {
+        console.error("No se pudo abrir el enlace de la notificación:", e);
+        utils.mostrarAlerta("No se ha podido abrir ese contenido", "error");
+      }
+    },
+
+    // La publicación puede haberse borrado desde que se envió la notificación
+    async abrirPublicacion(id) {
+      const publicacion = await utils.request(`/publicaciones/${encodeURIComponent(id)}`);
+      app.modal.abrirDetalleConManejo(publicacion);
+    },
+
+    // `argumento` es "publicacionId-otroId". El nombre del interlocutor no viaja en
+    // el enlace: se busca en la lista de conversaciones, que ya lo trae. Si no está
+    // (conversación aún sin mensajes), se abre la bandeja y que elija.
+    async abrirChat(argumento) {
+      const [publicacionId, otroId] = String(argumento || "").split("-");
+      await app.chat.abrir();
+      if (!publicacionId || !otroId) return;
+
+      const conv = await this.buscarConversacion(c =>
+        String(c.publicacion_id) === String(publicacionId) && String(c.otro_id) === String(otroId)
+      );
+      if (conv) {
+        await app.chat.abrirConversacion(conv.publicacion_id, conv.otro_id, conv.otro_nombre);
+      }
+    },
+
+    // Contactos hechos desde un perfil (no cuelgan de ninguna publicación)
+    async abrirChatPerfil(argumento) {
+      const [contactoId, otroId] = String(argumento || "").split("-");
+      await app.chat.abrir();
+      if (!contactoId || !otroId) return;
+
+      const conv = await this.buscarConversacion(c =>
+        String(c.contacto_perfil_id) === String(contactoId) && String(c.otro_id) === String(otroId)
+      );
+      if (conv) {
+        await app.chat.abrirConversacionPerfil(conv.contacto_perfil_id, conv.otro_id, conv.otro_nombre);
+      }
+    },
+
+    // El nombre del interlocutor no viaja en el enlace: se busca en la bandeja, que
+    // ya lo trae. Si no aparece, se queda la bandeja abierta y que elija.
+    async buscarConversacion(coincide) {
+      const data = await utils.requestOpcional("/chat/conversaciones");
+      return (data?.conversaciones || []).find(coincide) || null;
+    },
+
+    async abrirAlerta(id) {
+      await app.alertas.abrir();
+      app.alertas.aplicar(parseInt(id, 10));
     }
   },
 
@@ -5597,8 +5700,11 @@ const app = {
         const desc = this.describirFiltros(a.filtros);
         const activa = String(a.activa) === "1";
         const n = a.coincidencias || 0;
+        // La tarjeta entera lleva a las coincidencias: es lo que se quiere hacer al
+        // mirar una alerta. Los botones paran la propagación para conservar su
+        // acción propia (pausar o eliminar no deben además abrir la búsqueda).
         return `
-          <div style="border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem; margin-bottom: 1rem; ${activa ? "" : "opacity: 0.6;"}">
+          <div onclick="app.alertas.aplicar(${a.id})" title="Ver las coincidencias de esta alerta" style="border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem; margin-bottom: 1rem; cursor: pointer; ${activa ? "" : "opacity: 0.6;"}">
             <div style="display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start;">
               <div style="min-width: 0;">
                 <strong style="color: #0f4c75;">${utils.escapeHtml(a.nombre || desc)}</strong>
@@ -5607,9 +5713,9 @@ const app = {
               <span title="Coincidencias ahora mismo" style="background: ${n > 0 ? "#10b981" : "#9ca3af"}; color: white; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">${n} ahora</span>
             </div>
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem;">
-              <button onclick="app.alertas.aplicar(${a.id})" style="background: #3b82f6; color: white; border: none; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🔎 Ver coincidencias</button>
-              <button onclick="app.alertas.toggleActiva(${a.id}, ${activa ? 0 : 1})" style="background: white; color: #374151; border: 1px solid #d1d5db; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">${activa ? "⏸️ Pausar" : "▶️ Activar"}</button>
-              <button onclick="app.alertas.eliminar(${a.id})" style="background: white; color: #ef4444; border: 1px solid #fecaca; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🗑️ Eliminar</button>
+              <button onclick="event.stopPropagation(); app.alertas.aplicar(${a.id})" style="background: #3b82f6; color: white; border: none; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🔎 Ver coincidencias</button>
+              <button onclick="event.stopPropagation(); app.alertas.toggleActiva(${a.id}, ${activa ? 0 : 1})" style="background: white; color: #374151; border: 1px solid #d1d5db; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">${activa ? "⏸️ Pausar" : "▶️ Activar"}</button>
+              <button onclick="event.stopPropagation(); app.alertas.eliminar(${a.id})" style="background: white; color: #ef4444; border: 1px solid #fecaca; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🗑️ Eliminar</button>
             </div>
           </div>`;
       }).join("");

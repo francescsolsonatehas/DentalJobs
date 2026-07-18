@@ -234,7 +234,8 @@ function avisarInstantaneoSuplencia(pubId, callback) {
         "🚨 Suplencia urgente para ti en DentalJobs",
         "Una suplencia urgente encaja con tu disponibilidad",
         "Una clínica de tu zona acaba de publicar una suplencia urgente en días que tienes marcados como disponibles. Entra para verla y postularte cuanto antes.",
-        "Ver la suplencia"
+        "Ver la suplencia",
+        { tipo: "suplencia", enlace: `#publicacion=${pubId}` }
       );
     });
 
@@ -1519,7 +1520,9 @@ app.post("/admin/matching-suplencias", verificarAdmin, (req, res) => {
           `🗓️ ${n} suplencia${n === 1 ? "" : "s"} para ti en DentalJobs`,
           "Suplencias que encajan con tu disponibilidad",
           `Hay ${n} suplencia${n === 1 ? "" : "s"} ${urgentes ? `(${urgentes} urgente${urgentes === 1 ? "" : "s"}) ` : ""}en tu zona en días que tienes marcados como disponibles. Entra para verlas y postularte.`,
-          "Ver suplencias"
+          "Ver suplencias",
+          // Si solo encaja una, se abre esa; si hay varias, el listado de suplencias
+          { tipo: "suplencia", enlace: n === 1 ? `#publicacion=${sups[0].publicacion_id}` : "#suplencias" }
         );
       });
 
@@ -1561,7 +1564,8 @@ app.post("/admin/enviar-resumen-semanal", verificarAdmin, (req, res) => {
             `🔍 ${candidatos.length} dentista${candidatos.length === 1 ? "" : "s"} que encajan con tus ofertas`,
             "Resumen semanal de coincidencias",
             `Esta semana hemos encontrado ${candidatos.length} dentista${candidatos.length === 1 ? "" : "s"} cuya ciudad y especialidad coinciden con tus ofertas activas. Entra en DentalJobs para verlos y contactar.`,
-            "Ver dentistas potenciales"
+            "Ver dentistas potenciales",
+            { tipo: "resumen", enlace: "#dentistas-potenciales" }
           );
         });
       } else {
@@ -1573,7 +1577,8 @@ app.post("/admin/enviar-resumen-semanal", verificarAdmin, (req, res) => {
             `🔍 ${clinicas.length} clínica${clinicas.length === 1 ? "" : "s"} que encajan contigo`,
             "Resumen semanal de coincidencias",
             `Esta semana hemos encontrado ${clinicas.length} clínica${clinicas.length === 1 ? "" : "s"} que buscan un perfil como el tuyo en tu ciudad y especialidad. Entra en DentalJobs para verlas y contactar.`,
-            "Ver clínicas potenciales"
+            "Ver clínicas potenciales",
+            { tipo: "resumen", enlace: "#clinicas-potenciales" }
           );
         });
       }
@@ -2016,7 +2021,9 @@ function procesarAlertasGuardadas() {
           `🔔 ${n} publicación${n === 1 ? "" : "es"} nueva${n === 1 ? "" : "s"} para ${etiqueta}`,
           "Nuevas coincidencias para tu alerta",
           `Han aparecido ${n} publicaci${n === 1 ? "ón" : "ones"} nueva${n === 1 ? "" : "s"} que encajan con ${etiqueta}. Entra en DentalJobs para verlas.`,
-          "Ver coincidencias"
+          "Ver coincidencias",
+          // Aplica los filtros de esa alerta al listado
+          { tipo: "alerta", enlace: `#alerta=${a.id}` }
         );
         db.run("UPDATE alertas_busqueda SET ultimo_aviso = CURRENT_TIMESTAMP WHERE id = ?", [a.id]);
       });
@@ -4077,7 +4084,8 @@ app.post("/chat/mensajes", verifyToken, (req, res) => {
                   `💬 Mensaje nuevo de ${remitente.nombre} en DentalJobs`,
                   "Tienes un mensaje nuevo",
                   `${remitente.nombre} te ha escrito en el chat de DentalJobs. Entra para leerlo y responder.`,
-                  "Abrir el chat"
+                  "Abrir el chat",
+                  { tipo: "mensaje", enlace: `#chat=${publicacion_id}-${usuarioId}` }
                 );
               }
             }
@@ -4339,7 +4347,8 @@ app.post("/candidaturas", verifyToken, (req, res) => {
             "📬 Nueva postulación en DentalJobs",
             "¡Tienes una nueva postulación!",
             `${info.candidato_nombre} se ha postulado a tu publicación de ${info.ciudad}. Entra para ver su perfil y responder.`,
-            "Ver la postulación"
+            "Ver la postulación",
+            { tipo: "candidatura", enlace: "#postulaciones-recibidas" }
           );
         }
       );
@@ -4462,7 +4471,8 @@ app.put("/candidaturas/:id", verifyToken, (req, res) => {
               `Tu candidatura ha cambiado a: ${ETIQUETAS_ESTADO[estado]}`,
               `Candidatura ${ETIQUETAS_ESTADO[estado].toLowerCase()}`,
               textos[estado],
-              "Ver mis postulaciones"
+              "Ver mis postulaciones",
+              { tipo: "candidatura", enlace: "#mis-postulaciones" }
             );
           }
         }
@@ -5068,7 +5078,9 @@ app.post("/contactos-perfil", verifyToken, (req, res) => {
                 "📬 Nuevo contacto en DentalJobs",
                 "Alguien quiere contactar contigo",
                 `${sol.nombre} está interesado/a en tu perfil. Entra para ver su solicitud y aceptarla si te encaja.`,
-                "Ver la solicitud"
+                "Ver la solicitud",
+                // Las solicitudes pendientes se aceptan desde el panel de Mensajes
+                { tipo: "contacto", enlace: "#chat" }
               );
             });
           }
@@ -5177,7 +5189,8 @@ app.post("/chat/perfil/mensajes", verifyToken, (req, res) => {
               `💬 Mensaje nuevo de ${remitente.nombre} en DentalJobs`,
               "Tienes un mensaje nuevo",
               `${remitente.nombre} te ha escrito en el chat de DentalJobs. Entra para leerlo y responder.`,
-              "Abrir el chat"
+              "Abrir el chat",
+              { tipo: "mensaje", enlace: `#chat-perfil=${contacto_perfil_id}-${usuarioId}` }
             );
           }
         }
