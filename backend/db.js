@@ -589,7 +589,7 @@ db.serialize(() => {
       especializaciones.forEach(esp => stmt.run(esp));
       stmt.finalize();
     }
-    console.log("✅ Base de datos inicializada");
+    if (process.env.NODE_ENV !== "test") console.log("✅ Base de datos inicializada");
   });
 });
 

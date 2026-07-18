@@ -10,20 +10,20 @@ async function registrarYLoguear(app, { nombre, email, tipo }) {
   return { token: res.body.token, usuario: res.body.usuario };
 }
 
-// Captura lo que se "envía" por email (en modo consola, email.js hace console.log)
-async function capturarConsola(fn) {
-  const lineas = [];
-  const original = console.log;
-  console.log = (...args) => lineas.push(args.join(" "));
-  try {
-    await fn();
-    // Da tiempo a que terminen las operaciones asíncronas encoladas tras responder
-    await new Promise(resolve => setTimeout(resolve, 300));
-  } finally {
-    console.log = original;
-  }
-  return lineas.join("\n");
+const { enviadosEnPruebas, limpiarBuzonPruebas } = require("../email");
+
+// Ejecuta `fn` y devuelve los emails que se han enviado durante su ejecución, leídos
+// del buzón de pruebas de email.js (en tests no se imprime nada por consola: el
+// volumen corrompía el canal por el que `node --test` recibe los resultados).
+async function emailsEnviadosDurante(fn) {
+  limpiarBuzonPruebas();
+  await fn();
+  // Da tiempo a que terminen las operaciones asíncronas encoladas tras responder
+  await new Promise(resolve => setTimeout(resolve, 300));
+  return enviadosEnPruebas();
 }
+
+const destinatarios = (emails) => emails.map(e => e.para);
 
 test("resumen semanal de coincidencias (matching proactivo)", async (t) => {
   process.env.ADMIN_TOKEN = "token-resumen-semanal";
@@ -56,18 +56,21 @@ test("resumen semanal de coincidencias (matching proactivo)", async (t) => {
   });
 
   await t.test("responde de inmediato y envía el resumen a quienes tienen coincidencias", async () => {
-    const salida = await capturarConsola(async () => {
+    const emails = await emailsEnviadosDurante(async () => {
       const res = await request(app)
         .post("/admin/enviar-resumen-semanal")
         .set("X-Admin-Token", "token-resumen-semanal");
       assert.equal(res.status, 200);
     });
 
-    assert.match(salida, /clinica-resumen@test\.com/);
-    assert.match(salida, /dentista-resumen@test\.com/);
-    assert.match(salida, /Resumen semanal de coincidencias/);
+    const para = destinatarios(emails);
+    assert.ok(para.includes("clinica-resumen@test.com"));
+    assert.ok(para.includes("dentista-resumen@test.com"));
+    // "Resumen semanal de coincidencias" es el título dentro del cuerpo; el asunto
+    // es el resumen con el número de coincidencias
+    assert.ok(emails.every(e => /Resumen semanal de coincidencias/.test(e.html)));
     // El dentista sin coincidencias no debe recibir nada
-    assert.doesNotMatch(salida, /dentista-sinmatch@test\.com/);
+    assert.ok(!para.includes("dentista-sinmatch@test.com"));
   });
 
   await t.test("un usuario con recibir_emails desactivado no recibe el resumen", async () => {
@@ -76,14 +79,15 @@ test("resumen semanal de coincidencias (matching proactivo)", async (t) => {
       .set("Authorization", `Bearer ${dentista.token}`)
       .send({ nombre: "Dentista Resumen", recibir_emails: false });
 
-    const salida = await capturarConsola(async () => {
+    const emails = await emailsEnviadosDurante(async () => {
       await request(app)
         .post("/admin/enviar-resumen-semanal")
         .set("X-Admin-Token", "token-resumen-semanal");
     });
 
-    assert.doesNotMatch(salida, /dentista-resumen@test\.com/);
+    const para = destinatarios(emails);
+    assert.ok(!para.includes("dentista-resumen@test.com"));
     // La clínica sigue recibiéndolo
-    assert.match(salida, /clinica-resumen@test\.com/);
+    assert.ok(para.includes("clinica-resumen@test.com"));
   });
 });

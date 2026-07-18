@@ -6,15 +6,37 @@
 // resto del código no nota la diferencia (modo desarrollo/tests).
 const EMAIL_REMITENTE = process.env.GMAIL_USER || "dentaljobs.avisos@gmail.com";
 
+// Buzón de pruebas. En tests no se imprime nada: `node --test` recibe los
+// resultados de cada fichero por la salida del proceso hijo, y volcar ahí un email
+// por envío compite con esos mensajes hasta corromperlos ("Unable to deserialize
+// cloned data"), matando un fichero de test entero al azar.
+//
+// A cambio, cada envío queda registrado aquí y los tests lo consultan. Es mejor que
+// capturar console.log: son datos estructurados, no un texto sobre el que hacer
+// regex, y no hay que parchear una global compartida.
+const buzonPruebas = [];
+
+function enviadosEnPruebas() {
+  return buzonPruebas;
+}
+
+function limpiarBuzonPruebas() {
+  buzonPruebas.length = 0;
+}
+
 async function enviarEmail(para, asunto, html) {
   const apiKey = process.env.BREVO_API_KEY;
 
   if (!apiKey) {
-    console.log("📧 [email en modo consola] ─────────────────────");
-    console.log(`   Para:    ${para}`);
-    console.log(`   Asunto:  ${asunto}`);
-    console.log(`   ${html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300)}`);
-    console.log("   ────────────────────────────────────────────");
+    if (process.env.NODE_ENV === "test") {
+      buzonPruebas.push({ para, asunto, html });
+    } else {
+      console.log("📧 [email en modo consola] ─────────────────────");
+      console.log(`   Para:    ${para}`);
+      console.log(`   Asunto:  ${asunto}`);
+      console.log(`   ${html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300)}`);
+      console.log("   ────────────────────────────────────────────");
+    }
     return { simulado: true };
   }
 
@@ -66,4 +88,4 @@ function urlFrontend() {
   return (process.env.FRONTEND_URL || "http://localhost:3000/").replace(/\/?$/, "/");
 }
 
-module.exports = { enviarEmail, plantilla, urlFrontend };
+module.exports = { enviarEmail, plantilla, urlFrontend, enviadosEnPruebas, limpiarBuzonPruebas };

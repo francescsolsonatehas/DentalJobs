@@ -334,7 +334,14 @@ const origenesCors = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(",").map(o => o.trim())
   : true;
 app.use(cors({ origin: origenesCors }));
-app.use(morgan("short"));
+
+// En tests, callado. `node --test` recibe los resultados de cada fichero por el
+// canal de salida del proceso hijo; el log de cada petición HTTP compite con esos
+// mensajes y llega a corromperlos ("Unable to deserialize cloned data"), tumbando
+// un fichero de test al azar. Además, 300 líneas de log tapan lo que se quiere leer.
+if (process.env.NODE_ENV !== "test") {
+  app.use(morgan("short"));
+}
 app.use(express.static(path.join(__dirname, "../frontend")));
 
 // Rate limiting: estricto en login/registro (anti fuerza bruta), laxo global.

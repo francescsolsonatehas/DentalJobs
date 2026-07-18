@@ -12,6 +12,20 @@ async function registrar(app, { nombre, email, tipo }) {
 
 const paso = (body, id) => body.pasos.find(p => p.id === id);
 
+// Responder el cuestionario de compatibilidad es uno de los pasos OBLIGATORIOS del
+// onboarding (lo añadió la Fase 2), así que sin esto `completado` nunca es true.
+// Las respuestas concretas dan igual aquí: solo importa que queden las 5 claves.
+const RESPUESTAS_COMPATIBILIDAD = {
+  filosofia: "Mínimamente invasiva: preservar todo lo posible",
+  pacientes: ["Familias y niños"],
+  ambiente: "Clínica pequeña y familiar",
+  formacion_continua: "Formación pagada y frecuente",
+  objetivos: ["Estabilidad a largo plazo"]
+};
+
+const responderCompatibilidad = (app, auth) =>
+  request(app).put("/preferencias").set(auth).send({ preferencias: RESPUESTAS_COMPATIBILIDAD });
+
 test("onboarding: primeros pasos del dentista", async (t) => {
   const { app, dbPath } = createTestApp();
   t.after(() => cleanupTestApp(dbPath));
@@ -42,6 +56,12 @@ test("onboarding: primeros pasos del dentista", async (t) => {
     await request(app).put("/disponibilidad").set(auth).send({ dias: ["2026-08-10"] });
     const res = await request(app).get("/onboarding").set(auth);
     assert.equal(paso(res.body, "disponibilidad").hecho, true);
+  });
+
+  await t.test("el cuestionario de compatibilidad marca el paso", async () => {
+    await responderCompatibilidad(app, auth);
+    const res = await request(app).get("/onboarding").set(auth);
+    assert.equal(paso(res.body, "compatibilidad").hecho, true);
   });
 
   await t.test("al postularse se completan los pasos obligatorios (el CV es opcional)", async () => {
@@ -75,10 +95,12 @@ test("onboarding: primeros pasos de la clínica", async (t) => {
       .send({ nombre: "Sede 1", ciudad: "Valencia", direccion: "C/1", codigo_postal: "46001", telefono: "960000000" });
     await request(app).post("/publicaciones").set(auth)
       .send({ tipo: "oferta", ciudad: "Valencia", descripcion: "Generalista", sede_id: sede.body.id });
+    await responderCompatibilidad(app, auth);
 
     const res = await request(app).get("/onboarding").set(auth);
     assert.equal(paso(res.body, "sede").hecho, true);
     assert.equal(paso(res.body, "publicar").hecho, true);
-    assert.equal(res.body.completado, true);
+    assert.equal(paso(res.body, "compatibilidad").hecho, true);
+    assert.equal(res.body.completado, true); // la descripción es opcional y no cuenta
   });
 });

@@ -18,11 +18,15 @@ function crearDb() {
     ? process.env.TURSO_DATABASE_URL
     : "file:" + (process.env.DB_PATH || path.join(__dirname, "dental_jobs.db"));
 
-  console.log(
-    usarTurso
-      ? `💾 Conectando a Turso (persistente): ${url}`
-      : `💾 Usando SQLite local (NODE_ENV="${process.env.NODE_ENV}", TURSO_DATABASE_URL=${process.env.TURSO_DATABASE_URL ? "definida" : "no definida"}) — los datos NO sobreviven al redeploy`
-  );
+  // Callado en tests: cada fichero de test crea su propia BD, así que esto se
+  // imprimiría decenas de veces compitiendo con los mensajes del runner.
+  if (process.env.NODE_ENV !== "test") {
+    console.log(
+      usarTurso
+        ? `💾 Conectando a Turso (persistente): ${url}`
+        : `💾 Usando SQLite local (NODE_ENV="${process.env.NODE_ENV}", TURSO_DATABASE_URL=${process.env.TURSO_DATABASE_URL ? "definida" : "no definida"}) — los datos NO sobreviven al redeploy`
+    );
+  }
 
   const client = createClient({
     url,
