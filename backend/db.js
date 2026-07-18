@@ -476,6 +476,42 @@ db.serialize(() => {
     stmt.finalize();
   });
 
+  // Backfill: las notificaciones creadas antes de que se guardara el destino se
+  // quedaron sin `enlace`, y el frontend solo hace clicable la que trae uno. Como el
+  // título es un texto fijo del código, de él se deduce a dónde llevaba cada una.
+  //
+  // Lo que no se puede recuperar es el identificador concreto (qué suplencia, qué
+  // alerta): esas van al listado correspondiente en vez de al elemento exacto. Es
+  // peor que un enlace directo y mejor que una notificación que no lleva a ninguna
+  // parte. Las nuevas sí guardan el destino exacto.
+  const ENLACES_POR_TITULO = {
+    "¡Tienes una nueva postulación!": "#postulaciones-recibidas",
+    "Tienes un mensaje nuevo": "#chat",
+    "Alguien quiere contactar contigo": "#chat",
+    "Una suplencia urgente encaja con tu disponibilidad": "#suplencias",
+    "Suplencias que encajan con tu disponibilidad": "#suplencias",
+    "Nuevas coincidencias para tu alerta": "#alertas"
+  };
+
+  Object.entries(ENLACES_POR_TITULO).forEach(([titulo, enlace]) => {
+    db.run("UPDATE notificaciones SET enlace = ? WHERE enlace IS NULL AND titulo = ?", [enlace, titulo], () => {});
+  });
+
+  // Las de candidatura llevan el estado en el título ("Candidatura aceptada"…)
+  db.run(
+    "UPDATE notificaciones SET enlace = '#mis-postulaciones' WHERE enlace IS NULL AND titulo LIKE 'Candidatura %'",
+    () => {}
+  );
+
+  // El resumen semanal va a un sitio u otro según quién lo recibe
+  db.run(
+    `UPDATE notificaciones SET enlace = CASE
+       WHEN (SELECT tipo FROM usuarios WHERE id = notificaciones.usuario_id) = 'clinica'
+       THEN '#dentistas-potenciales' ELSE '#clinicas-potenciales' END
+     WHERE enlace IS NULL AND titulo = 'Resumen semanal de coincidencias'`,
+    () => {}
+  );
+
   // Días concretos que cubre una suplencia. Permite días sueltos o recurrentes,
   // no solo un rango continuo. En publicaciones, fecha_desde/fecha_hasta se
   // conservan como resumen (min/max de los días) para el listado, el SEO y el

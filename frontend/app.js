@@ -783,6 +783,10 @@ const app = {
             return app.filtros.mostrarSuplencias();
           case "alerta":
             return await this.abrirAlerta(argumento);
+          case "alertas":
+            // Sin alerta concreta: se abre la lista (lo usan las notificaciones
+            // anteriores a que se guardara el enlace, que no saben de cuál eran)
+            return await app.alertas.abrir();
           default:
             // Enlace desconocido (p. ej. de una versión anterior): no romper nada
             console.warn("Enlace de notificación no reconocido:", enlace);
