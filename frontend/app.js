@@ -29,6 +29,40 @@ let estadoApp = {
 // ============================================
 
 const utils = {
+  // El token caduca a los 7 días (ver backend/middleware/auth.js). Cuando eso pasa,
+  // el backend responde 401 a todo lo autenticado. Sin este manejo el usuario se
+  // queda "conectado" en apariencia mientras cada petición falla en silencio: las
+  // pantallas se quedan vacías sin explicar por qué.
+  //
+  // Solo aplica si TENÍAMOS sesión: un 401 sin token es otra cosa (acceso anónimo a
+  // algo protegido) y no debe echar a nadie. El flag evita que varias peticiones en
+  // paralelo disparen varios avisos y varios logout a la vez.
+  sesionCaducada() {
+    if (!estadoApp.token || utils._cerrandoSesionCaducada) return;
+    utils._cerrandoSesionCaducada = true;
+    app.auth.logout("Tu sesión ha caducado. Vuelve a iniciar sesión.");
+    setTimeout(() => { utils._cerrandoSesionCaducada = false; }, 1000);
+  },
+
+  // Variante tolerante a fallos para datos de adorno (contadores del panel): si la
+  // petición falla devuelve null en vez de propagar. Las tarjetas se pintan igual y
+  // la que no tiene dato muestra "—". Antes se pedían con `await` encadenados y sin
+  // red: una sola que fallara abortaba el render y el panel entero quedaba en blanco.
+  async requestOpcional(endpoint) {
+    try {
+      return await utils.request(endpoint);
+    } catch {
+      return null;
+    }
+  },
+
+  // Cifra de una tarjeta de estadística. Si el dato no llegó, "—" (no 0: sería
+  // mentir diciendo que hay cero cuando lo que hay es un fallo).
+  cifra(respuesta, campo = "total") {
+    const valor = respuesta?.[campo];
+    return typeof valor === "number" ? valor : "—";
+  },
+
   async request(endpoint, options = {}) {
     const headers = {
       "Content-Type": "application/json",
@@ -57,6 +91,7 @@ const utils = {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 401) utils.sesionCaducada();
         throw new Error(data.error || "Error en la solicitud");
       }
 
@@ -85,6 +120,7 @@ const utils = {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 401) utils.sesionCaducada();
         throw new Error(data.error || "Error en la solicitud");
       }
 
@@ -1030,7 +1066,9 @@ const app = {
       }
     },
 
-    logout() {
+    // `motivo` permite explicar por qué se cierra la sesión cuando no la ha cerrado
+    // el usuario (p. ej. token caducado). Sin él, el mensaje es el de siempre.
+    logout(motivo) {
       app.ui.detenerActualizacionAutomatica();
 
       localStorage.removeItem("token");
@@ -1049,7 +1087,7 @@ const app = {
       app.notificaciones._maxIdVisto = null;
       app.notificaciones._lista = [];
 
-      utils.mostrarAlerta("Sesión cerrada", "info");
+      utils.mostrarAlerta(motivo || "Sesión cerrada", motivo ? "error" : "info");
       app.ui.mostrarLanding();
     },
 
@@ -5165,25 +5203,27 @@ const app = {
 
         if (estadoApp.tipoUsuario === 'clinica') {
           // Empresa: mostrar Total Dentistas, Posibles Candidatos, Candidatos que se postularon, Candidatos contactados
-          const totalDentistas = await utils.request("/stats/total-dentistas");
-          const posiblesCandidatos = await utils.request(`/stats/posibles-candidatos/${estadoApp.usuario.id}`);
-          const candidatosInteresados = await utils.request(`/stats/candidatos-interesados/${estadoApp.usuario.id}`);
+          const [totalDentistas, posiblesCandidatos, candidatosInteresados, contactadosList, miPostulacionesDentistas] = await Promise.all([
+            utils.requestOpcional("/stats/total-dentistas"),
+            utils.requestOpcional(`/stats/posibles-candidatos/${estadoApp.usuario.id}`),
+            utils.requestOpcional(`/stats/candidatos-interesados/${estadoApp.usuario.id}`),
+            // Contactados: dentistas a los que hemos enviado mensaje (aquí la cifra es
+            // la longitud de la lista, no un campo `total`)
+            utils.requestOpcional(`/stats/contactados-lista/${estadoApp.usuario.id}`),
+            // Postulaciones a dentistas (solicitudes que he visto)
+            utils.requestOpcional(`/stats/mis-postulaciones/${estadoApp.usuario.id}`)
+          ]);
 
-          // Contar contactados (dentistas a los que hemos enviado mensaje)
-          const contactadosList = await utils.request(`/stats/contactados-lista/${estadoApp.usuario.id}`);
-          const contactados = contactadosList.length;
+          const contactados = Array.isArray(contactadosList) ? contactadosList.length : "—";
 
-          // Postulaciones a dentistas (solicitudes que he visto)
-          const miPostulacionesDentistas = await utils.request(`/stats/mis-postulaciones/${estadoApp.usuario.id}`);
-          const misPostulacionesDentistasAceptadas = await utils.request(`/stats/mis-postulaciones-aceptadas/${estadoApp.usuario.id}`);
-
-          // Mostrar stats de "Mis Ofertas"
+          // En "Mis Ofertas" el panel es otro: solo las dos cifras de postulaciones
+          // recibidas. Sale de la función porque si no, el render general de abajo
+          // lo sobrescribiría (era justo el bug: estas dos tarjetas nunca se veían).
           if (estadoApp.filtros.soloMias) {
-            // En "Mis Ofertas" mostrar Postulaciones Recibidas y Aceptadas
             statsGrid.innerHTML = `
               <div class="stat-item stat-clickable" onclick="app.stats.mostrarCandidatosInteresados()">
                 <span>📧</span>
-                <h3>${candidatosInteresados.total}</h3>
+                <h3>${utils.cifra(candidatosInteresados)}</h3>
                 <p>Postulaciones Recibidas</p>
                 <div class="stat-tooltip">Dentistas postulados a nuestras publicaciones</div>
               </div>
@@ -5194,63 +5234,66 @@ const app = {
                 <div class="stat-tooltip">Dentistas postulados a nuestras publicaciones aceptados</div>
               </div>
             `;
+            return;
           }
 
           statsGrid.innerHTML = `
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarTotalDentistas()">
               <span>👥</span>
-              <h3>${totalDentistas.total}</h3>
+              <h3>${utils.cifra(totalDentistas)}</h3>
               <p>Dentistas</p>
               <div class="stat-tooltip">Total de dentistas en la plataforma. Ver desglose por especialidad, ciudad o ambas</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarPosiblesCandidatos()">
               <span>🔍</span>
-              <h3>${posiblesCandidatos.total}</h3>
+              <h3>${utils.cifra(posiblesCandidatos)}</h3>
               <p>Dentistas Potenciales</p>
               <div class="stat-tooltip">Dentistas que coinciden con ciudad y especialidad de mis publicaciones</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulacionesDentistas()">
               <span>📬</span>
-              <h3>${miPostulacionesDentistas.total}</h3>
+              <h3>${utils.cifra(miPostulacionesDentistas)}</h3>
               <p>Postulaciones a Dentistas</p>
               <div class="stat-tooltip">Postulaciones a publicaciones de dentistas</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarCandidatosInteresados()">
               <span>📧</span>
-              <h3>${candidatosInteresados.total}</h3>
+              <h3>${utils.cifra(candidatosInteresados)}</h3>
               <p>Postulaciones Recibidas</p>
               <div class="stat-tooltip">Dentistas postulados a nuestras publicaciones</div>
             </div>
           `;
         } else {
           // Dentista: mostrar Clínicas, Clínicas Potenciales, Postulaciones a Clínicas y Postulaciones Recibidas
-          const totalClinicas = await utils.request("/stats/total-clinicas");
-          const misPostulaciones = await utils.request(`/stats/mis-postulaciones/${estadoApp.usuario.id}`);
-          const clinicasPotenciales = await utils.request(`/stats/clinicas-potenciales/${estadoApp.usuario.id}`);
-          const postulacionesRecibidas = await utils.request(`/stats/postulaciones-recibidas-dentista/${estadoApp.usuario.id}`);
+          const [totalClinicas, clinicasPotenciales, misPostulaciones, postulacionesRecibidas] = await Promise.all([
+            utils.requestOpcional("/stats/total-clinicas"),
+            utils.requestOpcional(`/stats/clinicas-potenciales/${estadoApp.usuario.id}`),
+            utils.requestOpcional(`/stats/mis-postulaciones/${estadoApp.usuario.id}`),
+            utils.requestOpcional(`/stats/postulaciones-recibidas-dentista/${estadoApp.usuario.id}`)
+          ]);
 
           statsGrid.innerHTML = `
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarTotalClinicas()">
               <span>📋</span>
-              <h3>${totalClinicas.total}</h3>
+              <h3>${utils.cifra(totalClinicas)}</h3>
               <p>Clínicas</p>
               <div class="stat-tooltip">Total de clínicas en la plataforma. Ver desglose por especialidad, ciudad o ambas</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarClinicasPotenciales()">
               <span>🔍</span>
-              <h3>${clinicasPotenciales.total}</h3>
+              <h3>${utils.cifra(clinicasPotenciales)}</h3>
               <p>Clínicas Potenciales</p>
               <div class="stat-tooltip">Clínicas que coinciden con ciudad y especialidad de mis publicaciones</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulaciones()">
               <span>📬</span>
-              <h3>${misPostulaciones.total}</h3>
+              <h3>${utils.cifra(misPostulaciones)}</h3>
               <p>Postulaciones a Clínicas</p>
               <div class="stat-tooltip">Postulaciones a publicaciones de clínicas</div>
             </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarPostulacionesRecibidas()">
               <span>📧</span>
-              <h3>${postulacionesRecibidas.total}</h3>
+              <h3>${utils.cifra(postulacionesRecibidas)}</h3>
               <p>Postulaciones Recibidas</p>
               <div class="stat-tooltip">Clínicas postuladas a nuestras publicaciones</div>
             </div>
