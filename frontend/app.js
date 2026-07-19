@@ -903,18 +903,23 @@ const app = {
     // enlaces nuevos ("#chat=48") como los antiguos ("#chat=53-48"). Sin argumento
     // se abre la bandeja, que es lo que quieren las notificaciones de contacto.
     async abrirChat(argumento) {
-      await app.chat.abrir();
       const partes = String(argumento || "").split("-").filter(Boolean);
       const otroId = partes[partes.length - 1];
-      if (!otroId) return;
 
-      // El nombre no viaja en el enlace: se busca en la bandeja, que ya lo trae. Si
-      // no aparece, se queda la bandeja abierta y que elija.
-      const data = await utils.requestOpcional("/chat/conversaciones");
-      const conv = (data?.conversaciones || []).find(c => String(c.otro_id) === String(otroId));
-      if (conv) {
-        await app.chat.abrirConversacion(conv.otro_id, conv.otro_nombre);
+      // Sin interlocutor (notificaciones de solicitud de contacto) se abre la bandeja
+      if (!otroId) return await app.chat.abrir();
+
+      // Con interlocutor se va directo a su hilo. No se pasa por la bandeja ni se
+      // busca ahí el nombre: eso hacía que un fallo de red acabara dejando al usuario
+      // en la lista de conversaciones en vez de en la suya.
+      if (!estadoApp.usuario) {
+        utils.mostrarAlerta("Debes iniciar sesión", "error");
+        return;
       }
+      app.modal.cerrarTodosModales();
+      document.getElementById("modalChat").classList.add("active");
+      await app.chat.abrirConversacion(parseInt(otroId, 10));
+      app.chat.iniciarPolling();
     },
 
     async abrirAlerta(id) {
@@ -7102,10 +7107,30 @@ const app = {
     },
 
     // Con una persona hay un solo hilo: basta su id para identificarlo.
+    //
+    // El nombre es opcional a propósito. Abrir el hilo NO puede depender de haberlo
+    // averiguado antes: cuando se llega desde una notificación solo se tiene el id, y
+    // si la petición que resolvía el nombre fallaba (servidor dormido, red mala) el
+    // usuario acababa en la bandeja en vez de en su conversación. Ahora el hilo se
+    // abre siempre y el nombre se rellena cuando llega, si llega.
     async abrirConversacion(otroId, otroNombre) {
       this.conversacionActual = { otro_id: otroId, otro_nombre: otroNombre };
-      this.renderHiloUI(otroNombre);
-      await this.refrescarHilo(true);
+      this.renderHiloUI(otroNombre || "Conversación");
+      const hilo = this.refrescarHilo(true);
+
+      if (!otroNombre) {
+        utils.requestOpcional(`/usuarios/${otroId}/publico`).then(perfil => {
+          const nombre = perfil?.usuario?.nombre || perfil?.nombre;
+          // Solo si seguimos en el mismo hilo: el usuario pudo cambiar mientras tanto
+          if (nombre && this.conversacionActual?.otro_id === otroId) {
+            this.conversacionActual.otro_nombre = nombre;
+            const titulo = document.getElementById("chatTitle");
+            if (titulo) titulo.textContent = `💬 ${nombre}`;
+          }
+        });
+      }
+
+      await hilo;
       const input = document.getElementById("chatInput");
       if (input) input.focus();
     },
