@@ -645,6 +645,7 @@ const app = {
   notificaciones: {
     _maxIdVisto: null, // para mostrar un toast solo de las que llegan nuevas
     _lista: [],
+    _resaltadas: null, // ids que estaban sin leer al abrir el panel (ver togglePanel)
 
     // Consulta el estado (lo llama el latido de polling). Actualiza el badge y,
     // si han llegado notificaciones nuevas desde la última vez, muestra un toast.
@@ -690,10 +691,15 @@ const app = {
       const abierto = panel.style.display === "block";
       if (abierto) {
         panel.style.display = "none";
+        this._resaltadas = null; // al volver a abrir ya no serán "nuevas"
       } else {
+        // Cuáles estaban sin leer AL ABRIR. Se guardan aparte porque justo después se
+        // marcan todas como leídas para quitar el contador, y el refresco automático
+        // relee del servidor: sin esto se repintarían como leídas al instante y no
+        // daría tiempo a ver cuáles eran las nuevas, que es justo para lo que se abre.
+        this._resaltadas = new Set(this._lista.filter(n => !n.leido).map(n => n.id));
         this.render();
         panel.style.display = "block";
-        // Al abrir se marcan como leídas (el badge desaparece)
         if (this._lista.some(n => !n.leido)) this.marcarTodasLeidas();
       }
     },
@@ -706,15 +712,20 @@ const app = {
         return;
       }
       cont.innerHTML = this._lista.map(n => {
-        const fondo = n.leido ? "white" : "#f0f9ff";
-        const enlaceAttr = n.enlace ? ` onclick="app.notificaciones.abrir(${n.id}, '${utils.escapeHtml(String(n.enlace)).replace(/'/g, "\\'")}')" style="cursor:pointer;"` : "";
-        return `<div${enlaceAttr} style="padding: 0.8rem 1rem; border-bottom: 1px solid #f1f5f9; background: ${fondo};">
+        const enlaceAttr = n.enlace
+          ? ` onclick="app.notificaciones.abrir(${n.id}, '${utils.escapeHtml(String(n.enlace)).replace(/'/g, "\\'")}')"`
+          : "";
+        // Se resalta lo que no está leído y también lo que llegó sin leer a esta
+        // apertura del panel, aunque ya se haya marcado en el servidor
+        const sinLeer = !n.leido || this._resaltadas?.has(n.id);
+        const clases = `notif-item${sinLeer ? " notif-no-leida" : ""}`;
+        return `<div class="${clases}"${enlaceAttr}>
           <div style="display:flex; gap:0.5rem; align-items:baseline;">
-            ${n.leido ? "" : `<span style="color:#0ea5e9; font-size:0.7rem;">●</span>`}
-            <strong style="color:#1f2937; font-size:0.9rem;">${utils.escapeHtml(n.titulo)}</strong>
+            ${sinLeer ? `<span class="notif-punto">●</span>` : ""}
+            <strong class="notif-titulo">${utils.escapeHtml(n.titulo)}</strong>
           </div>
-          ${n.cuerpo ? `<p style="margin:0.25rem 0 0; color:#4b5563; font-size:0.85rem; line-height:1.4;">${utils.escapeHtml(n.cuerpo)}</p>` : ""}
-          <p style="margin:0.3rem 0 0; color:#9ca3af; font-size:0.75rem;">${utils.formatearFecha(n.creado_en)}</p>
+          ${n.cuerpo ? `<p class="notif-cuerpo">${utils.escapeHtml(n.cuerpo)}</p>` : ""}
+          <p class="notif-fecha">${utils.formatearFecha(n.creado_en)}</p>
         </div>`;
       }).join("");
     },
@@ -804,8 +815,25 @@ const app = {
         }
       } catch (e) {
         console.error("No se pudo abrir el enlace de la notificación:", e);
-        utils.mostrarAlerta("No se ha podido abrir ese contenido", "error");
+        // Lo más habitual es que aquello de lo que avisaba ya no exista (se retiró la
+        // publicación, se borró la cuenta). Merece un mensaje que lo diga, no un
+        // error genérico que deje al usuario sin saber si el fallo es suyo.
+        utils.mostrarAlerta(
+          this.NO_EXISTE[nombre] || "Eso de lo que te avisábamos ya no está disponible",
+          "info"
+        );
       }
+    },
+
+    // Qué decir cuando el destino de una notificación ya no existe
+    NO_EXISTE: {
+      publicacion: "Esa publicación ya no está disponible: puede que la hayan retirado",
+      candidatura: "Esa postulación ya no está disponible",
+      contacto: "Esa solicitud de contacto ya no está disponible",
+      chat: "Esa conversación ya no está disponible",
+      "chat-perfil": "Esa conversación ya no está disponible",
+      alerta: "Esa alerta de búsqueda ya no existe",
+      suplencias: "Esas suplencias ya no están disponibles"
     },
 
     // Las suplencias de las que hablaba la notificación, en un modal.
@@ -890,7 +918,9 @@ const app = {
       const enviada = (enviadas || []).find(x => String(x.id) === candidaturaId);
       if (enviada) return app.stats.mostrarDetalleMiPostulacion(enviada);
 
-      // Ya no está (publicación cerrada, candidatura retirada): al menos la lista
+      // No aparece en ninguna de las dos: la publicación se retiró o la candidatura
+      // se deshizo. Se dice claramente y se deja el listado por si quiere mirar.
+      utils.mostrarAlerta(this.NO_EXISTE.candidatura, "info");
       if (esClinica) return await app.stats.mostrarListaCandidatos(recibidas || [], "Postulaciones Recibidas");
       return await app.stats.mostrarListaPostulaciones(enviadas || [], "Postulaciones a Clínicas");
     },
@@ -901,7 +931,12 @@ const app = {
       await app.chat.abrir();
       await new Promise(r => setTimeout(r, 300));
       const tarjeta = document.getElementById(`contacto-${id}`);
-      if (!tarjeta) return;
+      // Si no está, es que ya se aceptó o se rechazó: la bandeja queda abierta, pero
+      // conviene decir por qué no se resalta nada.
+      if (!tarjeta) {
+        utils.mostrarAlerta("Esa solicitud de contacto ya está respondida", "info");
+        return;
+      }
       tarjeta.scrollIntoView({ block: "center" });
       tarjeta.classList.add("resaltado");
       setTimeout(() => tarjeta.classList.remove("resaltado"), 2500);
@@ -1007,7 +1042,14 @@ const app = {
 
     async abrirAlerta(id) {
       await app.alertas.abrir();
-      app.alertas.aplicar(parseInt(id, 10));
+      const alertaId = parseInt(id, 10);
+      // `aplicar` no hace nada si la alerta ya no está: se avisa aquí, con la lista
+      // de alertas abierta, para que se vea que esa en concreto ha desaparecido.
+      if (!(app.alertas._cache || []).some(a => a.id === alertaId)) {
+        utils.mostrarAlerta(this.NO_EXISTE.alerta, "info");
+        return;
+      }
+      app.alertas.aplicar(alertaId);
     }
   },
 
@@ -1358,6 +1400,7 @@ const app = {
       if (notifPanel) notifPanel.style.display = "none";
       app.notificaciones._maxIdVisto = null;
       app.notificaciones._lista = [];
+      app.notificaciones._resaltadas = null;
 
       utils.mostrarAlerta(motivo || "Sesión cerrada", motivo ? "error" : "info");
       app.ui.mostrarLanding();

@@ -1851,6 +1851,65 @@ select:focus {
   font-size: 0.95rem;
 }
 
+/* Notificaciones de la campana. En clases y no en estilos sueltos porque el marcado
+   llevaba dos atributos `style` en la misma etiqueta (uno del clic y otro del
+   aspecto) y el navegador se queda con el primero: el fondo y el espaciado se
+   perdían, y por eso las no leídas no se distinguían de las leídas. */
+.notif-item {
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  border-left: 3px solid transparent;
+  background: white;
+}
+
+.notif-item[onclick] {
+  cursor: pointer;
+}
+
+.notif-item[onclick]:hover {
+  background: #f8fafc;
+}
+
+/* Sin leer: fondo azulado, marca lateral y título en negrita */
+.notif-item.notif-no-leida {
+  background: #eff6ff;
+  border-left-color: #0ea5e9;
+}
+
+.notif-item.notif-no-leida:hover {
+  background: #dbeafe;
+}
+
+.notif-item.notif-no-leida .notif-titulo {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.notif-titulo {
+  font-weight: 600;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.notif-punto {
+  color: #0ea5e9;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.notif-cuerpo {
+  margin: 0.25rem 0 0;
+  color: #4b5563;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.notif-fecha {
+  margin: 0.3rem 0 0;
+  color: #9ca3af;
+  font-size: 0.75rem;
+}
+
 /* Destaca brevemente el elemento al que ha llevado una notificación, para que se
    vea cuál de la lista era el que la motivó. */
 .resaltado {
