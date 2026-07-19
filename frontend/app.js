@@ -723,7 +723,10 @@ const app = {
       // Marca esa notificación como leída y lleva a donde se resuelve lo que anuncia
       utils.request("/notificaciones/leer", { method: "PUT", body: JSON.stringify({ id }) }).catch(() => {});
       document.getElementById("notifPanel").style.display = "none";
-      app.rutas.ir(enlace);
+      // La fecha viaja con el enlace: los avisos antiguos no guardaron a qué elemento
+      // se referían, y con ella se puede reconstruir (ver app.rutas.abrirChat).
+      const notif = (this._lista || []).find(n => n.id === id);
+      app.rutas.ir(enlace, { fecha: notif?.creado_en });
     },
 
     async marcarTodasLeidas() {
@@ -749,7 +752,9 @@ const app = {
   // en memoria, así que "navegar" es abrir el modal o la lista que toca.
 
   rutas: {
-    async ir(enlace) {
+    // `contexto` trae datos de la propia notificación (por ahora su fecha) que sirven
+    // para reconstruir a qué se refería cuando el enlace no lo dice.
+    async ir(enlace, contexto = {}) {
       if (!enlace || typeof enlace !== "string") return;
       const destino = enlace.replace(/^#/, "");
       const [nombre, argumento] = destino.split("=");
@@ -764,7 +769,7 @@ const app = {
           // y "#chat-perfil=<contacto>-<persona>". En ambas el interlocutor es el
           // último segmento, que es lo único que hace falta ahora.
           case "chat-perfil":
-            return await this.abrirChat(argumento);
+            return await this.abrirChat(argumento, contexto);
           // Estas dos listas existen para los dos roles, pero con nombre y función
           // distintos: quien mira decide cuál toca. Una misma notificación ("tienes
           // una nueva postulación") le llega tanto a la clínica en su oferta como al
@@ -902,24 +907,56 @@ const app = {
     // El interlocutor es el último segmento del argumento, así funcionan tanto los
     // enlaces nuevos ("#chat=48") como los antiguos ("#chat=53-48"). Sin argumento
     // se abre la bandeja, que es lo que quieren las notificaciones de contacto.
-    async abrirChat(argumento) {
-      const partes = String(argumento || "").split("-").filter(Boolean);
-      const otroId = partes[partes.length - 1];
-
-      // Sin interlocutor (notificaciones de solicitud de contacto) se abre la bandeja
-      if (!otroId) return await app.chat.abrir();
-
-      // Con interlocutor se va directo a su hilo. No se pasa por la bandeja ni se
-      // busca ahí el nombre: eso hacía que un fallo de red acabara dejando al usuario
-      // en la lista de conversaciones en vez de en la suya.
+    async abrirChat(argumento, contexto = {}) {
       if (!estadoApp.usuario) {
         utils.mostrarAlerta("Debes iniciar sesión", "error");
         return;
       }
+
+      const partes = String(argumento || "").split("-").filter(Boolean);
+      let otroId = partes[partes.length - 1];
+
+      // Los avisos anteriores a que se guardara el destinatario solo dicen "#chat".
+      // Con la fecha de la notificación se reconstruye: el aviso se crea justo
+      // después del mensaje, así que es la conversación cuyo último mensaje cae junto
+      // a esa fecha. Sin esto acabas en la bandeja teniendo que buscar tú.
+      if (!otroId && contexto.fecha) {
+        otroId = await this.conversacionPorFecha(contexto.fecha);
+      }
+
+      // Sin manera de saber de quién era (aviso de solicitud de contacto, o no se ha
+      // podido reconstruir), la bandeja es lo correcto.
+      if (!otroId) return await app.chat.abrir();
+
       app.modal.cerrarTodosModales();
       document.getElementById("modalChat").classList.add("active");
       await app.chat.abrirConversacion(parseInt(otroId, 10));
       app.chat.iniciarPolling();
+    },
+
+    // Conversación cuyo último mensaje es el más cercano a `fecha` sin pasarse. Se
+    // exige que caiga dentro de una hora: si no hay nada cerca es que esa
+    // conversación ya no existe, y vale más la bandeja que abrir una cualquiera.
+    async conversacionPorFecha(fecha) {
+      const objetivo = new Date(String(fecha).replace(" ", "T") + "Z").getTime();
+      if (!Number.isFinite(objetivo)) return null;
+
+      const data = await utils.requestOpcional("/chat/conversaciones");
+      let mejor = null;
+      let mejorDistancia = Infinity;
+
+      (data?.conversaciones || []).forEach(c => {
+        if (!c.ultima_fecha) return;
+        const t = new Date(String(c.ultima_fecha).replace(" ", "T") + "Z").getTime();
+        if (!Number.isFinite(t)) return;
+        const distancia = Math.abs(objetivo - t);
+        if (distancia < mejorDistancia) {
+          mejorDistancia = distancia;
+          mejor = c.otro_id;
+        }
+      });
+
+      return mejorDistancia <= 3600000 ? mejor : null;
     },
 
     async abrirAlerta(id) {
