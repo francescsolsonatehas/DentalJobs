@@ -477,38 +477,154 @@ db.serialize(() => {
   });
 
   // Backfill: las notificaciones creadas antes de que se guardara el destino se
-  // quedaron sin `enlace`, y el frontend solo hace clicable la que trae uno. Como el
-  // título es un texto fijo del código, de él se deduce a dónde llevaba cada una.
+  // quedaron sin `enlace`, y el frontend solo hace clicable la que trae uno.
   //
-  // Lo que no se puede recuperar es el identificador concreto (qué suplencia, qué
-  // alerta): esas van al listado correspondiente en vez de al elemento exacto. Es
-  // peor que un enlace directo y mejor que una notificación que no lleva a ninguna
-  // parte. Las nuevas sí guardan el destino exacto.
-  const ENLACES_POR_TITULO = {
-    "¡Tienes una nueva postulación!": "#postulaciones-recibidas",
-    "Tienes un mensaje nuevo": "#chat",
-    "Alguien quiere contactar contigo": "#chat",
-    "Una suplencia urgente encaja con tu disponibilidad": "#suplencias",
-    "Suplencias que encajan con tu disponibilidad": "#suplencias",
-    "Nuevas coincidencias para tu alerta": "#alertas"
-  };
+  // El identificador concreto no se guardó, pero casi siempre se puede reconstruir:
+  // la notificación se crea justo después del hecho que la provoca, así que basta
+  // cruzar por destinatario y buscar el elemento inmediatamente anterior. La ventana
+  // es estrecha a propósito: ante la duda es mejor dejar el destino genérico que
+  // mandar a alguien a la candidatura equivocada.
+  //
+  // Vuelve a pasar también sobre los destinos genéricos que puso una versión previa
+  // de este mismo backfill, para mejorarlos ahora que se sabe reconstruirlos.
+  const VENTANA = "300.0/86400"; // 5 minutos, en días julianos
 
-  Object.entries(ENLACES_POR_TITULO).forEach(([titulo, enlace]) => {
-    db.run("UPDATE notificaciones SET enlace = ? WHERE enlace IS NULL AND titulo = ?", [enlace, titulo], () => {});
-  });
+  const generico = (...valores) =>
+    `(enlace IS NULL OR enlace IN (${valores.map(v => `'${v}'`).join(",")}))`;
 
-  // Las de candidatura llevan el estado en el título ("Candidatura aceptada"…)
+  // Nueva postulación → la candidatura a una publicación de quien recibe el aviso
   db.run(
-    "UPDATE notificaciones SET enlace = '#mis-postulaciones' WHERE enlace IS NULL AND titulo LIKE 'Candidatura %'",
+    `UPDATE notificaciones SET enlace = '#candidatura=' || (
+       SELECT c.id FROM candidaturas c
+         JOIN publicaciones p ON p.id = c.publicacion_id
+        WHERE p.usuario_id = notificaciones.usuario_id
+          AND c.creado_en <= notificaciones.creado_en
+          AND julianday(notificaciones.creado_en) - julianday(c.creado_en) < ${VENTANA}
+        ORDER BY c.creado_en DESC LIMIT 1)
+     WHERE titulo = '¡Tienes una nueva postulación!'
+       AND ${generico("#postulaciones-recibidas")}
+       AND (SELECT c.id FROM candidaturas c
+              JOIN publicaciones p ON p.id = c.publicacion_id
+             WHERE p.usuario_id = notificaciones.usuario_id
+               AND c.creado_en <= notificaciones.creado_en
+               AND julianday(notificaciones.creado_en) - julianday(c.creado_en) < ${VENTANA}
+             ORDER BY c.creado_en DESC LIMIT 1) IS NOT NULL`,
     () => {}
   );
 
-  // El resumen semanal va a un sitio u otro según quién lo recibe
+  // Cambio de estado → la candidatura de quien recibe el aviso, por fecha de cambio
+  db.run(
+    `UPDATE notificaciones SET enlace = '#candidatura=' || (
+       SELECT c.id FROM candidaturas c
+        WHERE c.usuario_id = notificaciones.usuario_id
+          AND julianday(notificaciones.creado_en) - julianday(COALESCE(c.actualizado_en, c.creado_en)) BETWEEN -${VENTANA} AND ${VENTANA}
+        ORDER BY COALESCE(c.actualizado_en, c.creado_en) DESC LIMIT 1)
+     WHERE titulo LIKE 'Candidatura %'
+       AND ${generico("#mis-postulaciones")}
+       AND (SELECT c.id FROM candidaturas c
+             WHERE c.usuario_id = notificaciones.usuario_id
+               AND julianday(notificaciones.creado_en) - julianday(COALESCE(c.actualizado_en, c.creado_en)) BETWEEN -${VENTANA} AND ${VENTANA}
+             ORDER BY COALESCE(c.actualizado_en, c.creado_en) DESC LIMIT 1) IS NOT NULL`,
+    () => {}
+  );
+
+  // Mensaje nuevo → el hilo con quien lo envió
+  db.run(
+    `UPDATE notificaciones SET enlace = '#chat=' || (
+       SELECT m.usuario_id FROM mensajes m
+        WHERE m.destinatario_id = notificaciones.usuario_id
+          AND m.creado_en <= notificaciones.creado_en
+          AND julianday(notificaciones.creado_en) - julianday(m.creado_en) < ${VENTANA}
+        ORDER BY m.creado_en DESC LIMIT 1)
+     WHERE titulo = 'Tienes un mensaje nuevo'
+       AND ${generico("#chat")}
+       AND (SELECT m.usuario_id FROM mensajes m
+             WHERE m.destinatario_id = notificaciones.usuario_id
+               AND m.creado_en <= notificaciones.creado_en
+               AND julianday(notificaciones.creado_en) - julianday(m.creado_en) < ${VENTANA}
+             ORDER BY m.creado_en DESC LIMIT 1) IS NOT NULL`,
+    () => {}
+  );
+
+  // Solicitud de contacto → esa solicitud
+  db.run(
+    `UPDATE notificaciones SET enlace = '#contacto=' || (
+       SELECT cp.id FROM contactos_perfil cp
+        WHERE cp.perfil_id = notificaciones.usuario_id
+          AND cp.creado_en <= notificaciones.creado_en
+          AND julianday(notificaciones.creado_en) - julianday(cp.creado_en) < ${VENTANA}
+        ORDER BY cp.creado_en DESC LIMIT 1)
+     WHERE titulo = 'Alguien quiere contactar contigo'
+       AND ${generico("#chat")}
+       AND (SELECT cp.id FROM contactos_perfil cp
+             WHERE cp.perfil_id = notificaciones.usuario_id
+               AND cp.creado_en <= notificaciones.creado_en
+               AND julianday(notificaciones.creado_en) - julianday(cp.creado_en) < ${VENTANA}
+             ORDER BY cp.creado_en DESC LIMIT 1) IS NOT NULL`,
+    () => {}
+  );
+
+  // Suplencias: aquí no hace falta adivinar. `notificaciones_suplencia` guarda
+  // exactamente de qué publicación se avisó a cada dentista.
+  db.run(
+    `UPDATE notificaciones SET enlace = '#publicacion=' || (
+       SELECT ns.publicacion_id FROM notificaciones_suplencia ns
+        WHERE ns.usuario_id = notificaciones.usuario_id
+          AND julianday(notificaciones.creado_en) - julianday(ns.creado_en) BETWEEN -${VENTANA} AND ${VENTANA}
+        ORDER BY ns.creado_en DESC LIMIT 1)
+     WHERE titulo = 'Una suplencia urgente encaja con tu disponibilidad'
+       AND ${generico("#suplencias")}
+       AND (SELECT ns.publicacion_id FROM notificaciones_suplencia ns
+             WHERE ns.usuario_id = notificaciones.usuario_id
+               AND julianday(notificaciones.creado_en) - julianday(ns.creado_en) BETWEEN -${VENTANA} AND ${VENTANA}
+             ORDER BY ns.creado_en DESC LIMIT 1) IS NOT NULL`,
+    () => {}
+  );
+
+  // El digest agrupa varias: se reconstruye la lista de ids de esa misma tanda
+  db.run(
+    `UPDATE notificaciones SET enlace = '#suplencias=' || (
+       SELECT group_concat(ns.publicacion_id) FROM notificaciones_suplencia ns
+        WHERE ns.usuario_id = notificaciones.usuario_id
+          AND julianday(notificaciones.creado_en) - julianday(ns.creado_en) BETWEEN -${VENTANA} AND ${VENTANA})
+     WHERE titulo = 'Suplencias que encajan con tu disponibilidad'
+       AND ${generico("#suplencias")}
+       AND (SELECT group_concat(ns.publicacion_id) FROM notificaciones_suplencia ns
+             WHERE ns.usuario_id = notificaciones.usuario_id
+               AND julianday(notificaciones.creado_en) - julianday(ns.creado_en) BETWEEN -${VENTANA} AND ${VENTANA}) IS NOT NULL`,
+    () => {}
+  );
+
+  // Lo que no se puede reconstruir se queda con el destino genérico: de qué alerta
+  // hablaba no lo guarda nadie, y el resumen semanal es sobre un conjunto.
+  db.run(
+    "UPDATE notificaciones SET enlace = '#alertas' WHERE enlace IS NULL AND titulo = 'Nuevas coincidencias para tu alerta'",
+    () => {}
+  );
+
   db.run(
     `UPDATE notificaciones SET enlace = CASE
        WHEN (SELECT tipo FROM usuarios WHERE id = notificaciones.usuario_id) = 'clinica'
        THEN '#dentistas-potenciales' ELSE '#clinicas-potenciales' END
      WHERE enlace IS NULL AND titulo = 'Resumen semanal de coincidencias'`,
+    () => {}
+  );
+
+  // Red de seguridad: si algo quedó sin enlace (título de una versión antigua, o un
+  // cruce que no encontró nada), al menos que lleve a su listado en vez de no ser
+  // clicable. Se aplica al final, solo sobre lo que sigue en NULL.
+  const ENLACES_GENERICOS = {
+    "¡Tienes una nueva postulación!": "#postulaciones-recibidas",
+    "Tienes un mensaje nuevo": "#chat",
+    "Alguien quiere contactar contigo": "#chat",
+    "Una suplencia urgente encaja con tu disponibilidad": "#suplencias",
+    "Suplencias que encajan con tu disponibilidad": "#suplencias"
+  };
+  Object.entries(ENLACES_GENERICOS).forEach(([titulo, enlace]) => {
+    db.run("UPDATE notificaciones SET enlace = ? WHERE enlace IS NULL AND titulo = ?", [enlace, titulo], () => {});
+  });
+  db.run(
+    "UPDATE notificaciones SET enlace = '#mis-postulaciones' WHERE enlace IS NULL AND titulo LIKE 'Candidatura %'",
     () => {}
   );
 

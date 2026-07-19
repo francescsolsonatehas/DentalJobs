@@ -803,11 +803,46 @@ const app = {
       }
     },
 
-    // Las suplencias de las que hablaba la notificación. Sin ids (notificaciones
-    // antiguas, que no los guardaban) se abre el listado completo.
+    // Las suplencias de las que hablaba la notificación, en un modal.
+    //
+    // Antes esto cambiaba el listado de la página principal, y ese listado queda muy
+    // por debajo del pliegue: el usuario pulsaba y se quedaba mirando la portada sin
+    // ver que algo había cambiado más abajo. Un modal se ve siempre, y además deja
+    // esta notificación igual que las demás (todas abren algo encima).
     async abrirSuplencias(ids) {
-      app.modal.cerrarTodosModales();
-      app.filtros.mostrarSuplencias(null, ids || null);
+      const url = ids ? `/publicaciones?ids=${encodeURIComponent(ids)}` : "/publicaciones?tipo=suplencia";
+      const suplencias = await utils.request(url);
+
+      if (!suplencias || suplencias.length === 0) {
+        utils.mostrarAlerta("Esas suplencias ya no están disponibles", "info");
+        return;
+      }
+      if (suplencias.length === 1) {
+        return app.modal.abrirDetalleConManejo(suplencias[0]);
+      }
+
+      const html = `<div class="lista-simple">` + suplencias.map(s => {
+        const fechas = s.fecha_desde
+          ? `${utils.formatearFecha(s.fecha_desde)}${s.fecha_hasta && s.fecha_hasta !== s.fecha_desde ? ` – ${utils.formatearFecha(s.fecha_hasta)}` : ""}`
+          : "";
+        return `
+          <div style="border:1px solid #e5e7eb;border-radius:10px;padding:1rem;margin-bottom:.75rem;">
+            <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;">
+              <div style="min-width:0;">
+                <strong style="color:#0f4c75;">📍 ${utils.escapeHtml(s.ciudad || "")}</strong>
+                ${s.urgente ? '<span style="background:#ef4444;color:white;padding:.1rem .5rem;border-radius:20px;font-size:.7rem;font-weight:700;margin-left:.4rem;">URGENTE</span>' : ""}
+                ${fechas ? `<p style="margin:.3rem 0 0;color:#6b7280;font-size:.85rem;">🗓️ ${fechas}</p>` : ""}
+                <p style="margin:.3rem 0 0;color:#4b5563;font-size:.9rem;">${utils.escapeHtml((s.descripcion || "").slice(0, 90))}</p>
+              </div>
+              <button class="btn-primary btn-small" onclick="app.rutas.abrirPublicacion(${s.id})">Ver</button>
+            </div>
+          </div>`;
+      }).join("") + `</div>`;
+
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent =
+        `Suplencias que encajan contigo (${suplencias.length})`;
+      document.getElementById("modalInteresados").classList.add("active");
     },
 
     // Una postulación concreta. Se reutilizan las listas que ya existen (traen todos
@@ -855,6 +890,9 @@ const app = {
     // La publicación puede haberse borrado desde que se envió la notificación
     async abrirPublicacion(id) {
       const publicacion = await utils.request(`/publicaciones/${encodeURIComponent(id)}`);
+      // Si se viene de la lista de suplencias, hay que cerrarla: el detalle se abriría
+      // por debajo y parecería que el botón no hace nada.
+      document.getElementById("modalInteresados")?.classList.remove("active");
       app.modal.abrirDetalleConManejo(publicacion);
     },
 
@@ -1330,13 +1368,10 @@ const app = {
       const fechaHasta = document.getElementById("filterFechaHasta")?.value || "";
       const orden = document.getElementById("filterOrden").value;
 
-      estadoApp.filtros = { tipo, q, ciudad, radioKm, especialidad, contrato, jornada, equipamiento, certificacion, retribucion, salarioMin, experienciaMin, orden, soloMias: estadoApp.filtros.soloMias, verSuplencias: estadoApp.filtros.verSuplencias, ids: estadoApp.filtros.ids };
+      estadoApp.filtros = { tipo, q, ciudad, radioKm, especialidad, contrato, jornada, equipamiento, certificacion, retribucion, salarioMin, experienciaMin, orden, soloMias: estadoApp.filtros.soloMias, verSuplencias: estadoApp.filtros.verSuplencias };
 
       let url = "/publicaciones?";
       if (tipo) url += `tipo=${tipo}&`;
-      // Acotado a unas publicaciones concretas (lo pone una notificación que hablaba
-      // de varias). Manda sobre el resto de filtros del formulario.
-      if (estadoApp.filtros.ids) url += `ids=${encodeURIComponent(estadoApp.filtros.ids)}&`;
       if (estadoApp.filtros.soloMias && estadoApp.usuario) {
         url += `usuario_id=${estadoApp.usuario.id}&`;
       } else {
@@ -1696,7 +1731,6 @@ const app = {
 
   filtros: {
     mostrarTodas(btn) {
-      estadoApp.filtros.ids = null;
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.verSuplencias = false;
       estadoApp.vistaActual = "publicaciones";
@@ -1716,7 +1750,6 @@ const app = {
     },
 
     mostrarPerfiles(btn) {
-      estadoApp.filtros.ids = null;
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = false;
@@ -1733,7 +1766,6 @@ const app = {
     },
 
     mostrarMias(btn) {
-      estadoApp.filtros.ids = null;
       estadoApp.filtros.soloMias = true;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = false;
@@ -1818,22 +1850,17 @@ const app = {
       app.kanban.render();
     },
 
-    // `ids` acota el listado a unas suplencias concretas. Lo usa la notificación que
-    // avisa de varias que encajan: lleva justo a esas, no a todas las que existan.
-    mostrarSuplencias(btn, ids = null) {
+    mostrarSuplencias(btn) {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = true;
-      estadoApp.filtros.ids = ids;
       estadoApp.vistaActual = "suplencias";
       app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
       const filtersTitle = document.getElementById("filtrosTitle");
-      filtersTitle.textContent = ids
-        ? "🚨 Suplencias que encajan con tu disponibilidad"
-        : "🚨 Suplencias y turnos sueltos";
+      filtersTitle.textContent = "🚨 Suplencias y turnos sueltos";
       filtersTitle.style.display = "block";
 
       // Entrar siempre en modo lista (por si se quedó abierto el calendario)
@@ -1842,7 +1869,10 @@ const app = {
       document.getElementById("btnVistaLista")?.classList.add("active");
       document.getElementById("btnVistaCalendario")?.classList.remove("active");
 
-      app.publicaciones.cargar();
+      // Se devuelve la promesa para poder esperar a que el listado esté pintado
+      // (quien llega desde una notificación necesita saber cuándo puede llevar la
+      // vista hasta él; antes de cargar no hay altura a la que desplazarse).
+      return app.publicaciones.cargar();
     },
 
     mostrarMisPostulaciones(btn) {
