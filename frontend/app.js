@@ -859,25 +859,40 @@ const app = {
       const candidaturaId = String(id);
       const uid = estadoApp.usuario.id;
 
-      if (esClinica) {
-        const candidatos = await utils.request(`/stats/candidatos-interesados-lista/${uid}`);
-        const c = (candidatos || []).find(x => String(x.id) === candidaturaId);
-        // Ojo: las funciones de lista son async y pintan al terminar, así que no se
-        // puede abrir el detalle "encima" de una lista lanzada sin await: el pintado
-        // de la lista llegaría después y lo borraría. O detalle, o lista.
-        if (c) {
-          return app.stats.mostrarDetallePostulacion(
-            c.id, c.nombre, c.email, c.ciudad || "", c.direccion || "",
-            c.codigo_postal || "", c.estado, c.mensaje || ""
-          );
-        }
-        return await app.stats.mostrarListaCandidatos(candidatos, "Postulaciones Recibidas");
+      // Una candidatura puede ser de dos naturalezas para la misma persona: recibida
+      // (alguien se postuló a MI publicación) o enviada (yo me postulé a la de otro).
+      // Y los dos roles pueden estar en ambas situaciones: una clínica se postula a
+      // la solicitud de un dentista, y un dentista recibe postulaciones en la suya.
+      // Por eso se busca en las dos listas en vez de decidirlo por el rol, que era el
+      // error: al dentista solo se le miraban las enviadas, así que un aviso de
+      // postulación recibida no encontraba nada y acababa mostrando un listado.
+      const urlRecibidas = esClinica
+        ? `/stats/candidatos-interesados-lista/${uid}`
+        : `/stats/postulaciones-recibidas-dentista-lista/${uid}`;
+
+      const [recibidas, enviadas] = await Promise.all([
+        utils.requestOpcional(urlRecibidas),
+        utils.requestOpcional(`/stats/mis-postulaciones-lista/${uid}`)
+      ]);
+
+      // Ojo: las funciones de lista son async y pintan al terminar, así que no se
+      // puede abrir el detalle "encima" de una lista lanzada sin await: el pintado de
+      // la lista llegaría después y lo borraría. O detalle, o lista.
+      const recibida = (recibidas || []).find(x => String(x.id) === candidaturaId);
+      if (recibida) {
+        return app.stats.mostrarDetallePostulacion(
+          recibida.id, recibida.nombre, recibida.email, recibida.ciudad || "",
+          recibida.direccion || "", recibida.codigo_postal || "", recibida.estado,
+          recibida.mensaje || ""
+        );
       }
 
-      const postulaciones = await utils.request(`/stats/mis-postulaciones-lista/${uid}`);
-      const p = (postulaciones || []).find(x => String(x.id) === candidaturaId);
-      if (p) return app.stats.mostrarDetalleMiPostulacion(p);
-      return await app.stats.mostrarListaPostulaciones(postulaciones, "Postulaciones a Clínicas");
+      const enviada = (enviadas || []).find(x => String(x.id) === candidaturaId);
+      if (enviada) return app.stats.mostrarDetalleMiPostulacion(enviada);
+
+      // Ya no está (publicación cerrada, candidatura retirada): al menos la lista
+      if (esClinica) return await app.stats.mostrarListaCandidatos(recibidas || [], "Postulaciones Recibidas");
+      return await app.stats.mostrarListaPostulaciones(enviadas || [], "Postulaciones a Clínicas");
     },
 
     // Una solicitud de contacto concreta: se abre la bandeja y se resalta la tarjeta
