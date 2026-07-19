@@ -918,14 +918,21 @@ const app = {
 
       // Los avisos anteriores a que se guardara el destinatario solo dicen "#chat".
       // Con la fecha de la notificación se reconstruye: el aviso se crea justo
-      // después del mensaje, así que es la conversación cuyo último mensaje cae junto
-      // a esa fecha. Sin esto acabas en la bandeja teniendo que buscar tú.
+      // después del hecho, así que es la conversación cuyo último mensaje cae junto a
+      // esa fecha. Sin esto acabas en la bandeja teniendo que buscar tú.
       if (!otroId && contexto.fecha) {
         otroId = await this.conversacionPorFecha(contexto.fecha);
+
+        // Puede que no fuera un mensaje sino una solicitud de contacto: ahí todavía
+        // no hay conversación, así que se abre la bandeja pero señalando cuál es.
+        // Le pasa sobre todo a los dentistas, que son quienes las reciben.
+        if (!otroId) {
+          const contactoId = await this.contactoPorFecha(contexto.fecha);
+          if (contactoId) return await this.abrirContacto(contactoId);
+        }
       }
 
-      // Sin manera de saber de quién era (aviso de solicitud de contacto, o no se ha
-      // podido reconstruir), la bandeja es lo correcto.
+      // Sin manera de saber a qué se refería, la bandeja es lo correcto.
       if (!otroId) return await app.chat.abrir();
 
       app.modal.cerrarTodosModales();
@@ -953,6 +960,30 @@ const app = {
         if (distancia < mejorDistancia) {
           mejorDistancia = distancia;
           mejor = c.otro_id;
+        }
+      });
+
+      return mejorDistancia <= 3600000 ? mejor : null;
+    },
+
+    // Lo mismo para las solicitudes de contacto recibidas: la que se creó junto a la
+    // fecha del aviso. Misma tolerancia de una hora y mismo criterio: si no hay nada
+    // cerca, no se señala ninguna.
+    async contactoPorFecha(fecha) {
+      const objetivo = new Date(String(fecha).replace(" ", "T") + "Z").getTime();
+      if (!Number.isFinite(objetivo)) return null;
+
+      const data = await utils.requestOpcional("/contactos-perfil");
+      let mejor = null;
+      let mejorDistancia = Infinity;
+
+      (data?.recibidos || []).forEach(c => {
+        const t = new Date(String(c.creado_en).replace(" ", "T") + "Z").getTime();
+        if (!Number.isFinite(t)) return;
+        const distancia = Math.abs(objetivo - t);
+        if (distancia < mejorDistancia) {
+          mejorDistancia = distancia;
+          mejor = c.id;
         }
       });
 
