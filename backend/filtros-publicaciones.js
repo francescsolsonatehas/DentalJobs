@@ -8,11 +8,30 @@ function construirFiltros(query = {}) {
   const {
     tipo, especialidad, ciudad, usuario_id, contrato, jornada,
     salarioMin, salarioMax, experienciaMin, q, equipamiento, retribucion, certificacion,
-    radioKm, latCentro, lonCentro, fecha, fechaDesde, fechaHasta, disponibleUsuarioId
+    radioKm, latCentro, lonCentro, fecha, fechaDesde, fechaHasta, disponibleUsuarioId,
+    ids
   } = query;
 
   const clausulas = [];
   const params = [];
+
+  // Lista explícita de publicaciones ("12,15,18"). La usan las notificaciones que
+  // hablan de varias a la vez (p. ej. el digest de suplencias que encajan) para
+  // llevar exactamente a esas y no a todo el listado. Se limita para que nadie pueda
+  // pedir una consulta enorme.
+  if (ids) {
+    const lista = String(ids)
+      .split(",")
+      .map(n => parseInt(n, 10))
+      .filter(Number.isInteger)
+      .slice(0, 100);
+    if (lista.length === 0) {
+      clausulas.push("1 = 0"); // ids inválidos: no devolver nada, mejor que devolverlo todo
+    } else {
+      clausulas.push(`p.id IN (${lista.map(() => "?").join(",")})`);
+      params.push(...lista);
+    }
+  }
 
   // Búsqueda por radio: si viene un centro geocodificado y un radio en km, se
   // filtra por un recuadro (bounding box) alrededor del centro en vez de por

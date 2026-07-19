@@ -1521,8 +1521,14 @@ app.post("/admin/matching-suplencias", verificarAdmin, (req, res) => {
           "Suplencias que encajan con tu disponibilidad",
           `Hay ${n} suplencia${n === 1 ? "" : "s"} ${urgentes ? `(${urgentes} urgente${urgentes === 1 ? "" : "s"}) ` : ""}en tu zona en días que tienes marcados como disponibles. Entra para verlas y postularte.`,
           "Ver suplencias",
-          // Si solo encaja una, se abre esa; si hay varias, el listado de suplencias
-          { tipo: "suplencia", enlace: n === 1 ? `#publicacion=${sups[0].publicacion_id}` : "#suplencias" }
+          // Si solo encaja una, se abre esa; si hay varias, el listado acotado a
+          // exactamente esas, no todas las suplencias que existan
+          {
+            tipo: "suplencia",
+            enlace: n === 1
+              ? `#publicacion=${sups[0].publicacion_id}`
+              : `#suplencias=${sups.map(s => s.publicacion_id).join(",")}`
+          }
         );
       });
 
@@ -4345,9 +4351,11 @@ app.post("/candidaturas", verifyToken, (req, res) => {
         return res.status(500).json({ error: "Error al postularse" });
       }
 
+      const candidaturaId = this.lastID;
+
       res.json({
         mensaje: "Postulación creada",
-        candidatura_id: this.lastID
+        candidatura_id: candidaturaId
       });
 
       // Avisar por email al dueño de la publicación
@@ -4364,7 +4372,7 @@ app.post("/candidaturas", verifyToken, (req, res) => {
             "¡Tienes una nueva postulación!",
             `${info.candidato_nombre} se ha postulado a tu publicación de ${info.ciudad}. Entra para ver su perfil y responder.`,
             "Ver la postulación",
-            { tipo: "candidatura", enlace: "#postulaciones-recibidas" }
+            { tipo: "candidatura", enlace: `#candidatura=${candidaturaId}` }
           );
         }
       );
@@ -4488,7 +4496,7 @@ app.put("/candidaturas/:id", verifyToken, (req, res) => {
               `Candidatura ${ETIQUETAS_ESTADO[estado].toLowerCase()}`,
               textos[estado],
               "Ver mis postulaciones",
-              { tipo: "candidatura", enlace: "#mis-postulaciones" }
+              { tipo: "candidatura", enlace: `#candidatura=${req.params.id}` }
             );
           }
         }
@@ -5085,7 +5093,8 @@ app.post("/contactos-perfil", verifyToken, (req, res) => {
               console.error(err2);
               return res.status(500).json({ error: "Error al contactar" });
             }
-            res.json({ mensaje: "Contacto enviado", id: this.lastID });
+            const contactoId = this.lastID;
+            res.json({ mensaje: "Contacto enviado", id: contactoId });
 
             db.get("SELECT nombre FROM usuarios WHERE id = ?", [solicitanteId], (e, sol) => {
               if (e || !sol) return;
@@ -5095,8 +5104,8 @@ app.post("/contactos-perfil", verifyToken, (req, res) => {
                 "Alguien quiere contactar contigo",
                 `${sol.nombre} está interesado/a en tu perfil. Entra para ver su solicitud y aceptarla si te encaja.`,
                 "Ver la solicitud",
-                // Las solicitudes pendientes se aceptan desde el panel de Mensajes
-                { tipo: "contacto", enlace: "#chat" }
+                // Lleva a esa solicitud concreta dentro del panel de Mensajes
+                { tipo: "contacto", enlace: `#contacto=${contactoId}` }
               );
             });
           }

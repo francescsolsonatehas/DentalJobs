@@ -769,6 +769,10 @@ const app = {
           // distintos: quien mira decide cuál toca. Una misma notificación ("tienes
           // una nueva postulación") le llega tanto a la clínica en su oferta como al
           // dentista en su solicitud, así que el enlace no puede fijar la función.
+          case "candidatura":
+            return await this.abrirCandidatura(argumento, esClinica);
+          case "contacto":
+            return await this.abrirContacto(argumento);
           case "postulaciones-recibidas":
             return esClinica
               ? await app.stats.mostrarCandidatosInteresados()
@@ -782,7 +786,7 @@ const app = {
           case "clinicas-potenciales":
             return await app.stats.mostrarClinicasPotenciales();
           case "suplencias":
-            return app.filtros.mostrarSuplencias();
+            return await this.abrirSuplencias(argumento);
           case "alerta":
             return await this.abrirAlerta(argumento);
           case "alertas":
@@ -797,6 +801,55 @@ const app = {
         console.error("No se pudo abrir el enlace de la notificación:", e);
         utils.mostrarAlerta("No se ha podido abrir ese contenido", "error");
       }
+    },
+
+    // Las suplencias de las que hablaba la notificación. Sin ids (notificaciones
+    // antiguas, que no los guardaban) se abre el listado completo.
+    async abrirSuplencias(ids) {
+      app.modal.cerrarTodosModales();
+      app.filtros.mostrarSuplencias(null, ids || null);
+    },
+
+    // Una postulación concreta. Se reutilizan las listas que ya existen (traen todos
+    // los campos que pide el detalle) y encima se abre la ficha del elemento: así la
+    // notificación lleva a la candidatura de la que hablaba, no a un listado donde
+    // haya que buscarla. Si ya no está (publicación cerrada, candidatura retirada),
+    // se deja al menos la lista abierta en vez de no hacer nada.
+    async abrirCandidatura(id, esClinica) {
+      const candidaturaId = String(id);
+      const uid = estadoApp.usuario.id;
+
+      if (esClinica) {
+        const candidatos = await utils.request(`/stats/candidatos-interesados-lista/${uid}`);
+        const c = (candidatos || []).find(x => String(x.id) === candidaturaId);
+        // Ojo: las funciones de lista son async y pintan al terminar, así que no se
+        // puede abrir el detalle "encima" de una lista lanzada sin await: el pintado
+        // de la lista llegaría después y lo borraría. O detalle, o lista.
+        if (c) {
+          return app.stats.mostrarDetallePostulacion(
+            c.id, c.nombre, c.email, c.ciudad || "", c.direccion || "",
+            c.codigo_postal || "", c.estado, c.mensaje || ""
+          );
+        }
+        return await app.stats.mostrarListaCandidatos(candidatos, "Postulaciones Recibidas");
+      }
+
+      const postulaciones = await utils.request(`/stats/mis-postulaciones-lista/${uid}`);
+      const p = (postulaciones || []).find(x => String(x.id) === candidaturaId);
+      if (p) return app.stats.mostrarDetalleMiPostulacion(p);
+      return await app.stats.mostrarListaPostulaciones(postulaciones, "Postulaciones a Clínicas");
+    },
+
+    // Una solicitud de contacto concreta: se abre la bandeja y se resalta la tarjeta
+    // de esa solicitud, que es donde se acepta o se rechaza.
+    async abrirContacto(id) {
+      await app.chat.abrir();
+      await new Promise(r => setTimeout(r, 300));
+      const tarjeta = document.getElementById(`contacto-${id}`);
+      if (!tarjeta) return;
+      tarjeta.scrollIntoView({ block: "center" });
+      tarjeta.classList.add("resaltado");
+      setTimeout(() => tarjeta.classList.remove("resaltado"), 2500);
     },
 
     // La publicación puede haberse borrado desde que se envió la notificación
@@ -1277,10 +1330,13 @@ const app = {
       const fechaHasta = document.getElementById("filterFechaHasta")?.value || "";
       const orden = document.getElementById("filterOrden").value;
 
-      estadoApp.filtros = { tipo, q, ciudad, radioKm, especialidad, contrato, jornada, equipamiento, certificacion, retribucion, salarioMin, experienciaMin, orden, soloMias: estadoApp.filtros.soloMias, verSuplencias: estadoApp.filtros.verSuplencias };
+      estadoApp.filtros = { tipo, q, ciudad, radioKm, especialidad, contrato, jornada, equipamiento, certificacion, retribucion, salarioMin, experienciaMin, orden, soloMias: estadoApp.filtros.soloMias, verSuplencias: estadoApp.filtros.verSuplencias, ids: estadoApp.filtros.ids };
 
       let url = "/publicaciones?";
       if (tipo) url += `tipo=${tipo}&`;
+      // Acotado a unas publicaciones concretas (lo pone una notificación que hablaba
+      // de varias). Manda sobre el resto de filtros del formulario.
+      if (estadoApp.filtros.ids) url += `ids=${encodeURIComponent(estadoApp.filtros.ids)}&`;
       if (estadoApp.filtros.soloMias && estadoApp.usuario) {
         url += `usuario_id=${estadoApp.usuario.id}&`;
       } else {
@@ -1640,6 +1696,7 @@ const app = {
 
   filtros: {
     mostrarTodas(btn) {
+      estadoApp.filtros.ids = null;
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.verSuplencias = false;
       estadoApp.vistaActual = "publicaciones";
@@ -1659,6 +1716,7 @@ const app = {
     },
 
     mostrarPerfiles(btn) {
+      estadoApp.filtros.ids = null;
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = false;
@@ -1675,6 +1733,7 @@ const app = {
     },
 
     mostrarMias(btn) {
+      estadoApp.filtros.ids = null;
       estadoApp.filtros.soloMias = true;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = false;
@@ -1759,17 +1818,22 @@ const app = {
       app.kanban.render();
     },
 
-    mostrarSuplencias(btn) {
+    // `ids` acota el listado a unas suplencias concretas. Lo usa la notificación que
+    // avisa de varias que encajan: lleva justo a esas, no a todas las que existan.
+    mostrarSuplencias(btn, ids = null) {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = true;
+      estadoApp.filtros.ids = ids;
       estadoApp.vistaActual = "suplencias";
       app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
       const filtersTitle = document.getElementById("filtrosTitle");
-      filtersTitle.textContent = "🚨 Suplencias y turnos sueltos";
+      filtersTitle.textContent = ids
+        ? "🚨 Suplencias que encajan con tu disponibilidad"
+        : "🚨 Suplencias y turnos sueltos";
       filtersTitle.style.display = "block";
 
       // Entrar siempre en modo lista (por si se quedó abierto el calendario)
@@ -6938,7 +7002,7 @@ const app = {
           pendientesHtml = `<div style="margin-bottom: 1rem;">
             <h4 style="color:#0f4c75;margin:0 0 .5rem;">Solicitudes de contacto</h4>` +
             pendientes.map(p => `
-              <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:.75rem 1rem;margin-bottom:.5rem;">
+              <div id="contacto-${p.id}" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:.75rem 1rem;margin-bottom:.5rem;">
                 <strong>${utils.escapeHtml(p.solicitante_nombre || 'Usuario')}</strong>
                 <span style="color:#6b7280;font-size:.85rem;"> (${p.solicitante_tipo === 'dentista' ? 'Dentista' : 'Clínica'})</span>
                 ${p.mensaje ? `<p style="margin:.3rem 0;font-size:.9rem;color:#4b5563;">${utils.escapeHtml(p.mensaje)}</p>` : ''}

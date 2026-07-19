@@ -45,12 +45,17 @@ test("notificaciones in-app (campana)", async (t) => {
   });
 
   // Una notificación sin enlace es un callejón sin salida: el frontend solo la hace
-  // clicable si trae uno (ver app.rutas), así que se comprueba que llegue.
-  await t.test("la notificación lleva enlace y tipo para poder abrirla", async () => {
+  // clicable si trae uno (ver app.rutas). Y el enlace apunta al elemento concreto,
+  // no a un listado donde haya que buscar de qué hablaba.
+  await t.test("la notificación enlaza a la candidatura concreta", async () => {
+    const candidatos = await request(app).get(`/publicaciones/${oferta.body.id}/candidatos`)
+      .set("Authorization", `Bearer ${clinica.token}`);
+    const candidaturaId = candidatos.body.candidatos[0].id;
+
     const res = await request(app).get("/notificaciones").set("Authorization", `Bearer ${clinica.token}`);
     const notif = res.body.notificaciones[0];
     assert.equal(notif.tipo, "candidatura");
-    assert.equal(notif.enlace, "#postulaciones-recibidas");
+    assert.equal(notif.enlace, `#candidatura=${candidaturaId}`);
   });
 
   await t.test("marcar todas como leídas deja el contador a 0", async () => {
@@ -68,7 +73,7 @@ test("notificaciones in-app (campana)", async (t) => {
 
   // Al final del todo: este caso sí crea una notificación para el dentista, y antes
   // varios asertos dan por hecho que no tiene ninguna.
-  await t.test("al dentista, el cambio de estado le enlaza a sus postulaciones", async () => {
+  await t.test("al dentista, el cambio de estado le enlaza a esa misma candidatura", async () => {
     const candidatos = await request(app).get(`/publicaciones/${oferta.body.id}/candidatos`)
       .set("Authorization", `Bearer ${clinica.token}`);
     const candidaturaId = candidatos.body.candidatos[0].id;
@@ -80,6 +85,6 @@ test("notificaciones in-app (campana)", async (t) => {
     const res = await request(app).get("/notificaciones").set("Authorization", `Bearer ${dentista.token}`);
     const notif = res.body.notificaciones[0];
     assert.ok(notif, "el dentista debería tener una notificación");
-    assert.equal(notif.enlace, "#mis-postulaciones");
+    assert.equal(notif.enlace, `#candidatura=${candidaturaId}`);
   });
 });

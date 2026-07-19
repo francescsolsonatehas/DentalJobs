@@ -1851,6 +1851,17 @@ select:focus {
   font-size: 0.95rem;
 }
 
+/* Destaca brevemente el elemento al que ha llevado una notificación, para que se
+   vea cuál de la lista era el que la motivó. */
+.resaltado {
+  animation: resaltar 2.5s ease-out;
+}
+
+@keyframes resaltar {
+  0%, 60% { box-shadow: 0 0 0 3px #3b82f6; }
+  100% { box-shadow: 0 0 0 3px transparent; }
+}
+
 /* Separador que indica de qué publicación venían los mensajes que siguen. Solo
    aparece al cambiar de contexto dentro del hilo único de una persona. */
 .chat-contexto {

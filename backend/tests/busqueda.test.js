@@ -58,4 +58,27 @@ test("búsqueda por texto y salario estructurado", async (t) => {
     assert.equal(max.body.length, 1);
     assert.equal(max.body[0].ciudad, "Madrid");
   });
+
+  // Lo usan las notificaciones que hablan de varias publicaciones a la vez, para
+  // llevar exactamente a esas.
+  await t.test("filtro por lista de ids", async () => {
+    const todas = await request(app).get("/publicaciones?tipo=oferta");
+    assert.ok(todas.body.length >= 2);
+    const elegida = todas.body[0];
+
+    const una = await request(app).get(`/publicaciones?ids=${elegida.id}`);
+    assert.equal(una.body.length, 1);
+    assert.equal(una.body[0].id, elegida.id);
+
+    const dos = await request(app).get(`/publicaciones?ids=${todas.body[0].id},${todas.body[1].id}`);
+    assert.equal(dos.body.length, 2);
+
+    // Un id que no existe no debe colar el listado entero
+    const ninguna = await request(app).get("/publicaciones?ids=99999999");
+    assert.equal(ninguna.body.length, 0);
+
+    // Ni tampoco una lista con basura
+    const basura = await request(app).get("/publicaciones?ids=abc");
+    assert.equal(basura.body.length, 0);
+  });
 });
