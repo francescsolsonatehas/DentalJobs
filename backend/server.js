@@ -823,6 +823,54 @@ app.post("/auth/guardar-especialidades", verifyToken, (req, res) => {
   );
 });
 
+// Equipamiento de la clínica. Es de la clínica entera, no de cada sede: todas sus
+// ofertas lo heredan, publiquen desde la sede que publiquen.
+app.get("/auth/mi-equipamiento", verifyToken, (req, res) => {
+  db.all(
+    "SELECT equipo FROM usuario_equipamiento WHERE usuario_id = ?",
+    [req.usuario.id],
+    (err, filas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener el equipamiento" });
+      }
+      res.json({ equipamiento: (filas || []).map(f => f.equipo) });
+    }
+  );
+});
+
+app.post("/auth/guardar-equipamiento", verifyToken, (req, res) => {
+  const { equipamiento } = req.body;
+  const usuarioId = req.usuario.id;
+
+  if (!Array.isArray(equipamiento)) {
+    return res.status(400).json({ error: "Equipamiento debe ser un array" });
+  }
+
+  // Solo lo del catálogo: el resto se descarta en vez de guardar texto libre
+  const validos = equipamiento.filter(e => EQUIPAMIENTO_CATALOGO.includes(e));
+
+  db.run("DELETE FROM usuario_equipamiento WHERE usuario_id = ?", [usuarioId], (err) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al guardar el equipamiento" });
+    }
+    if (validos.length === 0) {
+      return res.json({ success: true, guardados: 0 });
+    }
+
+    const stmt = db.prepare("INSERT OR IGNORE INTO usuario_equipamiento (usuario_id, equipo) VALUES (?, ?)");
+    validos.forEach(equipo => stmt.run(usuarioId, equipo));
+    stmt.finalize((err2) => {
+      if (err2) {
+        console.error(err2);
+        return res.status(500).json({ error: "Error al guardar el equipamiento" });
+      }
+      res.json({ success: true, guardados: validos.length });
+    });
+  });
+});
+
 app.get("/auth/mis-certificaciones", verifyToken, (req, res) => {
   db.all(
     "SELECT certificacion FROM certificaciones WHERE usuario_id = ?",
@@ -1219,26 +1267,19 @@ app.get("/usuarios/:id/publico", (req, res) => {
                 console.error(err3);
                 return res.status(500).json({ error: "Error al obtener perfil" });
               }
-              sedes = sedes || [];
-              if (!sedes.length) {
-                usuario.sedes = [];
-                return res.json(usuario);
-              }
+              usuario.sedes = sedes || [];
 
-              const ids = sedes.map(s => s.id);
-              const placeholders = ids.map(() => "?").join(",");
+              // El equipamiento es de la clínica entera, no de cada sede: se devuelve
+              // una sola vez y vale para todas.
               db.all(
-                `SELECT sede_id, equipo FROM sede_equipamiento WHERE sede_id IN (${placeholders})`,
-                ids,
+                "SELECT equipo FROM usuario_equipamiento WHERE usuario_id = ?",
+                [id],
                 (err4, equipos) => {
                   if (err4) {
                     console.error(err4);
                     return res.status(500).json({ error: "Error al obtener perfil" });
                   }
-                  const porSede = {};
-                  (equipos || []).forEach(e => { (porSede[e.sede_id] = porSede[e.sede_id] || []).push(e.equipo); });
-                  sedes.forEach(s => { s.equipamiento = porSede[s.id] || []; });
-                  usuario.sedes = sedes;
+                  usuario.equipamiento = (equipos || []).map(e => e.equipo);
                   res.json(usuario);
                 }
               );
@@ -2502,7 +2543,9 @@ app.post("/publicaciones", verifyToken, (req, res) => {
           console.error(err2);
           return res.status(500).json({ error: "Error al crear publicación" });
         }
-        db.all("SELECT equipo FROM sede_equipamiento WHERE sede_id = ?", [sede_id], (err3, rows) => {
+        // El equipamiento es de la clínica, no de la sede: la oferta hereda el de su
+        // dueño, publique desde la sede que publique.
+        db.all("SELECT equipo FROM usuario_equipamiento WHERE usuario_id = ?", [req.usuario.id], (err3, rows) => {
           if (err3) {
             console.error(err3);
             return res.status(500).json({ error: "Error al crear publicación" });
@@ -4549,12 +4592,12 @@ app.post("/sedes", verifyToken, (req, res) => {
     return res.status(403).json({ error: "Solo las clínicas pueden gestionar sedes" });
   }
 
-  const { nombre, ciudad, provincia, direccion, codigo_postal, telefono, equipamiento } = req.body;
+  // El equipamiento ya no es de la sede sino de la clínica (ver
+  // /auth/guardar-equipamiento): si llega en el cuerpo, se ignora.
+  const { nombre, ciudad, provincia, direccion, codigo_postal, telefono } = req.body;
   if (!nombre || !nombre.trim() || !ciudad || !ciudad.trim()) {
     return res.status(400).json({ error: "Nombre y ciudad son obligatorios" });
   }
-
-  const equipos = Array.isArray(equipamiento) ? equipamiento.filter(e => EQUIPAMIENTO_CATALOGO.includes(e)) : [];
 
   db.run(
     "INSERT INTO sedes (usuario_id, nombre, ciudad, provincia, direccion, codigo_postal, telefono) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -4564,15 +4607,7 @@ app.post("/sedes", verifyToken, (req, res) => {
         console.error(err);
         return res.status(500).json({ error: "Error al crear sede" });
       }
-      const sedeId = this.lastID;
-      // Guardar el equipamiento antes de responder (evita fallos de escritura en vuelo)
-      if (equipos.length) {
-        const stmt = db.prepare("INSERT INTO sede_equipamiento (sede_id, equipo) VALUES (?, ?)");
-        equipos.forEach(e => stmt.run(sedeId, e));
-        stmt.finalize(() => res.json({ mensaje: "Sede creada", id: sedeId }));
-      } else {
-        res.json({ mensaje: "Sede creada", id: sedeId });
-      }
+      res.json({ mensaje: "Sede creada", id: this.lastID });
     }
   );
 });
@@ -4586,32 +4621,18 @@ app.get("/sedes", verifyToken, (req, res) => {
         console.error(err);
         return res.status(500).json({ error: "Error al obtener sedes" });
       }
-      sedes = sedes || [];
-      if (!sedes.length) return res.json({ sedes: [] });
-
-      const ids = sedes.map(s => s.id);
-      const placeholders = ids.map(() => "?").join(",");
-      db.all(`SELECT sede_id, equipo FROM sede_equipamiento WHERE sede_id IN (${placeholders})`, ids, (err2, equipos) => {
-        if (err2) {
-          console.error(err2);
-          return res.status(500).json({ error: "Error al obtener sedes" });
-        }
-        const porSede = {};
-        (equipos || []).forEach(e => { (porSede[e.sede_id] = porSede[e.sede_id] || []).push(e.equipo); });
-        sedes.forEach(s => { s.equipamiento = porSede[s.id] || []; });
-        res.json({ sedes });
-      });
+      // Sin equipamiento por sede: es de la clínica (GET /auth/mi-equipamiento)
+      res.json({ sedes: sedes || [] });
     }
   );
 });
 
 app.put("/sedes/:id", verifyToken, (req, res) => {
-  const { nombre, ciudad, provincia, direccion, codigo_postal, telefono, equipamiento } = req.body;
+  // El equipamiento ya no es de la sede sino de la clínica: si llega, se ignora
+  const { nombre, ciudad, provincia, direccion, codigo_postal, telefono } = req.body;
   if (!nombre || !nombre.trim() || !ciudad || !ciudad.trim()) {
     return res.status(400).json({ error: "Nombre y ciudad son obligatorios" });
   }
-
-  const equipos = Array.isArray(equipamiento) ? equipamiento.filter(e => EQUIPAMIENTO_CATALOGO.includes(e)) : null;
 
   db.get("SELECT usuario_id FROM sedes WHERE id = ?", [req.params.id], (err, sede) => {
     if (err) {
@@ -4630,20 +4651,7 @@ app.put("/sedes/:id", verifyToken, (req, res) => {
           console.error(err);
           return res.status(500).json({ error: "Error al actualizar sede" });
         }
-        // Si se envía equipamiento, se reemplaza por completo el de la sede
-        if (equipos === null) {
-          return res.json({ mensaje: "Sede actualizada" });
-        }
-        db.run("DELETE FROM sede_equipamiento WHERE sede_id = ?", [req.params.id], (err2) => {
-          if (err2) {
-            console.error(err2);
-            return res.status(500).json({ error: "Error al actualizar sede" });
-          }
-          if (!equipos.length) return res.json({ mensaje: "Sede actualizada" });
-          const stmt = db.prepare("INSERT INTO sede_equipamiento (sede_id, equipo) VALUES (?, ?)");
-          equipos.forEach(e => stmt.run(req.params.id, e));
-          stmt.finalize(() => res.json({ mensaje: "Sede actualizada" }));
-        });
+        res.json({ mensaje: "Sede actualizada" });
       }
     );
   });
@@ -4665,14 +4673,12 @@ app.delete("/sedes/:id", verifyToken, (req, res) => {
         console.error(err);
         return res.status(500).json({ error: "Error al eliminar sede" });
       }
-      db.run("DELETE FROM sede_equipamiento WHERE sede_id = ?", [req.params.id], (err) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).json({ error: "Error al eliminar sede" });
-        }
-        db.run("DELETE FROM sedes WHERE id = ?", [req.params.id], (err) => {
-          if (err) {
-            console.error(err);
+      // Se limpian también las filas heredadas del modelo antiguo por sede. Se hace
+      // antes de responder para no dejar escrituras en vuelo.
+      db.run("DELETE FROM sede_equipamiento WHERE sede_id = ?", [req.params.id], () => {
+        db.run("DELETE FROM sedes WHERE id = ?", [req.params.id], (err2) => {
+          if (err2) {
+            console.error(err2);
             return res.status(500).json({ error: "Error al eliminar sede" });
           }
           res.json({ mensaje: "Sede eliminada" });

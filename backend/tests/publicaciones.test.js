@@ -194,8 +194,14 @@ test("publicaciones", async (t) => {
     const sede = await request(app)
       .post("/sedes")
       .set("Authorization", `Bearer ${clinica.token}`)
-      .send({ nombre: "Sede Centro", ciudad: "Tarragona", provincia: "Tarragona", telefono: "977000000", equipamiento: ["Microscopio", "CAD-CAM"] });
+      .send({ nombre: "Sede Centro", ciudad: "Tarragona", provincia: "Tarragona", telefono: "977000000" });
     const sedeId = sede.body.id;
+
+    // El equipamiento es de la clínica, no de la sede: la oferta lo hereda de aquí
+    await request(app)
+      .post("/auth/guardar-equipamiento")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ equipamiento: ["Microscopio", "CAD-CAM"] });
 
     // Publica una oferta con sede, enviando en el cuerpo datos que deben ignorarse
     const crear = await request(app)
@@ -212,9 +218,9 @@ test("publicaciones", async (t) => {
     assert.equal(pub.nombre_contacto, "Clínica Test"); // del perfil, no del cuerpo
     assert.equal(pub.telefono_contacto, "977000000");  // de la sede
 
-    // El equipamiento de la publicación es el de la sede, no el enviado en el cuerpo
-    const porSede = await request(app).get("/publicaciones?tipo=oferta&ciudad=Tarragona&equipamiento=Microscopio");
-    assert.ok(porSede.body.some((p) => p.id === crear.body.id), "debería encontrarse por el equipamiento de la sede");
+    // El equipamiento de la publicación es el de la clínica, no el del cuerpo
+    const porClinica = await request(app).get("/publicaciones?tipo=oferta&ciudad=Tarragona&equipamiento=Microscopio");
+    assert.ok(porClinica.body.some((p) => p.id === crear.body.id), "debería encontrarse por el equipamiento de la clínica");
     const porCuerpo = await request(app).get(`/publicaciones?tipo=oferta&ciudad=Tarragona&equipamiento=${encodeURIComponent("Láser dental")}`);
     assert.ok(!porCuerpo.body.some((p) => p.id === crear.body.id), "no debería tener el equipamiento enviado en el cuerpo");
   });

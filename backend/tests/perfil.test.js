@@ -44,7 +44,7 @@ test("perfil enriquecido", async (t) => {
     await request(app)
       .post("/sedes")
       .set("Authorization", `Bearer ${clinica.token}`)
-      .send({ nombre: "Sede Centro", ciudad: "Barcelona", provincia: "Barcelona", direccion: "Calle Mayor 1", codigo_postal: "08001", telefono: "931112233", equipamiento: ["Microscopio"] });
+      .send({ nombre: "Sede Centro", ciudad: "Barcelona", provincia: "Barcelona", direccion: "Calle Mayor 1", codigo_postal: "08001", telefono: "931112233" });
 
     const res = await request(app).get(`/usuarios/${clinica.usuario.id}/publico`);
     assert.equal(res.status, 200);
@@ -54,8 +54,21 @@ test("perfil enriquecido", async (t) => {
     assert.equal(sede.nombre, "Sede Centro");
     assert.equal(sede.direccion, "Calle Mayor 1");
     assert.equal(sede.telefono, "931112233");
-    assert.deepEqual(sede.equipamiento, ["Microscopio"]);
     assert.equal(res.body.email, undefined);
+  });
+
+  // El equipamiento es de la clínica entera, no de cada sede: se declara una vez y
+  // el perfil público lo devuelve al mismo nivel que el resto de sus datos.
+  await t.test("el perfil público expone el equipamiento de la clínica", async () => {
+    await request(app)
+      .post("/auth/guardar-equipamiento")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ equipamiento: ["Microscopio", "CAD-CAM", "Inventado que no existe"] });
+
+    const res = await request(app).get(`/usuarios/${clinica.usuario.id}/publico`);
+    assert.deepEqual(res.body.equipamiento.sort(), ["CAD-CAM", "Microscopio"]);
+    // Las sedes ya no llevan equipamiento propio
+    assert.equal(res.body.sedes[0].equipamiento, undefined);
   });
 
   await t.test("el perfil público de un dentista no incluye sedes", async () => {

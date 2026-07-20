@@ -342,7 +342,9 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
-  // Equipamiento por sede (catálogo fijo, ver server.js). Las ofertas lo heredan de su sede.
+  // Equipamiento por sede. YA NO SE USA: el equipamiento pasó a ser de la clínica
+  // entera (ver usuario_equipamiento). La tabla se conserva con sus datos por si
+  // hubiera que volver atrás, pero no se lee ni se escribe.
   db.run(`
     CREATE TABLE IF NOT EXISTS sede_equipamiento (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -351,6 +353,32 @@ db.serialize(() => {
       UNIQUE(sede_id, equipo)
     )
   `);
+
+  // Equipamiento de la clínica (catálogo fijo, ver server.js). Antes se declaraba en
+  // cada sede, pero en la práctica una clínica tiene el mismo equipo en todas y
+  // repetirlo por sede era trabajo de más. Las ofertas lo heredan de aquí.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS usuario_equipamiento (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      equipo TEXT NOT NULL,
+      UNIQUE(usuario_id, equipo)
+    )
+  `);
+
+  // Backfill: subir a la clínica lo que ya estaba declarado en sus sedes, uniendo
+  // todo lo que tuviera cualquiera de ellas. Solo actúa si la clínica aún no tiene
+  // equipamiento propio, para no pisar lo que haya editado después.
+  db.run(
+    `INSERT OR IGNORE INTO usuario_equipamiento (usuario_id, equipo)
+     SELECT s.usuario_id, se.equipo
+       FROM sede_equipamiento se
+       JOIN sedes s ON s.id = se.sede_id
+      WHERE NOT EXISTS (
+        SELECT 1 FROM usuario_equipamiento ue WHERE ue.usuario_id = s.usuario_id
+      )`,
+    () => {}
+  );
 
   db.run(`
     CREATE TABLE IF NOT EXISTS plantillas_publicacion (

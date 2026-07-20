@@ -4865,6 +4865,12 @@ const app = {
             </div>
           </form>
           <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
+          <div class="form-group">
+            <label>🦷 Equipamiento de la clínica</label>
+            <small style="color: var(--gray-600); margin: 0 0 0.6rem; display: block;">Vale para todas tus sedes. Tus ofertas lo heredan y cuenta en el % de compatibilidad con los dentistas.</small>
+            <div id="clinicaEquipamientoContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;"></div>
+          </div>
+          <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
           <div id="anclaSedes"></div>
           <div class="zona-peligro">
             <h4>⚠️ Zona de peligro</h4>
@@ -4874,6 +4880,15 @@ const app = {
         `;
 
         app.perfil.colocarSedes();
+
+        // Equipamiento de la clínica (vale para todas sus sedes)
+        try {
+          await app.catalogos.cargar();
+          const equip = await utils.requestOpcional("/auth/mi-equipamiento");
+          app.catalogos.renderizarEquipamientoPerfil(equip?.equipamiento || []);
+        } catch (e) {
+          console.error("No se pudo cargar el equipamiento:", e);
+        }
 
         // Cargar especialidades para empresa
         await app.perfil.cargarEspecialidades();
@@ -5076,6 +5091,19 @@ const app = {
               method: "POST",
               body: JSON.stringify({ especialidades: especialidadesSeleccionadas })
             });
+          }
+
+          // Equipamiento de la clínica: se guarda con el resto de "Mis datos"
+          if (estadoApp.tipoUsuario === 'clinica') {
+            const equipos = Array.from(
+              document.querySelectorAll('#clinicaEquipamientoContainer input[type="checkbox"]:checked')
+            ).map(cb => cb.value);
+            await utils.request("/auth/guardar-equipamiento", {
+              method: "POST",
+              body: JSON.stringify({ equipamiento: equipos })
+            });
+            // La vista previa al publicar lo tiene cacheado: que no muestre lo viejo
+            app.catalogos.equipamientoClinica = equipos;
           }
 
           // Guardar certificaciones (solo dentistas)
@@ -6321,6 +6349,14 @@ const app = {
         </div>`;
       }
 
+      // El equipamiento es de la clínica entera, así que se muestra una sola vez y
+      // no repetido en cada sede
+      if ((u.equipamiento || []).length) {
+        html += `<div class="info-section"><h4>🦷 Equipamiento</h4>
+          <div class="badges">${u.equipamiento.map(e => `<span class="badge">${utils.escapeHtml(e)}</span>`).join("")}</div>
+        </div>`;
+      }
+
       if (sedes.length) {
         html += `<div class="info-section"><h4>📍 ${sedes.length > 1 ? `Sedes (${sedes.length})` : "Sede"}</h4>`;
         html += sedes.map(s => {
@@ -6330,13 +6366,9 @@ const app = {
           if (s.direccion) lineas.push(`📍 ${utils.escapeHtml(s.direccion)}`);
           if (localizacion) lineas.push(utils.escapeHtml(localizacion));
           if (s.telefono) lineas.push(`📞 ${utils.escapeHtml(s.telefono)}`);
-          const equip = (s.equipamiento || []).length
-            ? `<div class="badges" style="margin-top:.4rem;">${s.equipamiento.map(e => `<span class="badge">${utils.escapeHtml(e)}</span>`).join("")}</div>`
-            : "";
           return `<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:.9rem 1rem;margin-bottom:.6rem;">
                     <strong>${utils.escapeHtml(s.nombre)}</strong>
                     ${lineas.length ? `<div style="color:#4b5563;margin-top:.2rem;line-height:1.6;">${lineas.join("<br>")}</div>` : ""}
-                    ${equip}
                   </div>`;
         }).join("");
         html += `</div>`;
@@ -6685,7 +6717,6 @@ const app = {
     // Prepara el formulario de "Añadir sede": checkboxes de equipamiento + autocompletado de ciudad
     async prepararFormulario() {
       try { await app.catalogos.cargar(); } catch (e) { /* el catálogo ya puede estar cargado */ }
-      app.catalogos.renderizarEquipamientoPublicar('sede');
       app.ciudades.montar(
         document.getElementById("sedeCiudad"),
         document.getElementById("sedeProvincia"),
@@ -6704,7 +6735,6 @@ const app = {
 
       contenedor.innerHTML = this.lista.map(s => {
         const ciudadLabel = s.provincia ? `${s.ciudad} (${s.provincia})` : s.ciudad;
-        const equipos = s.equipamiento || [];
         return `
         <div style="background: #f8faff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
           <div>
@@ -6713,7 +6743,6 @@ const app = {
               📍 ${utils.escapeHtml(ciudadLabel)}${s.direccion ? ` · ${utils.escapeHtml(s.direccion)}` : ''}${s.codigo_postal ? ` (${utils.escapeHtml(s.codigo_postal)})` : ''}
             </p>
             ${s.telefono ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.9rem; color: #6b7280;">📞 ${utils.escapeHtml(s.telefono)}</p>` : ''}
-            ${equipos.length ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: #6b7280;">🦷 ${equipos.map(utils.escapeHtml).join(', ')}</p>` : ''}
           </div>
           <button class="btn-outline btn-small" onclick="app.sedes.eliminar(${s.id})">Eliminar</button>
         </div>
@@ -6722,15 +6751,13 @@ const app = {
     },
 
     async crear() {
-      const equipos = Array.from(document.querySelectorAll('#sedeEquipamientoContainer input[type="checkbox"]:checked')).map(cb => cb.value);
       const datos = {
         nombre: document.getElementById("sedeNombre").value,
         ciudad: document.getElementById("sedeCiudad").value,
         provincia: document.getElementById("sedeProvincia").value || null,
         direccion: document.getElementById("sedeDireccion").value || null,
         codigo_postal: document.getElementById("sedeCodigoPostal").value || null,
-        telefono: document.getElementById("sedeTelefono").value || null,
-        equipamiento: equipos
+        telefono: document.getElementById("sedeTelefono").value || null
       };
 
       try {
@@ -6743,7 +6770,6 @@ const app = {
           const el = document.getElementById(id);
           if (el) el.value = "";
         });
-        document.querySelectorAll('#sedeEquipamientoContainer input[type="checkbox"]').forEach(cb => cb.checked = false);
         const lbl = document.getElementById("sedeProvinciaLabel");
         if (lbl) lbl.textContent = "";
         await this.cargar();
@@ -6804,8 +6830,9 @@ const app = {
       }
     },
 
-    // Al elegir sede, rellenar (solo lectura) ciudad, teléfono y equipamiento heredados, y una vista previa.
-    aplicarAPublicacion(prefijo = 'oferta') {
+    // Al elegir sede, rellenar (solo lectura) ciudad y teléfono de la sede, y el
+    // equipamiento, que es de la clínica y lo heredan todas sus ofertas.
+    async aplicarAPublicacion(prefijo = 'oferta') {
       const select = document.getElementById(`${prefijo}Sede`);
       const sede = this.lista.find(s => String(s.id) === select.value);
       const preview = document.getElementById(`${prefijo}SedePreview`);
@@ -6823,7 +6850,7 @@ const app = {
       setVal(`${prefijo}Ciudad`, ciudadLabel);
       setVal(`${prefijo}TelefonoContacto`, sede.telefono || "");
 
-      const equipos = sede.equipamiento || [];
+      const equipos = await app.catalogos.cargarEquipamientoClinica();
       if (preview) {
         preview.innerHTML = `
           <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:.75rem 1rem;font-size:.88rem;color:#0c4a6e;">
@@ -7618,8 +7645,18 @@ const app = {
   // ============================================
 
   catalogos: {
-    equipamiento: [],
+    equipamiento: [],      // catálogo completo (lo que existe)
     certificaciones: [],
+    equipamientoClinica: null, // lo que tiene ESTA clínica; null = aún no consultado
+
+    // El equipamiento propio de la clínica, cacheado. Se usa en la vista previa al
+    // publicar, que antes lo sacaba de la sede: ahora es de la clínica entera.
+    async cargarEquipamientoClinica() {
+      if (this.equipamientoClinica !== null) return this.equipamientoClinica;
+      const data = await utils.requestOpcional("/auth/mi-equipamiento");
+      this.equipamientoClinica = data?.equipamiento || [];
+      return this.equipamientoClinica;
+    },
 
     async cargar() {
       if (this.equipamiento.length > 0 || this.certificaciones.length > 0) return;
@@ -7670,6 +7707,19 @@ const app = {
         <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
           <input type="checkbox" value="${utils.escapeHtml(c)}" ${seleccionadas.includes(c) ? 'checked' : ''}>
           ${utils.escapeHtml(c)}
+        </label>
+      `).join("");
+    },
+
+    // Checkboxes de equipamiento en "Mis datos" de la clínica. Antes se declaraba en
+    // cada sede; ahora es de la clínica entera y todas sus ofertas lo heredan.
+    renderizarEquipamientoPerfil(seleccionados) {
+      const contenedor = document.getElementById("clinicaEquipamientoContainer");
+      if (!contenedor) return;
+      contenedor.innerHTML = this.equipamiento.map(e => `
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+          <input type="checkbox" value="${utils.escapeHtml(e)}" ${seleccionados.includes(e) ? 'checked' : ''}>
+          ${utils.escapeHtml(e)}
         </label>
       `).join("");
     }
