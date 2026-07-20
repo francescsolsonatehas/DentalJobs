@@ -4845,6 +4845,11 @@ const app = {
               </div>
             </div>
 
+            <div class="form-group">
+              <label>🦷 Equipamiento de la clínica</label>
+              <div id="clinicaEquipamientoContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem;"></div>
+            </div>
+
             <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
 
             <div class="form-group">
@@ -4864,11 +4869,6 @@ const app = {
               <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
             </div>
           </form>
-          <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
-          <div class="form-group">
-            <label>🦷 Equipamiento de la clínica</label>
-            <div id="clinicaEquipamientoContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem;"></div>
-          </div>
           <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
           <div id="anclaSedes"></div>
           <div class="zona-peligro">
@@ -6366,7 +6366,7 @@ const app = {
           if (localizacion) lineas.push(utils.escapeHtml(localizacion));
           if (s.telefono) lineas.push(`📞 ${utils.escapeHtml(s.telefono)}`);
           return `<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:.9rem 1rem;margin-bottom:.6rem;">
-                    <strong>${utils.escapeHtml(s.nombre)}</strong>
+                    <strong>${utils.escapeHtml(s.nombre || s.ciudad)}</strong>
                     ${lineas.length ? `<div style="color:#4b5563;margin-top:.2rem;line-height:1.6;">${lineas.join("<br>")}</div>` : ""}
                   </div>`;
         }).join("");
@@ -6728,19 +6728,24 @@ const app = {
       if (!contenedor) return;
 
       if (this.lista.length === 0) {
-        contenedor.innerHTML = `<p style="color: #9ca3af; text-align: center;">Aún no has añadido ninguna sede.</p>`;
+        contenedor.innerHTML = `<p style="color: #9ca3af; text-align: center;">Aún no has añadido ningún centro.</p>`;
         return;
       }
 
       contenedor.innerHTML = this.lista.map(s => {
         const ciudadLabel = s.provincia ? `${s.ciudad} (${s.provincia})` : s.ciudad;
+        // El nombre es opcional: sin él, el centro se identifica por su ciudad, y
+        // entonces no se repite abajo (quedaría "🏥 Manresa / 📍 Manresa").
+        const detalle = [
+          s.nombre ? utils.escapeHtml(ciudadLabel) : "",
+          s.direccion ? utils.escapeHtml(s.direccion) : ""
+        ].filter(Boolean).join(" · ");
+        const linea = `${detalle}${s.codigo_postal ? ` (${utils.escapeHtml(s.codigo_postal)})` : ""}`.trim();
         return `
         <div style="background: #f8faff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
           <div>
-            <strong style="color: #0f4c75;">🏥 ${utils.escapeHtml(s.nombre)}</strong>
-            <p style="margin: 0.2rem 0 0 0; font-size: 0.9rem; color: #6b7280;">
-              📍 ${utils.escapeHtml(ciudadLabel)}${s.direccion ? ` · ${utils.escapeHtml(s.direccion)}` : ''}${s.codigo_postal ? ` (${utils.escapeHtml(s.codigo_postal)})` : ''}
-            </p>
+            <strong style="color: #0f4c75;">🏥 ${utils.escapeHtml(s.nombre || ciudadLabel)}</strong>
+            ${linea ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.9rem; color: #6b7280;">📍 ${linea}</p>` : ''}
             ${s.telefono ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.9rem; color: #6b7280;">📞 ${utils.escapeHtml(s.telefono)}</p>` : ''}
           </div>
           <button class="btn-outline btn-small" onclick="app.sedes.eliminar(${s.id})">Eliminar</button>
@@ -6781,7 +6786,7 @@ const app = {
       if (!confirm("¿Eliminar esta sede? Sus publicaciones seguirán activas, pero sin sede asociada.")) return;
       try {
         await utils.request(`/sedes/${id}`, { method: "DELETE" });
-        utils.mostrarAlerta("Sede eliminada", "success");
+        utils.mostrarAlerta("Centro eliminado", "success");
         await this.cargar();
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
@@ -6811,7 +6816,7 @@ const app = {
         this.lista = data.sedes || [];
 
         if (this.lista.length === 0) {
-          select.innerHTML = `<option value="">— No tienes sedes —</option>`;
+          select.innerHTML = `<option value="">— No tienes centros —</option>`;
           if (aviso) aviso.style.display = "block";
           if (submitBtn) submitBtn.disabled = true;
           if (preview) preview.innerHTML = "";
@@ -6821,7 +6826,7 @@ const app = {
         if (aviso) aviso.style.display = "none";
         if (submitBtn) submitBtn.disabled = false;
         select.innerHTML = `<option value="">Elige una sede…</option>` +
-          this.lista.map(s => `<option value="${s.id}">${utils.escapeHtml(s.nombre)} (${utils.escapeHtml(s.ciudad)})</option>`).join('');
+          this.lista.map(s => `<option value="${s.id}">${utils.escapeHtml(s.nombre ? `${s.nombre} (${s.ciudad})` : s.ciudad)}</option>`).join('');
         if (preview) preview.innerHTML = "";
       } catch (error) {
         console.error("Error al cargar sedes:", error);

@@ -74,6 +74,28 @@ test("sedes", async (t) => {
     assert.equal(res.status, 403);
   });
 
+  // Muchas clínicas tienen un solo centro y no le ponen nombre propio: se identifica
+  // por su ciudad. La ciudad sí sigue siendo obligatoria.
+  await t.test("el nombre del centro es opcional, la ciudad no", async () => {
+    const sinNombre = await request(app)
+      .post("/sedes")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ ciudad: "Manresa", telefono: "938000000" });
+    assert.equal(sinNombre.status, 200);
+
+    const lista = await request(app).get("/sedes").set("Authorization", `Bearer ${clinica.token}`);
+    const creada = lista.body.sedes.find(s => s.id === sinNombre.body.id);
+    assert.ok(creada, "el centro sin nombre debería listarse");
+    assert.equal(creada.ciudad, "Manresa");
+    assert.ok(!creada.nombre, "se guarda sin nombre");
+
+    const sinCiudad = await request(app)
+      .post("/sedes")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ nombre: "Centro sin ciudad" });
+    assert.equal(sinCiudad.status, 400);
+  });
+
   await t.test("al eliminar la sede, sus publicaciones quedan sin sede pero activas", async () => {
     const res = await request(app)
       .delete(`/sedes/${sedeId}`)

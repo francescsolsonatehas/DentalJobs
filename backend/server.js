@@ -4594,20 +4594,22 @@ app.post("/sedes", verifyToken, (req, res) => {
 
   // El equipamiento ya no es de la sede sino de la clínica (ver
   // /auth/guardar-equipamiento): si llega en el cuerpo, se ignora.
+  // El nombre es opcional: muchas clínicas solo tienen un centro y no le ponen
+  // nombre propio. Cuando falta, se identifica por su ciudad.
   const { nombre, ciudad, provincia, direccion, codigo_postal, telefono } = req.body;
-  if (!nombre || !nombre.trim() || !ciudad || !ciudad.trim()) {
-    return res.status(400).json({ error: "Nombre y ciudad son obligatorios" });
+  if (!ciudad || !ciudad.trim()) {
+    return res.status(400).json({ error: "La ciudad es obligatoria" });
   }
 
   db.run(
     "INSERT INTO sedes (usuario_id, nombre, ciudad, provincia, direccion, codigo_postal, telefono) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    [req.usuario.id, nombre.trim(), ciudad.trim(), provincia || null, direccion || null, codigo_postal || null, telefono || null],
+    [req.usuario.id, (nombre || "").trim(), ciudad.trim(), provincia || null, direccion || null, codigo_postal || null, telefono || null],
     function(err) {
       if (err) {
         console.error(err);
         return res.status(500).json({ error: "Error al crear sede" });
       }
-      res.json({ mensaje: "Sede creada", id: this.lastID });
+      res.json({ mensaje: "Centro creado", id: this.lastID });
     }
   );
 });
@@ -4630,8 +4632,8 @@ app.get("/sedes", verifyToken, (req, res) => {
 app.put("/sedes/:id", verifyToken, (req, res) => {
   // El equipamiento ya no es de la sede sino de la clínica: si llega, se ignora
   const { nombre, ciudad, provincia, direccion, codigo_postal, telefono } = req.body;
-  if (!nombre || !nombre.trim() || !ciudad || !ciudad.trim()) {
-    return res.status(400).json({ error: "Nombre y ciudad son obligatorios" });
+  if (!ciudad || !ciudad.trim()) {
+    return res.status(400).json({ error: "La ciudad es obligatoria" });
   }
 
   db.get("SELECT usuario_id FROM sedes WHERE id = ?", [req.params.id], (err, sede) => {
@@ -4645,13 +4647,13 @@ app.put("/sedes/:id", verifyToken, (req, res) => {
 
     db.run(
       "UPDATE sedes SET nombre = ?, ciudad = ?, provincia = ?, direccion = ?, codigo_postal = ?, telefono = ? WHERE id = ?",
-      [nombre.trim(), ciudad.trim(), provincia || null, direccion || null, codigo_postal || null, telefono || null, req.params.id],
+      [(nombre || "").trim(), ciudad.trim(), provincia || null, direccion || null, codigo_postal || null, telefono || null, req.params.id],
       (err) => {
         if (err) {
           console.error(err);
           return res.status(500).json({ error: "Error al actualizar sede" });
         }
-        res.json({ mensaje: "Sede actualizada" });
+        res.json({ mensaje: "Centro actualizado" });
       }
     );
   });
@@ -4681,7 +4683,7 @@ app.delete("/sedes/:id", verifyToken, (req, res) => {
             console.error(err2);
             return res.status(500).json({ error: "Error al eliminar sede" });
           }
-          res.json({ mensaje: "Sede eliminada" });
+          res.json({ mensaje: "Centro eliminado" });
         });
       });
     });

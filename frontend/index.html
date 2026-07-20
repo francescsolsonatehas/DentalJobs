@@ -376,7 +376,7 @@
                         <select id="ofertaSede" onchange="app.sedes.aplicarAPublicacion('oferta')">
                             <option value="">Elige una sede…</option>
                         </select>
-                        <small id="ofertaSinSedes" style="display: none; color: #b45309; margin-top: 0.3rem;">No tienes sedes. Crea una en "Mi perfil" → Mis datos antes de publicar una oferta.</small>
+                        <small id="ofertaSinSedes" style="display: none; color: #b45309; margin-top: 0.3rem;">No tienes centros. Crea uno en "Mi perfil" → Mis datos antes de publicar una oferta.</small>
                         <div id="ofertaSedePreview" style="margin-top: 0.6rem;"></div>
                     </div>
                     <div class="form-group">
@@ -553,7 +553,7 @@
                         <select id="suplenciaSede" onchange="app.sedes.aplicarAPublicacion('suplencia')">
                             <option value="">Elige una sede…</option>
                         </select>
-                        <small id="suplenciaSinSedes" style="display: none; color: #b45309; margin-top: 0.3rem;">No tienes sedes. Crea una en "Mi perfil" → Mis datos antes de publicar una suplencia.</small>
+                        <small id="suplenciaSinSedes" style="display: none; color: #b45309; margin-top: 0.3rem;">No tienes centros. Crea uno en "Mi perfil" → Mis datos antes de publicar una suplencia.</small>
                         <div id="suplenciaSedePreview" style="margin-top: 0.6rem;"></div>
                     </div>
                     <div class="form-group">
@@ -960,13 +960,13 @@
                  aparcado y app.perfil lo coloca dentro del formulario al abrirlo
                  (así el marcado y la lógica de app.sedes no se duplican). -->
             <div id="bloqueSedes" style="display: none;">
-                <h4 style="color: #0f4c75; margin: 0 0 1rem 0;">🏥 Mis sedes</h4>
+                <h4 style="color: #0f4c75; margin: 0 0 1rem 0;">🏥 Centros</h4>
                 <div id="sedesLista" style="margin-bottom: 1.5rem;"></div>
-                <h4 style="color: #0f4c75; margin: 0 0 1rem 0;">➕ Añadir sede</h4>
+                <h4 style="color: #0f4c75; margin: 0 0 1rem 0;">➕ Añadir centro</h4>
                 <form onsubmit="event.preventDefault(); app.sedes.crear();">
                     <div class="form-group">
-                        <label for="sedeNombre">Nombre de la sede *</label>
-                        <input id="sedeNombre" type="text" placeholder="Ej: Clínica Centro" required>
+                        <label for="sedeNombre">Nombre del centro</label>
+                        <input id="sedeNombre" type="text" placeholder="Ej: Clínica Centro">
                     </div>
                     <div class="form-group">
                         <label for="sedeCiudad">Ciudad *</label>
@@ -988,7 +988,7 @@
                             <input id="sedeTelefono" type="tel" placeholder="+34 93 000 00 00">
                         </div>
                     </div>
-                    <button type="submit" class="btn-primary" style="width: 100%;">Añadir sede</button>
+                    <button type="submit" class="btn-primary" style="width: 100%;">Añadir centro</button>
                 </form>
             </div>
         </div>
