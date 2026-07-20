@@ -1122,7 +1122,8 @@ const app = {
         case "disponibilidad": abrirPerfilEn("tabDisponibilidad"); break;
         case "compatibilidad": abrirPerfilEn("tabCompatibilidad"); break;
         case "cv": abrirPerfilEn("tabCv"); break;
-        case "sedes": abrirPerfilEn("tabSedes"); break;
+        // Las sedes ya no tienen pestaña propia: están dentro de "Mis datos"
+        case "sedes": abrirPerfilEn("tabDatos"); break;
         case "publicar": app.modal.abrirPublicar(); break;
         case "explorar": document.getElementById("filtros")?.scrollIntoView({ behavior: "smooth", block: "start" }); break;
       }
@@ -4690,8 +4691,10 @@ const app = {
         // El test de compatibilidad lo responden los dos: la clínica dice cómo es
         document.getElementById("tabCompatibilidad").style.display = "inline-block";
         document.getElementById("tabFotos").style.display = "inline-block";
-        document.getElementById("tabSedes").style.display = "inline-block";
-        document.getElementById("perfilTitle").textContent = "Datos de la Empresa";
+        // El título es el nombre de la clínica: identifica de quién es el perfil
+        // mejor que un rótulo genérico. Si aún no se conoce, se cae al rótulo.
+        document.getElementById("perfilTitle").textContent =
+          estadoApp.usuario?.nombre || "Datos de la clínica";
         app.sedes.cargar();
       } else {
         document.getElementById("tabDatos").style.display = "inline-block";
@@ -4701,7 +4704,6 @@ const app = {
         document.getElementById("tabDisponibilidad").style.display = "inline-block";
         document.getElementById("tabCompatibilidad").style.display = "inline-block";
         document.getElementById("tabFotos").style.display = "none";
-        document.getElementById("tabSedes").style.display = "none";
         document.getElementById("perfilTitle").textContent = "Mi perfil";
         app.trayectoria.cargar();
       }
@@ -4737,8 +4739,34 @@ const app = {
       }
     },
 
+    // Las sedes se muestran dentro de "Mis datos", pero su marcado vive fuera del
+    // contenedor que se reconstruye en cada render. Estas dos funciones lo mueven de
+    // un sitio a otro en vez de duplicarlo: así el formulario de alta y toda la
+    // lógica de app.sedes siguen siendo los mismos de siempre.
+    aparcarSedes() {
+      const bloque = document.getElementById("bloqueSedes");
+      const aparcadero = document.getElementById("modalPerfil");
+      if (bloque && aparcadero && bloque.parentElement !== aparcadero) {
+        bloque.style.display = "none";
+        aparcadero.appendChild(bloque);
+      }
+    },
+
+    colocarSedes() {
+      const bloque = document.getElementById("bloqueSedes");
+      const ancla = document.getElementById("anclaSedes");
+      if (!bloque || !ancla) return;
+      ancla.appendChild(bloque);
+      bloque.style.display = "block";
+    },
+
     async mostrarFormularioEdicion() {
       const misDatosContainer = document.getElementById("misDatosContainer");
+
+      // El bloque de sedes se mete dentro de este formulario, así que hay que sacarlo
+      // ANTES de reconstruirlo: `innerHTML = …` borra los hijos, y con ellos se
+      // llevaría por delante el bloque y sus campos.
+      app.perfil.aparcarSedes();
 
       try {
         // Obtener datos completos del usuario desde el backend
@@ -4753,7 +4781,7 @@ const app = {
         misDatosContainer.innerHTML = `
           <form id="formPerfilEmpresa" onsubmit="app.perfil.guardar(event)">
             <div class="form-group">
-              <label>Nombre de la Empresa</label>
+              <label>Nombre de la clínica</label>
               <input type="text" id="perfilNombre" value="${utils.escapeHtml(u.nombre)}" required>
             </div>
 
@@ -4836,12 +4864,16 @@ const app = {
               <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
             </div>
           </form>
+          <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
+          <div id="anclaSedes"></div>
           <div class="zona-peligro">
             <h4>⚠️ Zona de peligro</h4>
             <p>Eliminar tu cuenta borra tus datos personales, archivos y publicaciones de forma irreversible. Los mensajes y reseñas que compartiste con otros usuarios quedarán anonimizados.</p>
             <button type="button" class="btn-outline btn-small" style="border-color: #dc2626; color: #dc2626;" onclick="app.perfil.eliminarCuenta()">Eliminar mi cuenta</button>
           </div>
         `;
+
+        app.perfil.colocarSedes();
 
         // Cargar especialidades para empresa
         await app.perfil.cargarEspecialidades();
@@ -5025,6 +5057,13 @@ const app = {
           }
 
           estadoApp.usuario = { ...estadoApp.usuario, ...datosActualizados };
+
+          // El título del perfil de una clínica es su nombre: si acaba de cambiarlo,
+          // que no se quede el anterior en la cabecera.
+          if (estadoApp.tipoUsuario === 'clinica' && estadoApp.usuario.nombre) {
+            const titulo = document.getElementById("perfilTitle");
+            if (titulo) titulo.textContent = estadoApp.usuario.nombre;
+          }
 
           // Guardar especialidades si es candidato o empresa
           if (['dentista', 'clinica'].includes(estadoApp.tipoUsuario)) {
