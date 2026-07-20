@@ -4867,8 +4867,7 @@ const app = {
           <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
           <div class="form-group">
             <label>🦷 Equipamiento de la clínica</label>
-            <small style="color: var(--gray-600); margin: 0 0 0.6rem; display: block;">Vale para todas tus sedes. Tus ofertas lo heredan y cuenta en el % de compatibilidad con los dentistas.</small>
-            <div id="clinicaEquipamientoContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;"></div>
+            <div id="clinicaEquipamientoContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem;"></div>
           </div>
           <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
           <div id="anclaSedes"></div>
