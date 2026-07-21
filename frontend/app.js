@@ -4704,7 +4704,10 @@ const app = {
         document.getElementById("tabDisponibilidad").style.display = "inline-block";
         document.getElementById("tabCompatibilidad").style.display = "inline-block";
         document.getElementById("tabFotos").style.display = "none";
-        document.getElementById("perfilTitle").textContent = "Mi perfil";
+        // El título es el nombre del dentista, igual que la clínica se titula con el
+        // suyo. Si aún no se conoce, se cae al rótulo genérico.
+        document.getElementById("perfilTitle").textContent =
+          estadoApp.usuario?.nombre || "Mi perfil";
         app.trayectoria.cargar();
       }
 
@@ -5072,9 +5075,9 @@ const app = {
 
           estadoApp.usuario = { ...estadoApp.usuario, ...datosActualizados };
 
-          // El título del perfil de una clínica es su nombre: si acaba de cambiarlo,
-          // que no se quede el anterior en la cabecera.
-          if (estadoApp.tipoUsuario === 'clinica' && estadoApp.usuario.nombre) {
+          // El título del perfil es el nombre del usuario (clínica o dentista): si
+          // acaba de cambiarlo, que no se quede el anterior en la cabecera.
+          if (estadoApp.usuario.nombre) {
             const titulo = document.getElementById("perfilTitle");
             if (titulo) titulo.textContent = estadoApp.usuario.nombre;
           }
