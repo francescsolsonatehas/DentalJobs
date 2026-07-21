@@ -841,13 +841,9 @@
                 <div id="trayectoriaExperienciaLista" style="margin-bottom: 1rem;"></div>
                 <form onsubmit="event.preventDefault(); app.trayectoria.crearExperiencia();" style="margin-bottom: 2rem;">
                     <div class="form-group">
-                        <label for="expPuesto">Puesto *</label>
-                        <input id="expPuesto" type="text" placeholder="Ej: Odontóloga generalista" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="expEspecialidad">Especialidad</label>
-                        <select id="expEspecialidad">
-                            <option value="">— Sin especialidad concreta —</option>
+                        <label for="expEspecialidad">Especialidad *</label>
+                        <select id="expEspecialidad" required>
+                            <option value="">Elige una especialidad…</option>
                         </select>
                     </div>
                     <div class="form-group">

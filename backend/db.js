@@ -2,6 +2,57 @@ const { crearDb } = require("./libsql-adapter");
 
 const db = crearDb();
 
+// Funde varias especialidades en una sola. La primera de `origenes` que exista se
+// renombra a `destino` (así conserva su id y todo lo que ya apunta a ella); las
+// demás se absorben moviendo sus referencias a esa y borrando la fila sobrante.
+//
+// Las tablas puente tienen UNIQUE(x, especialidad_id): si un usuario o publicación
+// ya tenía las dos especialidades que se funden, mover una chocaría con la otra, así
+// que se usa UPDATE OR IGNORE y luego se limpian las filas que no se pudieron mover.
+// La trayectoria guarda la especialidad como texto (nombre), no como id: se migra
+// aparte por nombre.
+function fusionarEspecialidades(db, origenes, destino) {
+  // Punto de anclaje: el primer origen que exista pasa a llamarse `destino`.
+  db.run(
+    `UPDATE especialidades SET nombre = ?
+      WHERE id = (SELECT MIN(id) FROM especialidades WHERE nombre IN (${origenes.map(() => "?").join(",")}))`,
+    [destino, ...origenes],
+    () => {
+      db.get("SELECT id FROM especialidades WHERE nombre = ?", [destino], (err, fila) => {
+        if (err || !fila) return;
+        const destinoId = fila.id;
+
+        // Cada especialidad que aún tenga un nombre de origen se absorbe en el destino
+        origenes.forEach(nombreOrigen => {
+          db.get("SELECT id FROM especialidades WHERE nombre = ?", [nombreOrigen], (e2, orig) => {
+            if (e2 || !orig) return;
+            const origenId = orig.id;
+
+            db.run("UPDATE OR IGNORE usuario_especialidades SET especialidad_id = ? WHERE especialidad_id = ?", [destinoId, origenId], () => {
+              db.run("DELETE FROM usuario_especialidades WHERE especialidad_id = ?", [origenId], () => {});
+            });
+            db.run("UPDATE OR IGNORE publicacion_especialidades SET especialidad_id = ? WHERE especialidad_id = ?", [destinoId, origenId], () => {
+              db.run("DELETE FROM publicacion_especialidades WHERE especialidad_id = ?", [origenId], () => {});
+            });
+            // La especialidad principal de una publicación no tiene UNIQUE: se mueve directa
+            db.run("UPDATE publicaciones SET especialidad_id = ? WHERE especialidad_id = ?", [destinoId, origenId], () => {
+              db.run("DELETE FROM especialidades WHERE id = ?", [origenId], () => {});
+            });
+          });
+        });
+      });
+    }
+  );
+
+  // La trayectoria guarda el nombre en texto: se reetiqueta directamente
+  const placeholders = origenes.map(() => "?").join(",");
+  db.run(
+    `UPDATE experiencia_laboral SET especialidad = ? WHERE especialidad IN (${placeholders})`,
+    [destino, ...origenes],
+    () => {}
+  );
+}
+
 db.serialize(() => {
   // En Turso (remoto) los PRAGMA pueden no estar soportados: ignorar el error
   db.run("PRAGMA foreign_keys = ON", () => {});
@@ -497,6 +548,13 @@ db.serialize(() => {
   // puesto puede no corresponder a una especialidad concreta (recepción, gestión…).
   db.run(`ALTER TABLE experiencia_laboral ADD COLUMN especialidad TEXT`, () => {});
 
+  // Fusión de especialidades: "Cirugía oral" e "Implantología" pasan a ser una sola,
+  // "Cirugía e Implantología". Se hace por NOMBRE (no por id fijo) para no depender
+  // del orden del seed, y es idempotente: si ya se ejecutó, esos nombres ya no
+  // existen y no hace nada. "Cirugía oral" se renombra (conserva su id y todo lo que
+  // apunta a ella) y "Implantología" se absorbe en ella.
+  fusionarEspecialidades(db, ["Cirugía oral", "Implantología"], "Cirugía e Implantología");
+
   // Backfill: geocodificar la ciudad de los usuarios que aún no tienen coordenadas
   db.all("SELECT id, ciudad FROM usuarios WHERE lat IS NULL AND ciudad IS NOT NULL", (err, filas) => {
     if (err || !filas) return;
@@ -760,8 +818,7 @@ db.serialize(() => {
     if (row.count === 0) {
       const especializaciones = [
         "Generalista",
-        "Cirugía oral",
-        "Implantología",
+        "Cirugía e Implantología",
         "Endodoncia",
         "Periodoncia",
         "Ortodoncia",

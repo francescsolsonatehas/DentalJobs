@@ -1348,13 +1348,16 @@ app.get("/usuarios/:id/trayectoria", (req, res) => {
 
 app.post("/experiencia-laboral", verifyToken, (req, res) => {
   const { puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion, especialidad } = req.body;
-  if (!puesto || !puesto.trim()) {
-    return res.status(400).json({ error: "El puesto es obligatorio" });
+  // La especialidad ocupa el lugar del antiguo "puesto" como campo obligatorio de
+  // cada experiencia. `puesto` se conserva en el esquema (NOT NULL, y hay entradas
+  // antiguas que solo lo tienen a él), pero ya no se pide: se guarda vacío.
+  if (!especialidad || !especialidad.trim()) {
+    return res.status(400).json({ error: "La especialidad es obligatoria" });
   }
   db.run(
     `INSERT INTO experiencia_laboral (usuario_id, puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion, especialidad)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [req.usuario.id, puesto.trim(), lugar || null, fecha_inicio || null, actual ? null : (fecha_fin || null), actual ? 1 : 0, descripcion || null, (especialidad || "").trim() || null],
+    [req.usuario.id, (puesto || "").trim(), lugar || null, fecha_inicio || null, actual ? null : (fecha_fin || null), actual ? 1 : 0, descripcion || null, especialidad.trim()],
     function(err) {
       if (err) {
         console.error(err);
@@ -1367,8 +1370,8 @@ app.post("/experiencia-laboral", verifyToken, (req, res) => {
 
 app.put("/experiencia-laboral/:id", verifyToken, (req, res) => {
   const { puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion, especialidad } = req.body;
-  if (!puesto || !puesto.trim()) {
-    return res.status(400).json({ error: "El puesto es obligatorio" });
+  if (!especialidad || !especialidad.trim()) {
+    return res.status(400).json({ error: "La especialidad es obligatoria" });
   }
   db.get("SELECT usuario_id FROM experiencia_laboral WHERE id = ?", [req.params.id], (err, fila) => {
     if (err) {
@@ -1380,7 +1383,7 @@ app.put("/experiencia-laboral/:id", verifyToken, (req, res) => {
     }
     db.run(
       `UPDATE experiencia_laboral SET puesto = ?, lugar = ?, fecha_inicio = ?, fecha_fin = ?, actual = ?, descripcion = ?, especialidad = ? WHERE id = ?`,
-      [puesto.trim(), lugar || null, fecha_inicio || null, actual ? null : (fecha_fin || null), actual ? 1 : 0, descripcion || null, (especialidad || "").trim() || null, req.params.id],
+      [(puesto || "").trim(), lugar || null, fecha_inicio || null, actual ? null : (fecha_fin || null), actual ? 1 : 0, descripcion || null, especialidad.trim(), req.params.id],
       (err) => {
         if (err) {
           console.error(err);

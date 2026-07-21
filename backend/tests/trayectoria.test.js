@@ -19,30 +19,20 @@ test("trayectoria profesional (experiencia, formación, idiomas)", async (t) => 
 
   let experienciaId, formacionId, idiomaId;
 
-  await t.test("se puede añadir experiencia laboral con especialidad", async () => {
+  await t.test("se puede añadir experiencia laboral con su especialidad", async () => {
     const res = await request(app)
       .post("/experiencia-laboral")
       .set("Authorization", `Bearer ${dentista.token}`)
-      .send({ puesto: "Odontóloga generalista", especialidad: "Ortodoncia", lugar: "Clínica X", fecha_inicio: "2020-01", fecha_fin: "2022-06" });
+      .send({ especialidad: "Ortodoncia", lugar: "Clínica X", fecha_inicio: "2020-01", fecha_fin: "2022-06" });
     assert.equal(res.status, 200);
     experienciaId = res.body.id;
   });
 
-  await t.test("la especialidad es opcional", async () => {
+  await t.test("la especialidad es obligatoria (ocupa el lugar del antiguo puesto)", async () => {
     const res = await request(app)
       .post("/experiencia-laboral")
       .set("Authorization", `Bearer ${dentista.token}`)
-      .send({ puesto: "Recepción", lugar: "Clínica Y" });
-    assert.equal(res.status, 200);
-    // Se borra al terminar para no descuadrar el conteo de experiencia de abajo
-    await request(app).delete(`/experiencia-laboral/${res.body.id}`).set("Authorization", `Bearer ${dentista.token}`);
-  });
-
-  await t.test("el puesto es obligatorio", async () => {
-    const res = await request(app)
-      .post("/experiencia-laboral")
-      .set("Authorization", `Bearer ${dentista.token}`)
-      .send({ lugar: "Sin puesto" });
+      .send({ lugar: "Sin especialidad" });
     assert.equal(res.status, 400);
   });
 
@@ -66,7 +56,6 @@ test("trayectoria profesional (experiencia, formación, idiomas)", async (t) => 
     const res = await request(app).get(`/usuarios/${dentista.usuario.id}/trayectoria`);
     assert.equal(res.status, 200);
     assert.equal(res.body.experiencia.length, 1);
-    assert.equal(res.body.experiencia[0].puesto, "Odontóloga generalista");
     assert.equal(res.body.experiencia[0].especialidad, "Ortodoncia");
     assert.equal(res.body.formacion.length, 1);
     assert.equal(res.body.idiomas.length, 1);
@@ -77,7 +66,7 @@ test("trayectoria profesional (experiencia, formación, idiomas)", async (t) => 
     const editar = await request(app)
       .put(`/experiencia-laboral/${experienciaId}`)
       .set("Authorization", `Bearer ${intruso.token}`)
-      .send({ puesto: "Hackeado" });
+      .send({ especialidad: "Endodoncia" });
     assert.equal(editar.status, 403);
 
     const borrar = await request(app)
@@ -90,11 +79,11 @@ test("trayectoria profesional (experiencia, formación, idiomas)", async (t) => 
     const res = await request(app)
       .put(`/experiencia-laboral/${experienciaId}`)
       .set("Authorization", `Bearer ${dentista.token}`)
-      .send({ puesto: "Odontóloga senior", actual: true });
+      .send({ especialidad: "Periodoncia", actual: true });
     assert.equal(res.status, 200);
 
     const trayectoria = await request(app).get(`/usuarios/${dentista.usuario.id}/trayectoria`);
-    assert.equal(trayectoria.body.experiencia[0].puesto, "Odontóloga senior");
+    assert.equal(trayectoria.body.experiencia[0].especialidad, "Periodoncia");
     assert.equal(trayectoria.body.experiencia[0].actual, 1);
     assert.equal(trayectoria.body.experiencia[0].fecha_fin, null);
   });
