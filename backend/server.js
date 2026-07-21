@@ -1065,7 +1065,7 @@ async function recopilarDatosCv(usuarioId) {
     [usuarioId]
   );
   const experienciaLaboral = await all(
-    "SELECT puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion FROM experiencia_laboral WHERE usuario_id = ? ORDER BY orden ASC, fecha_inicio DESC",
+    "SELECT puesto, especialidad, lugar, fecha_inicio, fecha_fin, actual, descripcion FROM experiencia_laboral WHERE usuario_id = ? ORDER BY orden ASC, fecha_inicio DESC",
     [usuarioId]
   );
   const formacionLista = await all(
@@ -1166,10 +1166,20 @@ app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
 
     if (experienciaLaboral.length > 0) {
       seccion("Experiencia laboral");
+      const izq = doc.page.margins.left;
+      const anchoUtil = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+      const anchoRango = 120; // hueco reservado a la derecha para el año-mes
       experienciaLaboral.forEach(e => {
         const rango = [e.fecha_inicio, e.actual ? "Actualidad" : e.fecha_fin].filter(Boolean).join(" – ");
-        doc.font("Helvetica-Bold").text(`${e.puesto}${e.lugar ? ` · ${e.lugar}` : ""}`);
-        if (rango) doc.font("Helvetica").fillColor(gris).fontSize(10).text(rango);
+        // La especialidad titula la experiencia (fallback al puesto en entradas
+        // anteriores al cambio). El rango de fechas va al lado, a la derecha y en la
+        // misma línea.
+        const titulo = `${e.especialidad || e.puesto || ""}${e.lugar ? ` · ${e.lugar}` : ""}`;
+        const y = doc.y;
+        if (rango) {
+          doc.font("Helvetica").fillColor(gris).fontSize(10).text(rango, izq, y, { width: anchoUtil, align: "right" });
+        }
+        doc.font("Helvetica-Bold").fillColor("#1f2937").fontSize(11).text(titulo, izq, y, { width: anchoUtil - anchoRango });
         if (e.descripcion) doc.font("Helvetica").fillColor(gris).fontSize(11).text(e.descripcion, { lineGap: 1 });
         doc.fillColor("#1f2937").fontSize(11);
         doc.moveDown(0.4);
