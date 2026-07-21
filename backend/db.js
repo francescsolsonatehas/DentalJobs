@@ -493,6 +493,10 @@ db.serialize(() => {
   db.run(`ALTER TABLE usuarios ADD COLUMN lon REAL`, () => {});
   db.run(`ALTER TABLE usuarios ADD COLUMN radio_km INTEGER`, () => {});
 
+  // Especialidad en la que se desempeñó cada puesto de la trayectoria. Opcional: un
+  // puesto puede no corresponder a una especialidad concreta (recepción, gestión…).
+  db.run(`ALTER TABLE experiencia_laboral ADD COLUMN especialidad TEXT`, () => {});
+
   // Backfill: geocodificar la ciudad de los usuarios que aún no tienen coordenadas
   db.all("SELECT id, ciudad FROM usuarios WHERE lat IS NULL AND ciudad IS NOT NULL", (err, filas) => {
     if (err || !filas) return;

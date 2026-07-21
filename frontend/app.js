@@ -4392,7 +4392,7 @@ const app = {
           <h4 style="margin: 0 0 0.75rem 0; color: #0F4C75; font-weight: 700;">💼 Experiencia laboral</h4>
           ${trayectoria.experiencia.map(e => `
             <div style="margin-bottom: 0.9rem;">
-              <strong>${utils.escapeHtml(e.puesto)}</strong>${e.lugar ? ` · ${utils.escapeHtml(e.lugar)}` : ''}
+              <strong>${utils.escapeHtml(e.puesto)}</strong>${e.lugar ? ` · ${utils.escapeHtml(e.lugar)}` : ''}${e.especialidad ? ` <span style="background:#eef2ff;color:#3730a3;padding:.1rem .55rem;border-radius:999px;font-size:.72rem;font-weight:600;">${utils.escapeHtml(e.especialidad)}</span>` : ''}
               <p style="margin: 0.2rem 0; font-size: 0.85rem; color: #6b7280;">${utils.escapeHtml(app.trayectoria.formatearRango(e.fecha_inicio, e.fecha_fin, e.actual))}</p>
               ${e.descripcion ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.9rem; white-space: pre-wrap;">${utils.escapeHtml(e.descripcion)}</p>` : ''}
             </div>
@@ -6300,7 +6300,7 @@ const app = {
         html += `<div class="info-section"><h4>💼 Experiencia</h4>` +
           tray.experiencia.map(e => {
             const fechas = this.rangoFechas(e.fecha_inicio, e.fecha_fin, e.actual);
-            return `<div style="margin-bottom:.7rem;"><strong>${utils.escapeHtml(e.puesto)}</strong>${e.lugar ? " · " + utils.escapeHtml(e.lugar) : ""}${fechas ? `<div style="color:#6b7280;font-size:.85rem;">${fechas}</div>` : ""}${e.descripcion ? `<div style="color:#4b5563;font-size:.9rem;margin-top:.15rem;">${utils.escapeHtml(e.descripcion)}</div>` : ""}</div>`;
+            return `<div style="margin-bottom:.7rem;"><strong>${utils.escapeHtml(e.puesto)}</strong>${e.lugar ? " · " + utils.escapeHtml(e.lugar) : ""}${e.especialidad ? ` <span style="background:#eef2ff;color:#3730a3;padding:.1rem .55rem;border-radius:999px;font-size:.72rem;font-weight:600;">${utils.escapeHtml(e.especialidad)}</span>` : ""}${fechas ? `<div style="color:#6b7280;font-size:.85rem;">${fechas}</div>` : ""}${e.descripcion ? `<div style="color:#4b5563;font-size:.9rem;margin-top:.15rem;">${utils.escapeHtml(e.descripcion)}</div>` : ""}</div>`;
           }).join("") + `</div>`;
       }
       if ((tray.formacion || []).length) {
@@ -6548,6 +6548,7 @@ const app = {
     async cargar() {
       if (!estadoApp.usuario) return;
       try {
+        await this.cargarEspecialidades();
         const data = await utils.request(`/usuarios/${estadoApp.usuario.id}/trayectoria`);
         this.renderExperiencia(data.experiencia || []);
         this.renderFormacion(data.formacion || []);
@@ -6555,6 +6556,21 @@ const app = {
       } catch (error) {
         console.error("Error al cargar trayectoria:", error);
       }
+    },
+
+    // Rellena el desplegable de especialidad del formulario de experiencia con el
+    // catálogo. Se conserva la opción vacía inicial (especialidad opcional).
+    async cargarEspecialidades() {
+      const select = document.getElementById("expEspecialidad");
+      if (!select || select.dataset.cargado) return;
+      const especialidades = await utils.requestOpcional("/especialidades");
+      (especialidades || []).forEach(e => {
+        const opt = document.createElement("option");
+        opt.value = e.nombre;
+        opt.textContent = e.nombre;
+        select.appendChild(opt);
+      });
+      select.dataset.cargado = "1";
     },
 
     formatearRango(inicio, fin, actual) {
@@ -6573,6 +6589,7 @@ const app = {
         <div style="background: #f8faff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; gap: 1rem;">
           <div>
             <strong style="color: #0f4c75;">${utils.escapeHtml(e.puesto)}</strong>${e.lugar ? ` · ${utils.escapeHtml(e.lugar)}` : ''}
+            ${e.especialidad ? `<span style="display: inline-block; margin-left: 0.5rem; background: #eef2ff; color: #3730a3; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; vertical-align: middle;">${utils.escapeHtml(e.especialidad)}</span>` : ''}
             <p style="margin: 0.2rem 0; font-size: 0.85rem; color: #6b7280;">${utils.escapeHtml(this.formatearRango(e.fecha_inicio, e.fecha_fin, e.actual))}</p>
             ${e.descripcion ? `<p style="margin: 0.3rem 0 0 0; font-size: 0.9rem; color: #374151; white-space: pre-wrap;">${utils.escapeHtml(e.descripcion)}</p>` : ''}
           </div>
@@ -6617,6 +6634,7 @@ const app = {
     async crearExperiencia() {
       const datos = {
         puesto: document.getElementById("expPuesto").value,
+        especialidad: document.getElementById("expEspecialidad").value || null,
         lugar: document.getElementById("expLugar").value || null,
         fecha_inicio: document.getElementById("expInicio").value || null,
         fecha_fin: document.getElementById("expFin").value || null,
@@ -6626,7 +6644,7 @@ const app = {
 
       try {
         await utils.request("/experiencia-laboral", { method: "POST", body: JSON.stringify(datos) });
-        ["expPuesto", "expLugar", "expInicio", "expFin", "expDescripcion"].forEach(id => document.getElementById(id).value = "");
+        ["expPuesto", "expEspecialidad", "expLugar", "expInicio", "expFin", "expDescripcion"].forEach(id => document.getElementById(id).value = "");
         document.getElementById("expActual").checked = false;
         document.getElementById("expFin").disabled = false;
         utils.mostrarAlerta("✅ Experiencia añadida", "success");

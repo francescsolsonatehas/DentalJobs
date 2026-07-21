@@ -1299,7 +1299,7 @@ app.get("/usuarios/:id/publico", (req, res) => {
 app.get("/usuarios/:id/trayectoria", (req, res) => {
   const usuarioId = req.params.id;
   db.all(
-    "SELECT id, puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion FROM experiencia_laboral WHERE usuario_id = ? ORDER BY orden ASC, fecha_inicio DESC",
+    "SELECT id, puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion, especialidad FROM experiencia_laboral WHERE usuario_id = ? ORDER BY orden ASC, fecha_inicio DESC",
     [usuarioId],
     (err, experiencia) => {
       if (err) {
@@ -1347,14 +1347,14 @@ app.get("/usuarios/:id/trayectoria", (req, res) => {
 });
 
 app.post("/experiencia-laboral", verifyToken, (req, res) => {
-  const { puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion } = req.body;
+  const { puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion, especialidad } = req.body;
   if (!puesto || !puesto.trim()) {
     return res.status(400).json({ error: "El puesto es obligatorio" });
   }
   db.run(
-    `INSERT INTO experiencia_laboral (usuario_id, puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [req.usuario.id, puesto.trim(), lugar || null, fecha_inicio || null, actual ? null : (fecha_fin || null), actual ? 1 : 0, descripcion || null],
+    `INSERT INTO experiencia_laboral (usuario_id, puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion, especialidad)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [req.usuario.id, puesto.trim(), lugar || null, fecha_inicio || null, actual ? null : (fecha_fin || null), actual ? 1 : 0, descripcion || null, (especialidad || "").trim() || null],
     function(err) {
       if (err) {
         console.error(err);
@@ -1366,7 +1366,7 @@ app.post("/experiencia-laboral", verifyToken, (req, res) => {
 });
 
 app.put("/experiencia-laboral/:id", verifyToken, (req, res) => {
-  const { puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion } = req.body;
+  const { puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion, especialidad } = req.body;
   if (!puesto || !puesto.trim()) {
     return res.status(400).json({ error: "El puesto es obligatorio" });
   }
@@ -1379,8 +1379,8 @@ app.put("/experiencia-laboral/:id", verifyToken, (req, res) => {
       return res.status(403).json({ error: "No tienes permiso para modificar esta experiencia" });
     }
     db.run(
-      `UPDATE experiencia_laboral SET puesto = ?, lugar = ?, fecha_inicio = ?, fecha_fin = ?, actual = ?, descripcion = ? WHERE id = ?`,
-      [puesto.trim(), lugar || null, fecha_inicio || null, actual ? null : (fecha_fin || null), actual ? 1 : 0, descripcion || null, req.params.id],
+      `UPDATE experiencia_laboral SET puesto = ?, lugar = ?, fecha_inicio = ?, fecha_fin = ?, actual = ?, descripcion = ?, especialidad = ? WHERE id = ?`,
+      [puesto.trim(), lugar || null, fecha_inicio || null, actual ? null : (fecha_fin || null), actual ? 1 : 0, descripcion || null, (especialidad || "").trim() || null, req.params.id],
       (err) => {
         if (err) {
           console.error(err);
