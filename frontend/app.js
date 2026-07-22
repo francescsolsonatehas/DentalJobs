@@ -7208,10 +7208,11 @@ const app = {
     ultimaSenalEscribiendo: 0,
     // Límite de los adjuntos subidos desde el chat (tipo 'chat' en el backend).
     // El CV y el Book del perfil se referencian ya subidos, así que no lo aplican.
-    MAX_ADJUNTO_MB: 10,
-    // Adjunto a la espera de que se pulse "Enviar": puede ser un fichero recién
-    // elegido ({ file }) o un archivo del perfil ya subido ({ archivoId }).
-    adjuntoPendiente: null,
+    MAX_ADJUNTO_MB: 25,
+    // Adjuntos a la espera de que se pulse "Enviar". Cada uno es un fichero recién
+    // elegido/arrastrado ({ file }) o un archivo del perfil ya subido ({ archivoId }).
+    // Al enviar, cada adjunto va en su propio mensaje (el texto acompaña al primero).
+    adjuntosPendientes: [],
     atajosArchivos: null,
 
     async abrir() {
@@ -7350,19 +7351,24 @@ const app = {
     renderHiloUI(otroNombre) {
       document.getElementById("chatTitle").textContent = `💬 ${otroNombre}`;
       document.getElementById("chatBody").innerHTML = `
-        <div class="chat-hilo">
+        <div class="chat-hilo" id="chatHilo"
+             ondragenter="app.chat.arrastrarEncima(event)"
+             ondragover="app.chat.arrastrarEncima(event)"
+             ondragleave="app.chat.arrastrarFuera(event)"
+             ondrop="app.chat.soltarArchivos(event)">
+          <div id="chatDropOverlay" class="chat-drop-overlay">📎 Suelta los archivos para adjuntarlos</div>
           <button class="btn-text btn-small" onclick="app.chat.volverALista()" style="margin-bottom: 0.5rem;">← Todas las conversaciones</button>
           <div id="chatEscribiendo" class="chat-escribiendo" style="visibility: hidden;">escribiendo…</div>
           <div id="chatMensajes" class="chat-mensajes"><p style="color: #9ca3af; text-align: center;">Cargando…</p></div>
           <div id="chatAtajos" class="chat-atajos"></div>
           <div id="chatAdjuntoPendiente" class="chat-adjunto-pendiente" style="display: none;"></div>
           <form class="chat-input-row" onsubmit="event.preventDefault(); app.chat.enviar();">
-            <input id="chatFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*" style="display: none;" onchange="app.chat.adjuntarFichero()">
-            <button type="button" class="chat-adjuntar-btn" title="Adjuntar un archivo (máx ${this.MAX_ADJUNTO_MB} MB)" onclick="document.getElementById('chatFile').click()">📎</button>
+            <input id="chatFile" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*" style="display: none;" onchange="app.chat.adjuntarFichero()">
+            <button type="button" class="chat-adjuntar-btn" title="Adjuntar archivos (máx ${this.MAX_ADJUNTO_MB} MB)" onclick="document.getElementById('chatFile').click()">📎</button>
             <input id="chatInput" type="text" placeholder="Escribe un mensaje…" autocomplete="off" oninput="app.chat.notificarEscribiendo()">
             <button type="submit" class="btn-primary">Enviar</button>
           </form>
-          <p class="chat-adjunto-limite">Puedes adjuntar archivos de hasta ${this.MAX_ADJUNTO_MB} MB.</p>
+          <p class="chat-adjunto-limite">Arrastra aquí tus archivos o pulsa 📎 · hasta ${this.MAX_ADJUNTO_MB} MB cada uno.</p>
         </div>
       `;
     },
@@ -7376,7 +7382,7 @@ const app = {
     // abre siempre y el nombre se rellena cuando llega, si llega.
     async abrirConversacion(otroId, otroNombre) {
       this.conversacionActual = { otro_id: otroId, otro_nombre: otroNombre };
-      this.adjuntoPendiente = null;
+      this.adjuntosPendientes = [];
       this.renderHiloUI(otroNombre || "Conversación");
       const hilo = this.refrescarHilo(true);
       this.cargarAtajosArchivos();
@@ -7464,45 +7470,57 @@ const app = {
       }
     },
 
-    // Envía el mensaje al pulsar "Enviar": texto, adjunto pendiente, o ambos. Si el
-    // adjunto es un fichero recién elegido, se sube ahora (justo antes de mandarlo);
-    // si es el CV/Book del perfil, ya está subido y basta referenciarlo por su id.
+    // Envía al pulsar "Enviar": texto, adjuntos pendientes, o ambos. Cada adjunto va
+    // en su propio mensaje (el texto acompaña al primero), así valen varios ficheros
+    // —p. ej. las imágenes que componen el Book— en un solo envío. Los ficheros recién
+    // elegidos/arrastrados se suben ahora; el CV/Book del perfil ya está subido y solo
+    // se referencia por su id.
     async enviar() {
       const conv = this.conversacionActual;
       const input = document.getElementById("chatInput");
       if (!conv || this._enviando) return;
 
       const cuerpo = input ? input.value.trim() : "";
-      const pendiente = this.adjuntoPendiente;
-      if (!cuerpo && !pendiente) return;
+      const pendientes = this.adjuntosPendientes;
+      if (!cuerpo && pendientes.length === 0) return;
 
       this._enviando = true;
       try {
-        let archivoId = null;
-        if (pendiente) {
-          if (pendiente.file) {
+        // Resolver el id de cada adjunto (subiendo los ficheros nuevos), en orden
+        const archivoIds = [];
+        for (const p of pendientes) {
+          if (p.file) {
             const formData = new FormData();
-            formData.append("archivo", pendiente.file);
+            formData.append("archivo", p.file);
             formData.append("tipo", "chat");
             const resp = await utils.requestForm("/archivos/upload", formData);
-            archivoId = resp.id;
+            archivoIds.push(resp.id);
           } else {
-            archivoId = pendiente.archivoId;
+            archivoIds.push(p.archivoId);
           }
         }
 
-        const cuerpoBody = archivoId ? { cuerpo, archivo_id: archivoId } : { cuerpo };
-        await utils.request(`/chat/con/${conv.otro_id}`, {
+        const enviarMensaje = (body) => utils.request(`/chat/con/${conv.otro_id}`, {
           method: "POST",
-          body: JSON.stringify(cuerpoBody)
+          body: JSON.stringify(body)
         });
 
+        if (archivoIds.length === 0) {
+          await enviarMensaje({ cuerpo });
+        } else {
+          // El texto acompaña al primer adjunto; el resto van solos
+          await enviarMensaje({ cuerpo, archivo_id: archivoIds[0] });
+          for (let i = 1; i < archivoIds.length; i++) {
+            await enviarMensaje({ cuerpo: "", archivo_id: archivoIds[i] });
+          }
+        }
+
         if (input) input.value = "";
-        this.adjuntoPendiente = null;
-        this.renderAdjuntoPendiente();
+        this.adjuntosPendientes = [];
+        this.renderAdjuntosPendientes();
         await this.refrescarHilo(true);
       } catch (error) {
-        // No se limpia ni el texto ni el adjunto: así se puede reintentar sin rehacerlo
+        // No se limpia ni el texto ni los adjuntos: así se puede reintentar sin rehacerlo
         utils.mostrarAlerta(error.message, "error");
       } finally {
         this._enviando = false;
@@ -7538,8 +7556,8 @@ const app = {
     },
 
     // Los dentistas tienen a mano botones para adjuntar su CV y su Book sin volver a
-    // subirlos: se referencia el archivo que ya guardaron en su perfil. Se guardan en
-    // `atajosArchivos` para poder recuperar nombre y tamaño al mostrar el pendiente.
+    // subirlos: se referencia lo que ya guardaron en su perfil. El Book puede estar
+    // compuesto por varios ficheros; se conservan todos para poder adjuntarlos.
     async cargarAtajosArchivos() {
       const cont = document.getElementById("chatAtajos");
       if (!cont) return;
@@ -7549,78 +7567,120 @@ const app = {
       try {
         const archivos = await utils.request(`/archivos/usuario/${estadoApp.usuario.id}`);
         const cv = archivos.find(a => a.tipo === 'cv');
-        const book = archivos.find(a => a.tipo === 'portfolio');
+        const book = archivos.filter(a => a.tipo === 'portfolio');
         this.atajosArchivos = { cv, portfolio: book };
         let html = '';
         if (cv) html += `<button type="button" class="chat-atajo" onclick="app.chat.adjuntarPerfil('cv')">📄 Adjuntar mi CV</button>`;
-        if (book) html += `<button type="button" class="chat-atajo" onclick="app.chat.adjuntarPerfil('portfolio')">📕 Adjuntar mi Book</button>`;
+        if (book.length) html += `<button type="button" class="chat-atajo" onclick="app.chat.adjuntarPerfil('portfolio')">📕 Adjuntar mi Book${book.length > 1 ? ` (${book.length})` : ''}</button>`;
         cont.innerHTML = html;
       } catch (error) {
         console.error("Error al cargar atajos de archivos:", error);
       }
     },
 
-    // Elegir un fichero NO lo envía: se deja pendiente hasta pulsar "Enviar". Aquí
-    // solo se valida el tamaño (mismo tope que el backend) y se muestra la vista previa.
+    // Añade un fichero a la lista de pendientes validando el tamaño (mismo tope que el
+    // backend). Devuelve si se ha podido añadir. No envía nada: eso pasa en "Enviar".
+    anadirFicheroPendiente(file) {
+      if (file.size > this.MAX_ADJUNTO_MB * 1024 * 1024) {
+        utils.mostrarAlerta(`«${file.name}» supera el máximo de ${this.MAX_ADJUNTO_MB} MB`, "error");
+        return false;
+      }
+      this.adjuntosPendientes.push({ file, nombre: file.name, tamanyo: file.size, mime: file.type });
+      return true;
+    },
+
+    // Elegir ficheros con el botón 📎 (admite varios). Solo se dejan pendientes.
     adjuntarFichero() {
       const input = document.getElementById("chatFile");
       if (!input || input.files.length === 0) return;
-      const file = input.files[0];
+      for (const file of input.files) this.anadirFicheroPendiente(file);
       input.value = '';
-
-      if (file.size > this.MAX_ADJUNTO_MB * 1024 * 1024) {
-        utils.mostrarAlerta(`El archivo supera el máximo de ${this.MAX_ADJUNTO_MB} MB`, "error");
-        return;
-      }
-
-      this.adjuntoPendiente = { file, nombre: file.name, tamanyo: file.size, mime: file.type };
-      this.renderAdjuntoPendiente();
+      this.renderAdjuntosPendientes();
       const caja = document.getElementById("chatInput");
       if (caja) caja.focus();
     },
 
-    // Dejar pendiente el CV o el Book del perfil (no se reenvía el fichero: ya está
-    // subido). Al no re-subirse, no le aplica el tope de los adjuntos del chat.
+    // Dejar pendiente el CV o el Book del perfil (no se re-suben: ya están subidos, así
+    // que no les aplica el tope del chat). El Book añade todos sus ficheros.
     adjuntarPerfil(tipo) {
-      const archivo = this.atajosArchivos && this.atajosArchivos[tipo];
-      if (!archivo) return;
-      this.adjuntoPendiente = { archivoId: archivo.id, nombre: archivo.nombre_archivo, tamanyo: archivo.tamanyo, tipo };
-      this.renderAdjuntoPendiente();
+      if (!this.atajosArchivos) return;
+      const lista = tipo === 'cv'
+        ? (this.atajosArchivos.cv ? [this.atajosArchivos.cv] : [])
+        : (this.atajosArchivos.portfolio || []);
+      lista.forEach(a => {
+        // No duplicar un archivo del perfil que ya esté pendiente
+        if (this.adjuntosPendientes.some(p => p.archivoId === a.id)) return;
+        this.adjuntosPendientes.push({ archivoId: a.id, nombre: a.nombre_archivo, tamanyo: a.tamanyo, tipo: a.tipo });
+      });
+      this.renderAdjuntosPendientes();
       const caja = document.getElementById("chatInput");
       if (caja) caja.focus();
     },
 
-    // Vista previa del adjunto pendiente, con opción de quitarlo antes de enviar.
-    renderAdjuntoPendiente() {
+    // Arrastrar y soltar ficheros sobre el hilo para adjuntarlos.
+    arrastrarEncima(event) {
+      // Solo reaccionar si lo que se arrastra son ficheros, no texto/enlaces
+      if (!event.dataTransfer || !Array.from(event.dataTransfer.types || []).includes('Files')) return;
+      event.preventDefault();
+      const hilo = document.getElementById("chatHilo");
+      if (hilo) hilo.classList.add("chat-arrastrando");
+    },
+
+    arrastrarFuera(event) {
+      const hilo = document.getElementById("chatHilo");
+      if (!hilo) return;
+      // Al pasar de un hijo a otro dentro del hilo, no se considera que se ha salido
+      if (event.relatedTarget && hilo.contains(event.relatedTarget)) return;
+      hilo.classList.remove("chat-arrastrando");
+    },
+
+    soltarArchivos(event) {
+      event.preventDefault();
+      const hilo = document.getElementById("chatHilo");
+      if (hilo) hilo.classList.remove("chat-arrastrando");
+      const files = event.dataTransfer && event.dataTransfer.files;
+      if (!files || files.length === 0) return;
+      for (const file of files) this.anadirFicheroPendiente(file);
+      this.renderAdjuntosPendientes();
+      const caja = document.getElementById("chatInput");
+      if (caja) caja.focus();
+    },
+
+    // Vista previa de los adjuntos pendientes, cada uno con su ✕ para quitarlo.
+    renderAdjuntosPendientes() {
       const cont = document.getElementById("chatAdjuntoPendiente");
       if (!cont) return;
-      const p = this.adjuntoPendiente;
-      if (!p) {
+      const lista = this.adjuntosPendientes;
+      if (!lista.length) {
         cont.style.display = "none";
         cont.innerHTML = "";
         return;
       }
-      const mime = p.mime || '';
-      let icono = '📎';
-      if (p.tipo === 'cv') icono = '📄';
-      else if (p.tipo === 'portfolio') icono = '📕';
-      else if (mime.startsWith('image/')) icono = '🖼️';
-      else if (mime === 'application/pdf') icono = '📄';
-      const tamanyo = p.tamanyo ? ' · ' + utils.formatearTamanyo(p.tamanyo) : '';
       cont.style.display = "flex";
-      cont.innerHTML = `
-        <span class="chat-adjunto-pendiente-icono">${icono}</span>
-        <span class="chat-adjunto-pendiente-texto">
-          <span class="chat-adjunto-pendiente-nombre">${utils.escapeHtml(p.nombre || 'Archivo')}</span>
-          <span class="chat-adjunto-pendiente-meta">Se enviará al pulsar Enviar${tamanyo}</span>
-        </span>
-        <button type="button" class="chat-adjunto-pendiente-quitar" title="Quitar el adjunto" onclick="app.chat.quitarAdjuntoPendiente()">✕</button>
-      `;
+      const caption = `<div class="chat-adjunto-pendiente-caption">Se enviará${lista.length > 1 ? 'n' : ''} al pulsar «Enviar»</div>`;
+      cont.innerHTML = caption + lista.map((p, i) => {
+        const mime = p.mime || '';
+        let icono = '📎';
+        if (p.tipo === 'cv') icono = '📄';
+        else if (p.tipo === 'portfolio') icono = '📕';
+        else if (mime.startsWith('image/')) icono = '🖼️';
+        else if (mime === 'application/pdf') icono = '📄';
+        const tamanyo = p.tamanyo ? utils.formatearTamanyo(p.tamanyo) : '';
+        return `
+          <div class="chat-adjunto-pendiente-item">
+            <span class="chat-adjunto-pendiente-icono">${icono}</span>
+            <span class="chat-adjunto-pendiente-texto">
+              <span class="chat-adjunto-pendiente-nombre">${utils.escapeHtml(p.nombre || 'Archivo')}</span>
+              <span class="chat-adjunto-pendiente-meta">${tamanyo}</span>
+            </span>
+            <button type="button" class="chat-adjunto-pendiente-quitar" title="Quitar el adjunto" onclick="app.chat.quitarAdjuntoPendiente(${i})">✕</button>
+          </div>`;
+      }).join('');
     },
 
-    quitarAdjuntoPendiente() {
-      this.adjuntoPendiente = null;
-      this.renderAdjuntoPendiente();
+    quitarAdjuntoPendiente(index) {
+      this.adjuntosPendientes.splice(index, 1);
+      this.renderAdjuntosPendientes();
     },
 
     notificarEscribiendo() {

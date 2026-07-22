@@ -373,7 +373,7 @@ app.use("/auth/registro", limiterAuth);
 // estos números tiene coste de RAM en el servidor y de tamaño de fila en Turso. Para
 // permitir archivos mucho más grandes habría que sacarlos de la BD a un
 // almacenamiento de objetos (S3/R2) y guardar solo el enlace.
-const MAX_MB_POR_TIPO = { cv: 5, portfolio: 25, foto: 10, chat: 10 };
+const MAX_MB_POR_TIPO = { cv: 5, portfolio: 25, foto: 10, chat: 25 };
 const MAX_SUBIDA_MB = Math.max(...Object.values(MAX_MB_POR_TIPO));
 
 // Configurar multer para uploads en memoria. El límite es el mayor de todos los

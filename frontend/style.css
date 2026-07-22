@@ -1830,6 +1830,30 @@ select:focus {
 .chat-hilo {
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+/* Capa que aparece al arrastrar ficheros sobre el hilo. pointer-events:none deja que
+   el evento de soltar llegue al contenedor que lo gestiona. */
+.chat-drop-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem;
+  background: rgba(15, 76, 117, 0.08);
+  border: 2px dashed #0f4c75;
+  border-radius: 12px;
+  color: #0f4c75;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.chat-hilo.chat-arrastrando .chat-drop-overlay {
+  display: flex;
 }
 
 .chat-mensajes {
@@ -2086,12 +2110,23 @@ select:focus {
   opacity: 0.75;
 }
 
-/* Vista previa del adjunto pendiente de enviar (encima de la barra de escritura) */
+/* Vista previa de los adjuntos pendientes de enviar (encima de la barra de escritura) */
 .chat-adjunto-pendiente {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.chat-adjunto-pendiente-caption {
+  font-size: 0.72rem;
+  color: #6b7280;
+}
+
+.chat-adjunto-pendiente-item {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-top: 0.6rem;
   padding: 0.5rem 0.7rem;
   border: 1px solid #c7d2fe;
   border-radius: 8px;
