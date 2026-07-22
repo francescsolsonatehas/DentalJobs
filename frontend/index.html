@@ -372,17 +372,17 @@
                         </div>
                     </div>
                     <div class="form-group" id="ofertaSedeGroup" style="display: none;">
-                        <label for="ofertaSede">Sede *</label>
+                        <label for="ofertaSede">Ubicación *</label>
                         <select id="ofertaSede" onchange="app.sedes.aplicarAPublicacion('oferta')">
-                            <option value="">Elige una sede…</option>
+                            <option value="">Elige una ubicación…</option>
                         </select>
-                        <small id="ofertaSinSedes" style="display: none; color: #b45309; margin-top: 0.3rem;">No tienes centros. Crea uno en "Mi perfil" → Mis datos antes de publicar una oferta.</small>
+                        <small id="ofertaSinSedes" style="display: none; color: #b45309; margin-top: 0.3rem;">Define la ciudad de tu clínica en "Mi perfil" → Mis datos, o crea un centro, antes de publicar.</small>
                         <div id="ofertaSedePreview" style="margin-top: 0.6rem;"></div>
                     </div>
                     <div class="form-group">
                         <label for="ofertaCiudad">Ciudad</label>
                         <input id="ofertaCiudad" type="text" readonly style="background: #f3f4f6;">
-                        <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Se toma de la sede elegida.</small>
+                        <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Se toma de la ubicación elegida.</small>
                     </div>
                     <div class="form-group">
                         <label>Especialidades</label>
@@ -549,17 +549,17 @@
                 </div>
                 <form onsubmit="event.preventDefault(); app.publicaciones.crear('suplencia');">
                     <div class="form-group" id="suplenciaSedeGroup" style="display: none;">
-                        <label for="suplenciaSede">Sede *</label>
+                        <label for="suplenciaSede">Ubicación *</label>
                         <select id="suplenciaSede" onchange="app.sedes.aplicarAPublicacion('suplencia')">
-                            <option value="">Elige una sede…</option>
+                            <option value="">Elige una ubicación…</option>
                         </select>
-                        <small id="suplenciaSinSedes" style="display: none; color: #b45309; margin-top: 0.3rem;">No tienes centros. Crea uno en "Mi perfil" → Mis datos antes de publicar una suplencia.</small>
+                        <small id="suplenciaSinSedes" style="display: none; color: #b45309; margin-top: 0.3rem;">Define la ciudad de tu clínica en "Mi perfil" → Mis datos, o crea un centro, antes de publicar.</small>
                         <div id="suplenciaSedePreview" style="margin-top: 0.6rem;"></div>
                     </div>
                     <div class="form-group">
                         <label for="suplenciaCiudad">Ciudad</label>
                         <input id="suplenciaCiudad" type="text" readonly style="background: #f3f4f6;">
-                        <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Se toma de la sede elegida.</small>
+                        <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Se toma de la ubicación elegida.</small>
                     </div>
                     <div class="form-group">
                         <label>Especialidades</label>

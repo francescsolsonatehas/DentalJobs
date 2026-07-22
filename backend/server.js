@@ -2570,8 +2570,23 @@ app.post("/publicaciones", verifyToken, (req, res) => {
       });
     });
   } else {
-    // Oferta/suplencia sin sede (respaldo/legacy/API): se usa lo que llegue en el cuerpo
-    insertarPublicacion(null, ciudad, provincia || null);
+    // Oferta/suplencia sin centro: la ubicación es la ciudad PRINCIPAL de la clínica,
+    // la de su perfil. Desde la interfaz la ciudad solo puede ser el perfil o un
+    // centro propio (el desplegable no admite texto libre). Como respaldo, si el
+    // perfil aún no tiene ciudad se acepta la que llegue en el cuerpo, igual que en
+    // las solicitudes del dentista.
+    db.get("SELECT ciudad, provincia FROM usuarios WHERE id = ?", [req.usuario.id], (err, u) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al crear publicación" });
+      }
+      const ciudadFinal = (u && u.ciudad) ? u.ciudad : (ciudad || null);
+      const provinciaFinal = (u && u.ciudad) ? (u.provincia || null) : (provincia || null);
+      if (!ciudadFinal) {
+        return res.status(400).json({ error: "Define la ciudad de tu clínica en el perfil, o publica desde uno de tus centros" });
+      }
+      insertarPublicacion(null, ciudadFinal, provinciaFinal);
+    });
   }
 });
 

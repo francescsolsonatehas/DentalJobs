@@ -1640,7 +1640,8 @@ const app = {
           nombre_contacto: document.getElementById("ofertaNombreContacto").value,
           email_contacto: document.getElementById("ofertaEmailContacto").value,
           telefono_contacto: document.getElementById("ofertaTelefonoContacto").value || null,
-          sede_id: document.getElementById("ofertaSede")?.value || null,
+          // "principal" (ciudad del perfil) no lleva sede; un centro sí
+          sede_id: (() => { const v = document.getElementById("ofertaSede")?.value; return v && v !== "principal" ? v : null; })(),
           retribucionTipo: document.querySelector('input[name="ofertaRetribucionTipo"]:checked')?.value || 'fijo',
           retribucionPorcentaje: document.getElementById("ofertaRetribucionPorcentaje").value || null,
           equipamiento: Array.from(document.querySelectorAll('#ofertaEquipamientoContainer input[type="checkbox"]:checked')).map(cb => cb.value),
@@ -1661,7 +1662,8 @@ const app = {
           nombre_contacto: document.getElementById("suplenciaNombreContacto").value,
           email_contacto: document.getElementById("suplenciaEmailContacto").value,
           telefono_contacto: document.getElementById("suplenciaTelefonoContacto").value || null,
-          sede_id: document.getElementById("suplenciaSede")?.value || null,
+          // "principal" (ciudad del perfil) no lleva sede; un centro sí
+          sede_id: (() => { const v = document.getElementById("suplenciaSede")?.value; return v && v !== "principal" ? v : null; })(),
           retribucionTipo: document.querySelector('input[name="suplenciaRetribucionTipo"]:checked')?.value || 'fijo',
           retribucionPorcentaje: document.getElementById("suplenciaRetribucionPorcentaje").value || null,
           equipamiento: Array.from(document.querySelectorAll('#suplenciaEquipamientoContainer input[type="checkbox"]:checked')).map(cb => cb.value),
@@ -1689,8 +1691,8 @@ const app = {
       }
 
       const esClinicaPub = (tipo === 'oferta' || tipo === 'suplencia');
-      if (esClinicaPub && !formData.sede_id) {
-        utils.mostrarAlerta("Elige una sede para publicar (créala en \"Mi perfil\" → Sedes si aún no tienes)", "error");
+      if (esClinicaPub && !document.getElementById(`${tipo}Sede`)?.value) {
+        utils.mostrarAlerta("Elige una ubicación para publicar", "error");
         return;
       }
 
@@ -6817,8 +6819,9 @@ const app = {
       }
     },
 
-    // Rellena el selector de sedes del formulario de oferta/suplencia.
-    // La sede es obligatoria: de ella se heredan ciudad, provincia, teléfono y equipamiento.
+    // Rellena el selector de UBICACIÓN del formulario de oferta/suplencia. La ciudad
+    // solo puede ser la principal de la clínica (la del perfil) o la de uno de sus
+    // centros; nada de texto libre. De ahí se heredan ciudad, provincia y teléfono.
     // prefijo: 'oferta' o 'suplencia' (ambas comparten el mismo patrón de ids)
     async cargarEnSelector(prefijo = 'oferta') {
       const grupo = document.getElementById(`${prefijo}SedeGroup`);
@@ -6830,17 +6833,32 @@ const app = {
       const submitBtn = document.querySelector(`#tab-${prefijo} button[type="submit"]`);
       const preview = document.getElementById(`${prefijo}SedePreview`);
 
-      // La empresa y el email de contacto salen del perfil (constantes, no dependen de la sede)
+      // La empresa y el email de contacto salen del perfil (constantes, no dependen de la ubicación)
       const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ""; };
       setVal(`${prefijo}NombreContacto`, estadoApp.usuario?.nombre || "");
       setVal(`${prefijo}EmailContacto`, estadoApp.usuario?.email || "");
 
       try {
-        const data = await utils.request("/sedes");
+        const [perfil, data] = await Promise.all([
+          utils.requestOpcional("/auth/mi-perfil"),
+          utils.request("/sedes")
+        ]);
         this.lista = data.sedes || [];
+        this.perfilPublicar = perfil || {};
 
-        if (this.lista.length === 0) {
-          select.innerHTML = `<option value="">— No tienes centros —</option>`;
+        // "Principal" = la ciudad del perfil de la clínica; solo se ofrece si existe
+        const opciones = [];
+        if (perfil && perfil.ciudad) {
+          const label = perfil.provincia ? `${perfil.ciudad} (${perfil.provincia})` : perfil.ciudad;
+          opciones.push(`<option value="principal">Principal · ${utils.escapeHtml(label)}</option>`);
+        }
+        this.lista.forEach(s => {
+          opciones.push(`<option value="${s.id}">${utils.escapeHtml(s.nombre ? `${s.nombre} · ${s.ciudad}` : s.ciudad)}</option>`);
+        });
+
+        // Sin ciudad en el perfil y sin centros: no hay ninguna ubicación posible
+        if (opciones.length === 0) {
+          select.innerHTML = `<option value="">— Sin ubicación —</option>`;
           if (aviso) aviso.style.display = "block";
           if (submitBtn) submitBtn.disabled = true;
           if (preview) preview.innerHTML = "";
@@ -6849,34 +6867,45 @@ const app = {
 
         if (aviso) aviso.style.display = "none";
         if (submitBtn) submitBtn.disabled = false;
-        select.innerHTML = `<option value="">Elige una sede…</option>` +
-          this.lista.map(s => `<option value="${s.id}">${utils.escapeHtml(s.nombre ? `${s.nombre} (${s.ciudad})` : s.ciudad)}</option>`).join('');
+        select.innerHTML = `<option value="">Elige una ubicación…</option>` + opciones.join('');
         if (preview) preview.innerHTML = "";
       } catch (error) {
-        console.error("Error al cargar sedes:", error);
+        console.error("Error al cargar ubicaciones:", error);
         grupo.style.display = "none";
       }
     },
 
-    // Al elegir sede, rellenar (solo lectura) ciudad y teléfono de la sede, y el
-    // equipamiento, que es de la clínica y lo heredan todas sus ofertas.
+    // Al elegir la ubicación, rellenar (solo lectura) ciudad y teléfono, y mostrar
+    // una vista previa. La ubicación es "principal" (ciudad del perfil) o un centro.
     async aplicarAPublicacion(prefijo = 'oferta') {
-      const select = document.getElementById(`${prefijo}Sede`);
-      const sede = this.lista.find(s => String(s.id) === select.value);
+      const val = document.getElementById(`${prefijo}Sede`).value;
       const preview = document.getElementById(`${prefijo}SedePreview`);
-      const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ""; };
+      const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ""; };
       const empresa = estadoApp.usuario?.nombre || "";
 
-      if (!sede) {
+      if (!val) {
         setVal(`${prefijo}Ciudad`, "");
         setVal(`${prefijo}TelefonoContacto`, "");
         if (preview) preview.innerHTML = "";
         return;
       }
 
-      const ciudadLabel = sede.provincia ? `${sede.ciudad} (${sede.provincia})` : sede.ciudad;
+      // Datos según sea la principal (perfil) o un centro concreto
+      let ciudadLabel, telefono, direccion = null;
+      if (val === "principal") {
+        const p = this.perfilPublicar || {};
+        ciudadLabel = p.provincia ? `${p.ciudad} (${p.provincia})` : (p.ciudad || "");
+        telefono = p.telefono || p.movil || "";
+      } else {
+        const sede = this.lista.find(s => String(s.id) === val);
+        if (!sede) { if (preview) preview.innerHTML = ""; return; }
+        ciudadLabel = sede.provincia ? `${sede.ciudad} (${sede.provincia})` : sede.ciudad;
+        telefono = sede.telefono || "";
+        direccion = sede.direccion || null;
+      }
+
       setVal(`${prefijo}Ciudad`, ciudadLabel);
-      setVal(`${prefijo}TelefonoContacto`, sede.telefono || "");
+      setVal(`${prefijo}TelefonoContacto`, telefono);
 
       const equipos = await app.catalogos.cargarEquipamientoClinica();
       if (preview) {
@@ -6884,10 +6913,10 @@ const app = {
           <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:.75rem 1rem;font-size:.88rem;color:#0c4a6e;">
             <div><strong>Empresa:</strong> ${utils.escapeHtml(empresa)}</div>
             <div><strong>Ciudad:</strong> ${utils.escapeHtml(ciudadLabel)}</div>
-            ${sede.direccion ? `<div><strong>Dirección:</strong> ${utils.escapeHtml(sede.direccion)}</div>` : ""}
-            ${sede.telefono ? `<div><strong>Teléfono:</strong> ${utils.escapeHtml(sede.telefono)}</div>` : ""}
+            ${direccion ? `<div><strong>Dirección:</strong> ${utils.escapeHtml(direccion)}</div>` : ""}
+            ${telefono ? `<div><strong>Teléfono:</strong> ${utils.escapeHtml(telefono)}</div>` : ""}
             <div><strong>Equipamiento:</strong> ${equipos.length ? equipos.map(utils.escapeHtml).join(", ") : "ninguno"}</div>
-            <div style="margin-top:.3rem;color:#0369a1;">Estos datos se toman de la sede y de tu perfil; no son editables aquí.</div>
+            <div style="margin-top:.3rem;color:#0369a1;">Estos datos se toman de la ubicación y de tu perfil; no son editables aquí.</div>
           </div>`;
       }
     }

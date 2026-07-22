@@ -190,6 +190,27 @@ test("publicaciones", async (t) => {
     assert.equal(pub.provincia, "Girona");
   });
 
+  await t.test("una oferta sin centro toma la ciudad PRINCIPAL del perfil de la clínica (ignora la del cuerpo)", async () => {
+    // La clínica fija su ciudad principal en el perfil
+    await request(app)
+      .put("/auth/actualizar-perfil")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ nombre: "Clínica Test", ciudad: "Tarragona", provincia: "Tarragona" });
+
+    // Publica una oferta SIN centro (ubicación "principal") enviando otra ciudad en
+    // el cuerpo: debe usarse la del perfil, no la del cuerpo
+    const crear = await request(app)
+      .post("/publicaciones")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ tipo: "oferta", ciudad: "CiudadLibreIgnorada", descripcion: "Oferta principal" });
+    assert.equal(crear.status, 200);
+
+    const pub = (await request(app).get(`/publicaciones/${crear.body.id}`)).body;
+    assert.equal(pub.ciudad, "Tarragona");
+    assert.equal(pub.provincia, "Tarragona");
+    assert.equal(pub.sede_id, null, "la oferta principal no cuelga de ningún centro");
+  });
+
   await t.test("una oferta con sede hereda ciudad, provincia, teléfono, empresa y equipamiento de la sede/perfil", async () => {
     const sede = await request(app)
       .post("/sedes")
