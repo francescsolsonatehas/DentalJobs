@@ -6500,7 +6500,7 @@ const app = {
       },
       "perfiles": {
         conFiltros: true,
-        etiqueta: () => (estadoApp.tipoUsuario === "clinica" ? "Perfiles de dentistas" : "Perfiles de clínicas")
+        etiqueta: () => (estadoApp.tipoUsuario === "clinica" ? "Dentistas" : "Perfiles de clínicas")
       },
       "suplencias": { conFiltros: true, etiqueta: () => "Suplencias" },
       "mis-publicaciones": { conFiltros: false, etiqueta: () => "Mis Publicaciones" },
