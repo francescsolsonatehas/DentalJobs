@@ -5026,14 +5026,21 @@ app.delete("/favoritos/:publicacion_id", verifyToken, (req, res) => {
 
 // Lista de perfiles (dentistas o clínicas) para navegar, con filtros. Independiente de publicaciones.
 app.get("/perfiles", (req, res) => {
-  const { rol, ciudad, provincia, especialidad, q } = req.query;
+  const { rol, ciudad, provincia, especialidad, q, radioKm } = req.query;
   const tipo = rol === 'clinica' ? 'clinica' : 'dentista';
+
+  // Búsqueda por radio: se geocodifica la ciudad como centro y se filtra por distancia
+  // real (en JS, más abajo). Si la ciudad no se reconoce, se ignora el radio y se cae
+  // al filtro normal por ciudad. Con radio activo NO se aplica el "ciudad LIKE": el
+  // centro es la ciudad y lo que importa es la distancia, no que el nombre coincida.
+  const centroRadio = (radioKm && ciudad) ? geocodificarCiudad(ciudad) : null;
+  const usarRadio = !!centroRadio;
 
   let query = `SELECT id, nombre, tipo, ciudad, provincia, descripcion, anyos_experiencia, creado_en
                FROM usuarios WHERE tipo = ? AND nombre != 'Usuario eliminado'`;
   const params = [tipo];
 
-  if (ciudad) { query += " AND ciudad LIKE ?"; params.push(`%${ciudad}%`); }
+  if (ciudad && !usarRadio) { query += " AND ciudad LIKE ?"; params.push(`%${ciudad}%`); }
   if (provincia) { query += " AND provincia LIKE ?"; params.push(`%${provincia}%`); }
   if (especialidad) {
     query += " AND EXISTS (SELECT 1 FROM usuario_especialidades ue WHERE ue.usuario_id = usuarios.id AND ue.especialidad_id = ?)";
@@ -5069,6 +5076,18 @@ app.get("/perfiles", (req, res) => {
         const porUsuario = {};
         (filas || []).forEach(f => { (porUsuario[f.usuario_id] = porUsuario[f.usuario_id] || []).push(f.nombre); });
         perfiles.forEach(p => { p.especialidades = porUsuario[p.id] || []; });
+
+        // Filtro por radio: se conservan los perfiles cuya ciudad cae dentro del radio
+        // desde el centro. Los que no tienen ciudad o no se pueden geocodificar quedan
+        // fuera (no se puede saber su distancia).
+        if (usarRadio) {
+          const r = parseFloat(radioKm);
+          perfiles = perfiles.filter(p => {
+            const c = p.ciudad ? geocodificarCiudad(p.ciudad) : null;
+            return c && distanciaKm(centroRadio.lat, centroRadio.lon, c.lat, c.lon) <= r;
+          });
+        }
+
         res.json({ perfiles });
       }
     );

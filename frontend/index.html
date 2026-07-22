@@ -213,11 +213,11 @@
                 </div>
                 <div class="filter-group">
                     <label for="filterCiudad">Ciudad</label>
-                    <input id="filterCiudad" placeholder="Ej: Madrid, Barcelona..." oninput="app.publicaciones.cargar()">
+                    <input id="filterCiudad" placeholder="Ej: Madrid, Barcelona..." autocomplete="off" oninput="app.filtros.buscar()">
                 </div>
                 <div class="filter-group">
                     <label for="filterRadio">Radio</label>
-                    <select id="filterRadio" onchange="app.publicaciones.cargar()" title="Busca publicaciones a esta distancia de la ciudad indicada">
+                    <select id="filterRadio" onchange="app.filtros.buscar()" title="Busca a esta distancia de la ciudad indicada">
                         <option value="">Solo esa ciudad</option>
                         <option value="10">a 10 km</option>
                         <option value="25">a 25 km</option>
@@ -227,7 +227,7 @@
                 </div>
                 <div class="filter-group">
                     <label for="filterEspecialidad">Especialidad</label>
-                    <select id="filterEspecialidad" onchange="app.publicaciones.cargar()">
+                    <select id="filterEspecialidad" onchange="app.filtros.buscar()">
                         <option value="">Todas las especialidades</option>
                     </select>
                 </div>

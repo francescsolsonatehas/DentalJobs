@@ -1839,6 +1839,29 @@ const app = {
   // ============================================
 
   filtros: {
+    // Recarga la lista según la vista activa: en "Dentistas" (perfiles) recarga los
+    // perfiles; en el resto, las publicaciones. Los filtros de Ciudad, Radio y
+    // Especialidad, comunes a ambas, cuelgan de aquí.
+    buscar() {
+      if (estadoApp.vistaActual === "perfiles") return app.perfiles.cargar();
+      return app.publicaciones.cargar();
+    },
+
+    // En la vista "Dentistas" (una clínica viendo dentistas) la búsqueda se reduce a
+    // Ciudad, Radio y Especialidad; el resto de filtros se ocultan. En las demás vistas
+    // se muestran todos (Equipamiento/Certificación siguen dependiendo del rol).
+    configurarFiltrosVista() {
+      const esDentistas = estadoApp.tipoUsuario === "clinica" && estadoApp.vistaActual === "perfiles";
+      const grupoDe = (id) => { const el = document.getElementById(id); return el && el.closest(".filter-group"); };
+      const set = (id, visible) => { const g = grupoDe(id); if (g) g.style.display = visible ? "" : "none"; };
+
+      ["filterQ", "filterContrato", "filterJornada", "filterRetribucion", "filterSalarioMin", "filterExperienciaMin", "filterOrden"]
+        .forEach(id => set(id, !esDentistas));
+
+      set("filterEquipamiento", !esDentistas && estadoApp.tipoUsuario === "dentista");
+      set("filterCertificacion", !esDentistas && estadoApp.tipoUsuario === "clinica");
+    },
+
     // Muestra u oculta los filtros propios de la vista de suplencias (fechas, "encaja
     // con mi disponibilidad" y el conmutador Lista/Calendario) según
     // estadoApp.filtros.verSuplencias. Al salir de suplencias, además, limpia esos
@@ -1874,6 +1897,9 @@ const app = {
           document.getElementById("btnVistaCalendario")?.classList.remove("active");
         }
       }
+
+      // Ajustar también qué filtros se muestran según la vista (la barra es compartida)
+      this.configurarFiltrosVista();
     },
 
     mostrarTodas(btn) {
@@ -1907,6 +1933,10 @@ const app = {
       const filtersTitle = document.getElementById("filtrosTitle");
       filtersTitle.textContent = estadoApp.tipoUsuario === 'clinica' ? "Dentistas" : "Perfiles de clínicas";
       filtersTitle.style.display = "block";
+
+      // La ciudad se elige del catálogo de municipios (autocompletado). Al elegir una,
+      // se recarga la búsqueda.
+      app.ciudades.montar(document.getElementById("filterCiudad"), null, null, () => app.filtros.buscar());
 
       this.sincronizarUISuplencias();
       app.perfiles.cargar();
@@ -4652,7 +4682,7 @@ const app = {
 
     // Monta un autocompletado sobre un input de ciudad que, al elegir un municipio,
     // rellena el input (oculto) de provincia y un span opcional con su etiqueta.
-    montar(inputCiudad, inputProvincia, labelProvincia) {
+    montar(inputCiudad, inputProvincia, labelProvincia, alElegir) {
       if (!inputCiudad || inputCiudad.dataset.autocompleteMontado) return;
       inputCiudad.dataset.autocompleteMontado = "1";
       const cont = inputCiudad.parentElement;
@@ -4685,6 +4715,9 @@ const app = {
         inputCiudad.value = op.dataset.m;
         fijarProvincia(op.dataset.p);
         cerrar();
+        // Elegir del catálogo cuenta como fijar la ciudad: se avisa por callback (p. ej.
+        // para recargar la búsqueda), sin re-disparar el "input" que abriría el desplegable.
+        if (typeof alElegir === "function") alElegir(op.dataset.m, op.dataset.p);
       });
 
       inputCiudad.addEventListener("blur", () => setTimeout(cerrar, 150));
@@ -6132,11 +6165,13 @@ const app = {
       const q = document.getElementById("filterQ").value;
       const ciudad = document.getElementById("filterCiudad").value;
       const especialidad = document.getElementById("filterEspecialidad").value;
+      const radioKm = document.getElementById("filterRadio")?.value || "";
 
       let url = `/perfiles?rol=${rol}`;
       if (q) url += `&q=${encodeURIComponent(q)}`;
       if (ciudad) url += `&ciudad=${encodeURIComponent(ciudad)}`;
       if (especialidad) url += `&especialidad=${especialidad}`;
+      if (radioKm && ciudad) url += `&radioKm=${radioKm}`;
 
       try {
         const data = await utils.request(url);
@@ -6198,7 +6233,7 @@ const app = {
         return `
           <div class="card ${esClinica ? "type-oferta" : "type-solicitud"}">
             <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-              <span class="card-type ${esClinica ? "type-oferta" : "type-solicitud"}">${esClinica ? "🏥 Clínica" : "👨‍⚕️ Dentista"}</span>
+              ${esClinica ? `<span class="card-type type-oferta">🏥 Clínica</span>` : `<span></span>`}
               <button onclick="app.favoritos.togglePerfil(${p.id}, this)" data-favorito="${esFav}" style="background:none;border:none;cursor:pointer;font-size:1.3rem;padding:0;" title="${esFav ? "Quitar de favoritos" : "Guardar en favoritos"}">${esFav ? "⭐" : "☆"}</button>
             </div>
             <h3>${utils.escapeHtml(p.nombre)}</h3>
