@@ -5645,8 +5645,7 @@ const app = {
 
         if (estadoApp.tipoUsuario === 'clinica') {
           // Empresa: mostrar Total Dentistas, Posibles Candidatos, Candidatos que se postularon, Candidatos contactados
-          const [totalDentistas, posiblesCandidatos, candidatosInteresados, contactadosList, miPostulacionesDentistas] = await Promise.all([
-            utils.requestOpcional("/stats/total-dentistas"),
+          const [posiblesCandidatos, candidatosInteresados, contactadosList, miPostulacionesDentistas] = await Promise.all([
             utils.requestOpcional(`/stats/posibles-candidatos/${estadoApp.usuario.id}`),
             utils.requestOpcional(`/stats/candidatos-interesados/${estadoApp.usuario.id}`),
             // Contactados: dentistas a los que hemos enviado mensaje (aquí la cifra es
@@ -5680,12 +5679,6 @@ const app = {
           }
 
           statsGrid.innerHTML = `
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarTotalDentistas()">
-              <span>👥</span>
-              <h3>${utils.cifra(totalDentistas)}</h3>
-              <p>Dentistas</p>
-              <div class="stat-tooltip">Total de dentistas en la plataforma. Ver desglose por especialidad, ciudad o ambas</div>
-            </div>
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarPosiblesCandidatos()">
               <span>🔍</span>
               <h3>${utils.cifra(posiblesCandidatos)}</h3>
