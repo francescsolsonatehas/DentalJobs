@@ -1443,36 +1443,11 @@ const app = {
         tipo = estadoApp.tipoUsuario === 'clinica' ? 'solicitud' : 'oferta';
       }
 
-      // El filtro por fecha y el conmutador Lista/Calendario solo se muestran en suplencias
-      const grupoFechaDesde = document.getElementById("filterFechaDesdeGroup");
-      const grupoFechaHasta = document.getElementById("filterFechaHastaGroup");
-      if (grupoFechaDesde && grupoFechaHasta) {
-        const mostrarFecha = estadoApp.filtros.verSuplencias ? "block" : "none";
-        grupoFechaDesde.style.display = mostrarFecha;
-        grupoFechaHasta.style.display = mostrarFecha;
-        if (!estadoApp.filtros.verSuplencias) {
-          document.getElementById("filterFechaDesde").value = "";
-          document.getElementById("filterFechaHasta").value = "";
-        }
-      }
-      // "Encajan con mi disponibilidad": solo para el dentista en la vista de suplencias
-      const grupoDisp = document.getElementById("filterMiDisponibilidadGroup");
-      if (grupoDisp) {
-        const mostrar = estadoApp.filtros.verSuplencias && estadoApp.tipoUsuario === 'dentista';
-        grupoDisp.style.display = mostrar ? "block" : "none";
-        if (!mostrar) document.getElementById("filterMiDisponibilidad").checked = false;
-      }
-      const toggleVista = document.getElementById("suplenciasVistaToggle");
-      if (toggleVista) {
-        toggleVista.style.display = estadoApp.filtros.verSuplencias ? "flex" : "none";
-        // Al salir de suplencias, garantizar que se ve la lista y no el calendario
-        if (!estadoApp.filtros.verSuplencias) {
-          document.getElementById("suplenciasCalendarioContainer").style.display = "none";
-          document.getElementById("publicacionesContainer").style.display = "";
-          document.getElementById("btnVistaLista")?.classList.add("active");
-          document.getElementById("btnVistaCalendario")?.classList.remove("active");
-        }
-      }
+      // Los filtros propios de la vista de suplencias se muestran u ocultan según el
+      // modo. Se hace en un helper porque hay que repetirlo al cambiar a vistas que no
+      // pasan por aquí (Favoritos, Mis Postulaciones…), donde antes se quedaba el menú
+      // de suplencias colgado.
+      app.filtros.sincronizarUISuplencias();
 
       // Orden por compatibilidad: solo para dentistas (usa su perfil). Si una clínica
       // lo tuviera seleccionado por lo que sea, se vuelve al orden por defecto.
@@ -1864,6 +1839,43 @@ const app = {
   // ============================================
 
   filtros: {
+    // Muestra u oculta los filtros propios de la vista de suplencias (fechas, "encaja
+    // con mi disponibilidad" y el conmutador Lista/Calendario) según
+    // estadoApp.filtros.verSuplencias. Al salir de suplencias, además, limpia esos
+    // filtros y vuelve a la lista. Se llama tanto desde publicaciones.cargar() como al
+    // cambiar a otras vistas (Favoritos, Mis Postulaciones…) que no pasan por ella.
+    sincronizarUISuplencias() {
+      const grupoFechaDesde = document.getElementById("filterFechaDesdeGroup");
+      const grupoFechaHasta = document.getElementById("filterFechaHastaGroup");
+      if (grupoFechaDesde && grupoFechaHasta) {
+        const mostrarFecha = estadoApp.filtros.verSuplencias ? "block" : "none";
+        grupoFechaDesde.style.display = mostrarFecha;
+        grupoFechaHasta.style.display = mostrarFecha;
+        if (!estadoApp.filtros.verSuplencias) {
+          document.getElementById("filterFechaDesde").value = "";
+          document.getElementById("filterFechaHasta").value = "";
+        }
+      }
+      // "Encajan con mi disponibilidad": solo para el dentista en la vista de suplencias
+      const grupoDisp = document.getElementById("filterMiDisponibilidadGroup");
+      if (grupoDisp) {
+        const mostrar = estadoApp.filtros.verSuplencias && estadoApp.tipoUsuario === 'dentista';
+        grupoDisp.style.display = mostrar ? "block" : "none";
+        if (!mostrar) document.getElementById("filterMiDisponibilidad").checked = false;
+      }
+      const toggleVista = document.getElementById("suplenciasVistaToggle");
+      if (toggleVista) {
+        toggleVista.style.display = estadoApp.filtros.verSuplencias ? "flex" : "none";
+        // Al salir de suplencias, garantizar que se ve la lista y no el calendario
+        if (!estadoApp.filtros.verSuplencias) {
+          document.getElementById("suplenciasCalendarioContainer").style.display = "none";
+          document.getElementById("publicacionesContainer").style.display = "";
+          document.getElementById("btnVistaLista")?.classList.add("active");
+          document.getElementById("btnVistaCalendario")?.classList.remove("active");
+        }
+      }
+    },
+
     mostrarTodas(btn) {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.verSuplencias = false;
@@ -1896,6 +1908,7 @@ const app = {
       filtersTitle.textContent = estadoApp.tipoUsuario === 'clinica' ? "Perfiles de dentistas" : "Perfiles de clínicas";
       filtersTitle.style.display = "block";
 
+      this.sincronizarUISuplencias();
       app.perfiles.cargar();
     },
 
@@ -1950,6 +1963,7 @@ const app = {
       const filtersTitle = document.getElementById("filtrosTitle");
       filtersTitle.textContent = "Solicitudes contactadas";
 
+      this.sincronizarUISuplencias();
       app.publicaciones.cargarContactadas();
     },
 
@@ -1965,6 +1979,7 @@ const app = {
       const filtersTitle = document.getElementById("filtrosTitle");
       filtersTitle.textContent = "Favoritos";
 
+      this.sincronizarUISuplencias();
       app.publicaciones.cargarFavoritos();
     },
 
@@ -1981,6 +1996,7 @@ const app = {
       filtersTitle.textContent = "Mis Postulaciones";
       filtersTitle.style.display = "block";
 
+      this.sincronizarUISuplencias();
       app.kanban.render();
     },
 
