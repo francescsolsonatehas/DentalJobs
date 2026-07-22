@@ -1905,7 +1905,7 @@ const app = {
       if (btn) btn.classList.add("active");
 
       const filtersTitle = document.getElementById("filtrosTitle");
-      filtersTitle.textContent = estadoApp.tipoUsuario === 'clinica' ? "Perfiles de dentistas" : "Perfiles de clínicas";
+      filtersTitle.textContent = estadoApp.tipoUsuario === 'clinica' ? "Dentistas" : "Perfiles de clínicas";
       filtersTitle.style.display = "block";
 
       this.sincronizarUISuplencias();
@@ -5562,8 +5562,10 @@ const app = {
         document.getElementById("btnSuplencias").style.display = "none";
         document.getElementById("filterEquipamientoGroup").style.display = "none";
         document.getElementById("filterCertificacionGroup").style.display = "block";
-        document.getElementById("btnPerfiles").style.display = "inline-block";
-        document.getElementById("btnPerfiles").textContent = "👤 Perfiles de dentistas";
+        const btnPerfilesClinica = document.getElementById("btnPerfiles");
+        btnPerfilesClinica.style.display = "inline-block";
+        btnPerfilesClinica.textContent = "🦷 Dentistas";
+        btnPerfilesClinica.title = "Dentistas abiertos a cambios profesionales";
         btnTodas.textContent = "Publicaciones de dentistas";
       } else {
         // Dentista
@@ -5582,8 +5584,10 @@ const app = {
         document.getElementById("btnSuplencias").style.display = "inline-block";
         document.getElementById("filterEquipamientoGroup").style.display = "block";
         document.getElementById("filterCertificacionGroup").style.display = "none";
-        document.getElementById("btnPerfiles").style.display = "inline-block";
-        document.getElementById("btnPerfiles").textContent = "👤 Perfiles de clínicas";
+        const btnPerfilesDentista = document.getElementById("btnPerfiles");
+        btnPerfilesDentista.style.display = "inline-block";
+        btnPerfilesDentista.textContent = "👤 Perfiles de clínicas";
+        btnPerfilesDentista.title = "";
         btnTodas.textContent = "Publicaciones de clínicas";
       }
 
@@ -6137,6 +6141,23 @@ const app = {
       try {
         const data = await utils.request(url);
         const perfiles = data.perfiles || [];
+
+        // Ordenar por ciudad y, a igualdad de ciudad, por especialidad (la primera del
+        // perfil, que ya viene alfabetizada del backend). Los perfiles sin ciudad van al
+        // final para no encabezar la lista.
+        perfiles.sort((a, b) => {
+          const ciudadA = (a.ciudad || "").trim().toLowerCase();
+          const ciudadB = (b.ciudad || "").trim().toLowerCase();
+          if (ciudadA !== ciudadB) {
+            if (!ciudadA) return 1;
+            if (!ciudadB) return -1;
+            return ciudadA.localeCompare(ciudadB, "es");
+          }
+          const espA = ((a.especialidades || [])[0] || "").toLowerCase();
+          const espB = ((b.especialidades || [])[0] || "").toLowerCase();
+          return espA.localeCompare(espB, "es");
+        });
+
         let favSet = new Set();
         try {
           const f = await utils.request("/favoritos-perfil");
@@ -6171,8 +6192,9 @@ const app = {
         const esClinica = p.tipo === "clinica";
         const ciudadLabel = p.ciudad ? (p.provincia ? `${p.ciudad} (${p.provincia})` : p.ciudad) : "Ubicación no indicada";
         const especialidades = p.especialidades || [];
-        const chips = especialidades.slice(0, 4).map(e => this.chipEspecialidad(e, esClinica)).join("")
-          + (especialidades.length > 4 ? `<span class="badge">+${especialidades.length - 4}</span>` : "");
+        // Se muestran TODAS las especialidades juntas (los chips fluyen en la misma
+        // fila y saltan solas si no caben), sin recortar con un "+N".
+        const chips = especialidades.map(e => this.chipEspecialidad(e, esClinica)).join("");
         return `
           <div class="card ${esClinica ? "type-oferta" : "type-solicitud"}">
             <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
@@ -6190,7 +6212,9 @@ const app = {
             ${p.descripcion ? `<p style="color:#6b7280;font-size:.9rem;margin:.2rem 0 1rem;line-height:1.5;">${utils.escapeHtml(p.descripcion.slice(0, 150))}${p.descripcion.length > 150 ? "…" : ""}</p>` : ""}
             <div class="card-footer" style="display:flex;gap:.5rem;">
               <button class="btn-primary" onclick="app.perfiles.verDetalle(${p.id})" style="flex:1;">Ver perfil</button>
-              <button class="btn-secondary" onclick="app.perfiles.contactar(${p.id}, '${utils.escapeHtml(p.nombre || "este perfil").replace(/'/g, "\\'")}', '${p.tipo}')" style="flex:1;">✉️ Contactar</button>
+              ${estadoApp.tipoUsuario === 'clinica'
+                ? `<button class="btn-secondary" onclick="app.perfiles.iniciarChat(${p.id}, '${utils.escapeHtml(p.nombre || "este dentista").replace(/'/g, "\\'")}')" style="flex:1;">💬 Iniciar chat</button>`
+                : `<button class="btn-secondary" onclick="app.perfiles.contactar(${p.id}, '${utils.escapeHtml(p.nombre || "este perfil").replace(/'/g, "\\'")}', '${p.tipo}')" style="flex:1;">✉️ Contactar</button>`}
             </div>
           </div>`;
       }).join("") + `</div>`;
@@ -6221,6 +6245,24 @@ const app = {
 
       document.getElementById("modalContactarPerfil").classList.add("active");
       if (textarea) textarea.focus();
+    },
+
+    // Chat directo con un dentista: abre el canal (contacto ya aceptado en el backend)
+    // y lleva a la conversación, sin pasar por la solicitud de contacto.
+    async iniciarChat(perfilId, perfilNombre) {
+      if (!estadoApp.usuario) {
+        utils.mostrarAlerta("Debes iniciar sesión", "error");
+        return;
+      }
+      try {
+        await utils.request(`/perfiles/${perfilId}/chat-directo`, { method: "POST" });
+        app.modal.cerrarTodosModales();
+        document.getElementById("modalChat").classList.add("active");
+        await app.chat.abrirConversacion(perfilId, perfilNombre);
+        app.chat.iniciarPolling();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
     },
 
     cerrarContactarModal() {
@@ -6301,41 +6343,49 @@ const app = {
       const ciudadLabel = u.ciudad ? (u.provincia ? `${u.ciudad} (${u.provincia})` : u.ciudad) : "No indicada";
 
       let html = `<div class="perfil-dentista">`;
-      html += `<div class="info-section">
+
+      // Apartado "Mis datos": los mismos datos que el dentista rellena en esa pestaña
+      // (ubicación, experiencia, valoración, especialidades y descripción).
+      html += `<div class="info-section"><h4>📋 Mis datos</h4>
         <p style="margin:.3rem 0;font-size:1.05rem;"><span class="detail-icon">👨‍⚕️</span> Dentista · <strong>${utils.escapeHtml(ciudadLabel)}</strong></p>
         ${u.anyos_experiencia !== null && u.anyos_experiencia !== undefined ? `<p style="margin:.3rem 0;">🎓 <strong>${u.anyos_experiencia}</strong> años de experiencia</p>` : ""}
         <div style="margin:.3rem 0;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;"><span>⭐</span>${app.resenyas.resumenHtml(resumen, id, u.nombre)}</div>
         <p style="margin:.6rem 0 .2rem;font-weight:600;color:#0f4c75;">Especialidades</p>
         ${this.bloqueEspecialidades(u, false)}
+        <p style="margin:.7rem 0 .2rem;font-weight:600;color:#0f4c75;">Sobre mí</p>
+        <p style="margin:.2rem 0;">${u.descripcion ? utils.escapeHtml(u.descripcion) : `<span style="color:#9ca3af;">Este dentista aún no ha añadido una descripción.</span>`}</p>
         <p style="margin:.7rem 0 0;color:#9ca3af;font-size:.85rem;">En DentalJobs desde ${utils.formatearFecha(u.creado_en)}</p>
       </div>`;
 
-      html += `<div class="info-section"><h4>Sobre mí</h4><p>${u.descripcion ? utils.escapeHtml(u.descripcion) : `<span style="color:#9ca3af;">Este dentista aún no ha añadido una descripción.</span>`}</p></div>`;
-
+      // Apartado "Trayectoria": experiencia, formación, idiomas y certificaciones,
+      // como sub-bloques dentro de una única sección.
       const hayTray = (tray.experiencia || []).length || (tray.formacion || []).length || (tray.idiomas || []).length || (tray.certificaciones || []).length;
-
-      if ((tray.experiencia || []).length) {
-        html += `<div class="info-section"><h4>💼 Experiencia</h4>` +
-          tray.experiencia.map(e => {
-            const fechas = this.rangoFechas(e.fecha_inicio, e.fecha_fin, e.actual);
-            return `<div style="margin-bottom:.7rem;"><strong>${utils.escapeHtml(e.especialidad || "")}</strong>${e.lugar ? " · " + utils.escapeHtml(e.lugar) : ""}${fechas ? `<div style="color:#6b7280;font-size:.85rem;">${fechas}</div>` : ""}${e.descripcion ? `<div style="color:#4b5563;font-size:.9rem;margin-top:.15rem;">${utils.escapeHtml(e.descripcion)}</div>` : ""}</div>`;
-          }).join("") + `</div>`;
-      }
-      if ((tray.formacion || []).length) {
-        html += `<div class="info-section"><h4>🎓 Formación</h4>` +
-          tray.formacion.map(f => `<div style="margin-bottom:.3rem;">${utils.escapeHtml([f.titulo, f.centro].filter(Boolean).join(" · ") + (f.anyo ? ` (${f.anyo})` : ""))}</div>`).join("") + `</div>`;
-      }
-      if ((tray.idiomas || []).length) {
-        html += `<div class="info-section"><h4>🌐 Idiomas</h4><div class="badges">` +
-          tray.idiomas.map(i => `<span class="badge">${utils.escapeHtml(i.idioma)} · ${utils.escapeHtml(i.nivel)}</span>`).join("") + `</div></div>`;
-      }
-      if ((tray.certificaciones || []).length) {
-        html += `<div class="info-section"><h4>📜 Certificaciones</h4><div class="badges">` +
-          tray.certificaciones.map(c => `<span class="badge">${utils.escapeHtml(c)}</span>`).join("") + `</div></div>`;
-      }
+      html += `<div class="info-section"><h4>🧭 Trayectoria</h4>`;
       if (!hayTray) {
-        html += `<div class="info-section"><p style="color:#9ca3af;">Este dentista aún no ha añadido experiencia, formación ni idiomas.</p></div>`;
+        html += `<p style="color:#9ca3af;">Este dentista aún no ha añadido experiencia, formación ni idiomas.</p>`;
+      } else {
+        if ((tray.experiencia || []).length) {
+          html += `<h5 style="margin:.8rem 0 .3rem;color:#0f4c75;">💼 Experiencia</h5>` +
+            tray.experiencia.map(e => {
+              const fechas = this.rangoFechas(e.fecha_inicio, e.fecha_fin, e.actual);
+              return `<div style="margin-bottom:.7rem;"><strong>${utils.escapeHtml(e.especialidad || "")}</strong>${e.lugar ? " · " + utils.escapeHtml(e.lugar) : ""}${fechas ? `<div style="color:#6b7280;font-size:.85rem;">${fechas}</div>` : ""}${e.descripcion ? `<div style="color:#4b5563;font-size:.9rem;margin-top:.15rem;">${utils.escapeHtml(e.descripcion)}</div>` : ""}</div>`;
+            }).join("");
+        }
+        if ((tray.formacion || []).length) {
+          html += `<h5 style="margin:.8rem 0 .3rem;color:#0f4c75;">🎓 Formación</h5>` +
+            tray.formacion.map(f => `<div style="margin-bottom:.3rem;">${utils.escapeHtml([f.titulo, f.centro].filter(Boolean).join(" · ") + (f.anyo ? ` (${f.anyo})` : ""))}</div>`).join("");
+        }
+        if ((tray.idiomas || []).length) {
+          html += `<h5 style="margin:.8rem 0 .3rem;color:#0f4c75;">🌐 Idiomas</h5><div class="badges">` +
+            tray.idiomas.map(i => `<span class="badge">${utils.escapeHtml(i.idioma)} · ${utils.escapeHtml(i.nivel)}</span>`).join("") + `</div>`;
+        }
+        if ((tray.certificaciones || []).length) {
+          html += `<h5 style="margin:.8rem 0 .3rem;color:#0f4c75;">📜 Certificaciones</h5><div class="badges">` +
+            tray.certificaciones.map(c => `<span class="badge">${utils.escapeHtml(c)}</span>`).join("") + `</div>`;
+        }
       }
+      html += `</div>`;
+
       html += `</div>`;
       return html;
     },

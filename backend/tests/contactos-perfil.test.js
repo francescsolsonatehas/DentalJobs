@@ -121,3 +121,47 @@ test("un contacto entre dos personas es un único hilo aunque ambas pulsen Conta
     assert.equal(vistaClinica.body.recibidos.length, 0);
   });
 });
+
+test("chat directo de una clínica con un dentista", async (t) => {
+  const { app, dbPath } = createTestApp();
+  t.after(() => cleanupTestApp(dbPath));
+
+  const clinica = await registrarYLoguear(app, { nombre: "Clínica CD", email: "clinica-cd@test.com", tipo: "clinica" });
+  const dentista = await registrarYLoguear(app, { nombre: "Dentista CD", email: "dentista-cd@test.com", tipo: "dentista" });
+  const otraClinica = await registrarYLoguear(app, { nombre: "Otra Clínica", email: "otra-cd@test.com", tipo: "clinica" });
+
+  await t.test("la clínica abre el chat directo y puede escribir de inmediato", async () => {
+    const abrir = await request(app)
+      .post(`/perfiles/${dentista.usuario.id}/chat-directo`)
+      .set("Authorization", `Bearer ${clinica.token}`);
+    assert.equal(abrir.status, 200);
+
+    // Sin aceptación previa: el canal ya está disponible
+    const msg = await request(app)
+      .post(`/chat/con/${dentista.usuario.id}`)
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .send({ cuerpo: "Hola, nos interesa tu perfil" });
+    assert.equal(msg.status, 200);
+  });
+
+  await t.test("abrir el chat directo dos veces es idempotente", async () => {
+    const res = await request(app)
+      .post(`/perfiles/${dentista.usuario.id}/chat-directo`)
+      .set("Authorization", `Bearer ${clinica.token}`);
+    assert.equal(res.status, 200);
+  });
+
+  await t.test("un dentista no puede iniciar un chat directo", async () => {
+    const res = await request(app)
+      .post(`/perfiles/${otraClinica.usuario.id}/chat-directo`)
+      .set("Authorization", `Bearer ${dentista.token}`);
+    assert.equal(res.status, 403);
+  });
+
+  await t.test("una clínica no puede iniciar un chat directo con otra clínica", async () => {
+    const res = await request(app)
+      .post(`/perfiles/${otraClinica.usuario.id}/chat-directo`)
+      .set("Authorization", `Bearer ${clinica.token}`);
+    assert.equal(res.status, 400);
+  });
+});

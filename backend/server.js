@@ -5075,6 +5075,72 @@ app.get("/perfiles", (req, res) => {
   });
 });
 
+// Chat directo de una clínica con un dentista "abierto a cambios profesionales". A
+// diferencia de "Contactar" (que crea una solicitud pendiente que el dentista debe
+// aceptar), aquí se abre el canal ya aceptado para poder escribir de inmediato. Se
+// limita a clínica→dentista: es el caso previsto y evita saltarse el consentimiento
+// en el otro sentido, donde se sigue usando la solicitud de contacto.
+app.post("/perfiles/:id/chat-directo", verifyToken, (req, res) => {
+  const solicitanteId = req.usuario.id;
+  const perfilId = parseInt(req.params.id);
+  if (!perfilId || perfilId === solicitanteId) return res.status(400).json({ error: "Perfil inválido" });
+  if (req.usuario.tipo !== "clinica") {
+    return res.status(403).json({ error: "Solo una clínica puede iniciar un chat directo con un dentista" });
+  }
+
+  db.get("SELECT id, tipo FROM usuarios WHERE id = ? AND nombre != 'Usuario eliminado'", [perfilId], (err, perfil) => {
+    if (err) { console.error(err); return res.status(500).json({ error: "Error al iniciar el chat" }); }
+    if (!perfil) return res.status(404).json({ error: "Perfil no encontrado" });
+    if (perfil.tipo !== "dentista") return res.status(400).json({ error: "El chat directo es solo con dentistas" });
+
+    // Un contacto entre dos personas es un único hilo, venga de donde venga. Si ya
+    // existe (en cualquier sentido) se reutiliza; si estaba pendiente, iniciar el chat
+    // directo lo da por aceptado.
+    db.get(
+      `SELECT id, estado FROM contactos_perfil
+       WHERE (solicitante_id = ? AND perfil_id = ?) OR (solicitante_id = ? AND perfil_id = ?)`,
+      [solicitanteId, perfilId, perfilId, solicitanteId],
+      (err2, existente) => {
+        if (err2) { console.error(err2); return res.status(500).json({ error: "Error al iniciar el chat" }); }
+
+        if (existente) {
+          if (existente.estado === "aceptada") return res.json({ mensaje: "Chat disponible", id: existente.id });
+          return db.run(
+            "UPDATE contactos_perfil SET estado = 'aceptada', actualizado_en = CURRENT_TIMESTAMP WHERE id = ?",
+            [existente.id],
+            (err3) => {
+              if (err3) { console.error(err3); return res.status(500).json({ error: "Error al iniciar el chat" }); }
+              res.json({ mensaje: "Chat disponible", id: existente.id });
+            }
+          );
+        }
+
+        db.run(
+          "INSERT INTO contactos_perfil (solicitante_id, perfil_id, estado) VALUES (?, ?, 'aceptada')",
+          [solicitanteId, perfilId],
+          function(err3) {
+            if (err3) { console.error(err3); return res.status(500).json({ error: "Error al iniciar el chat" }); }
+            res.json({ mensaje: "Chat disponible", id: this.lastID });
+
+            // Avisar al dentista de que una clínica ha abierto conversación
+            db.get("SELECT nombre FROM usuarios WHERE id = ?", [solicitanteId], (e, sol) => {
+              if (e || !sol) return;
+              notificarUsuario(
+                perfilId,
+                `💬 ${sol.nombre} ha iniciado un chat contigo`,
+                "Nuevo chat",
+                `${sol.nombre} está interesada en tu perfil y ha abierto una conversación en DentalJobs. Entra para leerla y responder.`,
+                "Abrir el chat",
+                { tipo: "mensaje", enlace: `#chat=${solicitanteId}` }
+              );
+            });
+          }
+        );
+      }
+    );
+  });
+});
+
 app.post("/favoritos-perfil", verifyToken, (req, res) => {
   const { perfil_id } = req.body;
   if (!perfil_id) return res.status(400).json({ error: "perfil_id requerido" });
