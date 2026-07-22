@@ -175,4 +175,56 @@ test("chat", async (t) => {
 
     assert.equal(res.status, 403);
   });
+
+  // El dentista puede adjuntar un fichero al chat: se sube a `archivos` y el mensaje
+  // lo referencia. El hilo devuelve los metadatos del adjunto para poder pintarlo.
+  await t.test("se puede enviar un mensaje con un archivo adjunto", async () => {
+    const subida = await request(app)
+      .post("/archivos/upload")
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .field("tipo", "chat")
+      .attach("archivo", Buffer.from("contenido de prueba"), "documento.txt");
+    assert.equal(subida.status, 200);
+    const archivoId = subida.body.id;
+
+    // Sin texto, solo el adjunto: debe valer igualmente
+    const envio = await request(app)
+      .post(`/chat/con/${clinica.usuario.id}`)
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .send({ archivo_id: archivoId });
+    assert.equal(envio.status, 200);
+
+    const hilo = await request(app)
+      .get(`/chat/con/${dentista.usuario.id}`)
+      .set("Authorization", `Bearer ${clinica.token}`);
+    const conAdjunto = hilo.body.mensajes.find((m) => m.archivo_id === archivoId);
+    assert.ok(conAdjunto, "el mensaje con adjunto debe estar en el hilo");
+    assert.equal(conAdjunto.archivo_tipo, "chat");
+    assert.equal(conAdjunto.archivo_nombre, "documento.txt");
+    assert.equal(conAdjunto.cuerpo, "");
+  });
+
+  await t.test("no se puede adjuntar un archivo de otra persona", async () => {
+    // Un archivo que pertenece a la clínica, no al dentista
+    const ajeno = await request(app)
+      .post("/archivos/upload")
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .field("tipo", "chat")
+      .attach("archivo", Buffer.from("privado"), "ajeno.txt");
+    assert.equal(ajeno.status, 200);
+
+    const res = await request(app)
+      .post(`/chat/con/${clinica.usuario.id}`)
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .send({ archivo_id: ajeno.body.id });
+    assert.equal(res.status, 403);
+  });
+
+  await t.test("un mensaje sin texto ni adjunto se rechaza", async () => {
+    const res = await request(app)
+      .post(`/chat/con/${clinica.usuario.id}`)
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .send({ cuerpo: "   " });
+    assert.equal(res.status, 400);
+  });
 });

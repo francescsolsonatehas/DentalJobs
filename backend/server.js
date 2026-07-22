@@ -373,7 +373,7 @@ app.use("/auth/registro", limiterAuth);
 // estos números tiene coste de RAM en el servidor y de tamaño de fila en Turso. Para
 // permitir archivos mucho más grandes habría que sacarlos de la BD a un
 // almacenamiento de objetos (S3/R2) y guardar solo el enlace.
-const MAX_MB_POR_TIPO = { cv: 5, portfolio: 25, foto: 10 };
+const MAX_MB_POR_TIPO = { cv: 5, portfolio: 25, foto: 10, chat: 10 };
 const MAX_SUBIDA_MB = Math.max(...Object.values(MAX_MB_POR_TIPO));
 
 // Configurar multer para uploads en memoria. El límite es el mayor de todos los
@@ -4102,10 +4102,13 @@ app.get("/chat/con/:otroId", verifyToken, (req, res) => {
 
       db.all(
         `SELECT m.*, ur.nombre as remitente_nombre_usuario,
-                p.ciudad as publicacion_ciudad, p.tipo as publicacion_tipo
+                p.ciudad as publicacion_ciudad, p.tipo as publicacion_tipo,
+                a.tipo as archivo_tipo, a.nombre_archivo as archivo_nombre,
+                a.tamanyo as archivo_tamanyo, a.mime_type as archivo_mime
          FROM mensajes m
          LEFT JOIN usuarios ur ON m.usuario_id = ur.id
          LEFT JOIN publicaciones p ON m.publicacion_id = p.id
+         LEFT JOIN archivos a ON m.archivo_id = a.id
          WHERE (m.usuario_id = ? AND m.destinatario_id = ?)
             OR (m.usuario_id = ? AND m.destinatario_id = ?)
          ORDER BY m.creado_en ASC`,
@@ -4131,9 +4134,11 @@ app.get("/chat/con/:otroId", verifyToken, (req, res) => {
 app.post("/chat/con/:otroId", verifyToken, (req, res) => {
   const usuarioId = req.usuario.id;
   const otroId = parseInt(req.params.otroId);
-  const { cuerpo } = req.body;
+  const cuerpo = (req.body.cuerpo || "").trim();
+  const archivoId = req.body.archivo_id ? parseInt(req.body.archivo_id) : null;
 
-  if (!otroId || !cuerpo || !cuerpo.trim()) {
+  // Un mensaje vale si trae texto, o adjunto, o ambos: no se exigen los dos.
+  if (!otroId || (!cuerpo && !archivoId)) {
     return res.status(400).json({ error: "Faltan datos obligatorios" });
   }
   if (otroId === usuarioId) {
@@ -4149,39 +4154,59 @@ app.post("/chat/con/:otroId", verifyToken, (req, res) => {
       return res.status(403).json({ error: "Solo puedes chatear tras una postulación o un contacto aceptados" });
     }
 
-    db.get("SELECT nombre, email FROM usuarios WHERE id = ?", [usuarioId], (err2, remitente) => {
-      if (err2 || !remitente) {
-        console.error(err2);
+    // Si hay adjunto, tiene que ser un archivo del propio remitente: así no se puede
+    // colar el CV/Book (ni ningún fichero) de otra persona pasando un id ajeno.
+    const comprobarArchivo = (cb) => {
+      if (!archivoId) return cb(null);
+      db.get("SELECT usuario_id FROM archivos WHERE id = ?", [archivoId], (errA, archivo) => {
+        if (errA) return cb(errA);
+        if (!archivo) return cb({ status: 404, msg: "El adjunto no existe" });
+        if (archivo.usuario_id !== usuarioId) return cb({ status: 403, msg: "No puedes adjuntar un archivo que no es tuyo" });
+        cb(null);
+      });
+    };
+
+    comprobarArchivo((errArch) => {
+      if (errArch) {
+        if (errArch.status) return res.status(errArch.status).json({ error: errArch.msg });
+        console.error(errArch);
         return res.status(500).json({ error: "Error al enviar mensaje" });
       }
 
-      db.run(
-        `INSERT INTO mensajes (publicacion_id, contacto_perfil_id, usuario_id, destinatario_id, remitente_nombre, remitente_email, cuerpo)
-         VALUES (NULL, NULL, ?, ?, ?, ?, ?)`,
-        [usuarioId, otroId, remitente.nombre, remitente.email, cuerpo.trim()],
-        function(err3) {
-          if (err3) {
-            console.error(err3);
-            return res.status(500).json({ error: "Error al enviar mensaje" });
-          }
-          res.json({ mensaje: "Mensaje enviado", id: this.lastID });
-
-          // Aviso por email, como mucho uno por interlocutor y hora
-          const claveNotif = `${otroId}:${usuarioId}`;
-          const ultima = ultimaNotificacionChat.get(claveNotif);
-          if (!ultima || Date.now() - ultima > 60 * 60 * 1000) {
-            ultimaNotificacionChat.set(claveNotif, Date.now());
-            notificarUsuario(
-              otroId,
-              `💬 Mensaje nuevo de ${remitente.nombre} en DentalJobs`,
-              "Tienes un mensaje nuevo",
-              `${remitente.nombre} te ha escrito en el chat de DentalJobs. Entra para leerlo y responder.`,
-              "Abrir el chat",
-              { tipo: "mensaje", enlace: `#chat=${usuarioId}` }
-            );
-          }
+      db.get("SELECT nombre, email FROM usuarios WHERE id = ?", [usuarioId], (err2, remitente) => {
+        if (err2 || !remitente) {
+          console.error(err2);
+          return res.status(500).json({ error: "Error al enviar mensaje" });
         }
-      );
+
+        db.run(
+          `INSERT INTO mensajes (publicacion_id, contacto_perfil_id, usuario_id, destinatario_id, remitente_nombre, remitente_email, cuerpo, archivo_id)
+           VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?)`,
+          [usuarioId, otroId, remitente.nombre, remitente.email, cuerpo, archivoId],
+          function(err3) {
+            if (err3) {
+              console.error(err3);
+              return res.status(500).json({ error: "Error al enviar mensaje" });
+            }
+            res.json({ mensaje: "Mensaje enviado", id: this.lastID });
+
+            // Aviso por email, como mucho uno por interlocutor y hora
+            const claveNotif = `${otroId}:${usuarioId}`;
+            const ultima = ultimaNotificacionChat.get(claveNotif);
+            if (!ultima || Date.now() - ultima > 60 * 60 * 1000) {
+              ultimaNotificacionChat.set(claveNotif, Date.now());
+              notificarUsuario(
+                otroId,
+                `💬 Mensaje nuevo de ${remitente.nombre} en DentalJobs`,
+                "Tienes un mensaje nuevo",
+                `${remitente.nombre} te ha escrito en el chat de DentalJobs. Entra para leerlo y responder.`,
+                "Abrir el chat",
+                { tipo: "mensaje", enlace: `#chat=${usuarioId}` }
+              );
+            }
+          }
+        );
+      });
     });
   });
 });
@@ -4220,7 +4245,7 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
   }
 
   const { tipo } = req.body;
-  if (!tipo || !["cv", "portfolio", "foto"].includes(tipo)) {
+  if (!tipo || !["cv", "portfolio", "foto", "chat"].includes(tipo)) {
     return res.status(400).json({ error: "Tipo de archivo inválido" });
   }
 
@@ -4234,6 +4259,22 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
   // valida también aquí: el `accept` del input es una comodidad, no una defensa.
   if (tipo === "portfolio" && mime !== "application/pdf" && !mime.startsWith("image/")) {
     return res.status(400).json({ error: "El Book solo admite PDF o imágenes" });
+  }
+
+  // Los adjuntos del chat admiten los formatos habituales de documento e imagen. Se
+  // valida en el servidor: el `accept` del input solo orienta al usuario.
+  if (tipo === "chat") {
+    const MIMES_CHAT = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "text/plain",
+    ];
+    if (!mime.startsWith("image/") && !MIMES_CHAT.includes(mime)) {
+      return res.status(400).json({ error: "Formato no admitido. Adjunta PDF, imágenes o documentos de Office/texto." });
+    }
   }
 
   const maxSize = MAX_MB_POR_TIPO[tipo] * 1024 * 1024;

@@ -328,6 +328,14 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
+  // Un mensaje de chat puede llevar un adjunto (CV, Book o un fichero cualquiera).
+  // Apunta a la tabla `archivos`, así el mismo CV/Book del perfil se reutiliza sin
+  // duplicar el BLOB. Los ficheros sueltos que se suben desde el chat se guardan en
+  // `archivos` con tipo 'chat'.
+  db.run(`ALTER TABLE mensajes ADD COLUMN archivo_id INTEGER REFERENCES archivos(id)`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
   db.run(`ALTER TABLE usuarios ADD COLUMN email_verificado INTEGER DEFAULT 0`, (err) => {
     // Ignorar error si la columna ya existe
   });

@@ -7347,7 +7347,10 @@ const app = {
           <button class="btn-text btn-small" onclick="app.chat.volverALista()" style="margin-bottom: 0.5rem;">← Todas las conversaciones</button>
           <div id="chatEscribiendo" class="chat-escribiendo" style="visibility: hidden;">escribiendo…</div>
           <div id="chatMensajes" class="chat-mensajes"><p style="color: #9ca3af; text-align: center;">Cargando…</p></div>
+          <div id="chatAtajos" class="chat-atajos"></div>
           <form class="chat-input-row" onsubmit="event.preventDefault(); app.chat.enviar();">
+            <input id="chatFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*" style="display: none;" onchange="app.chat.adjuntarFichero()">
+            <button type="button" class="chat-adjuntar-btn" title="Adjuntar un archivo" onclick="document.getElementById('chatFile').click()">📎</button>
             <input id="chatInput" type="text" placeholder="Escribe un mensaje…" autocomplete="off" oninput="app.chat.notificarEscribiendo()">
             <button type="submit" class="btn-primary">Enviar</button>
           </form>
@@ -7366,6 +7369,7 @@ const app = {
       this.conversacionActual = { otro_id: otroId, otro_nombre: otroNombre };
       this.renderHiloUI(otroNombre || "Conversación");
       const hilo = this.refrescarHilo(true);
+      this.cargarAtajosArchivos();
 
       if (!otroNombre) {
         utils.requestOpcional(`/usuarios/${otroId}/publico`).then(perfil => {
@@ -7425,9 +7429,12 @@ const app = {
             }
             contextoAnterior = contexto;
 
+            const cuerpoHtml = m.cuerpo ? `<p>${utils.escapeHtml(m.cuerpo)}</p>` : '';
+            const adjuntoHtml = m.archivo_id ? this.renderAdjunto(m) : '';
+
             return separador + `
               <div class="chat-burbuja ${esMio ? 'chat-burbuja-mia' : 'chat-burbuja-otro'}">
-                <p>${utils.escapeHtml(m.cuerpo)}</p>
+                ${cuerpoHtml}${adjuntoHtml}
                 <span class="chat-burbuja-meta">${utils.formatearFecha(m.creado_en)} ${hora} ${ticks}</span>
               </div>
             `;
@@ -7463,6 +7470,97 @@ const app = {
         await this.refrescarHilo(true);
       } catch (error) {
         input.value = cuerpo;
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    // Pinta la tarjeta de un adjunto dentro de una burbuja. El icono y la etiqueta
+    // dependen de qué sea: el CV y el Book del perfil se reconocen por su tipo; un
+    // fichero suelto ('chat') se muestra según su formato.
+    renderAdjunto(m) {
+      const mime = m.archivo_mime || '';
+      let icono, etiqueta;
+      if (m.archivo_tipo === 'cv') {
+        icono = '📄'; etiqueta = 'CV';
+      } else if (m.archivo_tipo === 'portfolio') {
+        icono = '📕'; etiqueta = 'Book';
+      } else if (mime.startsWith('image/')) {
+        icono = '🖼️'; etiqueta = 'Imagen';
+      } else if (mime === 'application/pdf') {
+        icono = '📄'; etiqueta = 'PDF';
+      } else {
+        icono = '📎'; etiqueta = 'Archivo';
+      }
+      const tamanyo = m.archivo_tamanyo ? ' · ' + utils.formatearTamanyo(m.archivo_tamanyo) : '';
+      return `
+        <a class="chat-adjunto" href="${API}/archivos/${m.archivo_id}/download" target="_blank" rel="noopener">
+          <span class="chat-adjunto-icono">${icono}</span>
+          <span class="chat-adjunto-texto">
+            <span class="chat-adjunto-nombre">${utils.escapeHtml(m.archivo_nombre || 'Archivo')}</span>
+            <span class="chat-adjunto-meta">${etiqueta}${tamanyo}</span>
+          </span>
+        </a>`;
+    },
+
+    // Los dentistas tienen a mano botones para enviar su CV y su Book sin volver a
+    // subirlos: se referencia el archivo que ya guardaron en su perfil.
+    async cargarAtajosArchivos() {
+      const cont = document.getElementById("chatAtajos");
+      if (!cont) return;
+      cont.innerHTML = '';
+      if (!estadoApp.usuario || estadoApp.usuario.tipo !== 'dentista') return;
+      try {
+        const archivos = await utils.request(`/archivos/usuario/${estadoApp.usuario.id}`);
+        const cv = archivos.find(a => a.tipo === 'cv');
+        const book = archivos.find(a => a.tipo === 'portfolio');
+        let html = '';
+        if (cv) html += `<button type="button" class="chat-atajo" onclick="app.chat.adjuntarPerfil(${cv.id})">📄 Enviar mi CV</button>`;
+        if (book) html += `<button type="button" class="chat-atajo" onclick="app.chat.adjuntarPerfil(${book.id})">📕 Enviar mi Book</button>`;
+        cont.innerHTML = html;
+      } catch (error) {
+        console.error("Error al cargar atajos de archivos:", error);
+      }
+    },
+
+    // Adjuntar un fichero cualquiera: primero se sube (tipo 'chat') y luego se manda
+    // el mensaje que lo referencia, junto con el texto que hubiera en la caja.
+    async adjuntarFichero() {
+      const input = document.getElementById("chatFile");
+      if (!input || input.files.length === 0) return;
+      const file = input.files[0];
+      input.value = '';
+
+      const formData = new FormData();
+      formData.append("archivo", file);
+      formData.append("tipo", "chat");
+      try {
+        const resp = await utils.requestForm("/archivos/upload", formData);
+        await this.enviarConArchivo(resp.id);
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    // Enviar el CV o el Book del perfil: ya existen como archivo, basta referenciarlos.
+    async adjuntarPerfil(archivoId) {
+      await this.enviarConArchivo(archivoId);
+    },
+
+    // Manda un mensaje con adjunto. El texto de la caja es opcional: se envía junto al
+    // archivo si lo hay, y si no, el mensaje va solo con el adjunto.
+    async enviarConArchivo(archivoId) {
+      const conv = this.conversacionActual;
+      if (!conv) return;
+      const input = document.getElementById("chatInput");
+      const cuerpo = input ? input.value.trim() : '';
+      try {
+        await utils.request(`/chat/con/${conv.otro_id}`, {
+          method: "POST",
+          body: JSON.stringify({ cuerpo, archivo_id: archivoId })
+        });
+        if (input) input.value = '';
+        await this.refrescarHilo(true);
+      } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
     },

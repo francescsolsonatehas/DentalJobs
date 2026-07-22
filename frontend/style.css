@@ -1985,12 +1985,105 @@ select:focus {
   margin-top: 0.75rem;
 }
 
-.chat-input-row input {
+.chat-input-row input[type="text"] {
   flex: 1;
   padding: 0.7rem 1rem;
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 0.95rem;
+}
+
+/* Botón de clip para adjuntar un archivo desde el chat */
+.chat-adjuntar-btn {
+  flex: 0 0 auto;
+  width: 44px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #f9fafb;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.chat-adjuntar-btn:hover {
+  background: #eef2ff;
+  border-color: #0f4c75;
+}
+
+/* Atajos para que el dentista envíe su CV o Book con un clic */
+.chat-atajos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.chat-atajo {
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #0f4c75;
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.chat-atajo:hover {
+  background: #dbe4ff;
+}
+
+/* Tarjeta de un adjunto dentro de una burbuja */
+.chat-adjunto {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  background: rgba(15, 76, 117, 0.06);
+  border: 1px solid rgba(15, 76, 117, 0.15);
+  text-decoration: none;
+  color: inherit;
+  max-width: 260px;
+}
+
+.chat-adjunto:hover {
+  background: rgba(15, 76, 117, 0.12);
+}
+
+.chat-burbuja-mia .chat-adjunto {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.chat-burbuja-mia .chat-adjunto:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.chat-adjunto-icono {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.chat-adjunto-texto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.chat-adjunto-nombre {
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-adjunto-meta {
+  font-size: 0.72rem;
+  opacity: 0.75;
 }
 
 /* ============================================
