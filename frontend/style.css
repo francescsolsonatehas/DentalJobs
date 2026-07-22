@@ -2086,6 +2086,67 @@ select:focus {
   opacity: 0.75;
 }
 
+/* Vista previa del adjunto pendiente de enviar (encima de la barra de escritura) */
+.chat-adjunto-pendiente {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  background: #eef2ff;
+}
+
+.chat-adjunto-pendiente-icono {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.chat-adjunto-pendiente-texto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.chat-adjunto-pendiente-nombre {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0f4c75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-adjunto-pendiente-meta {
+  font-size: 0.72rem;
+  color: #6b7280;
+}
+
+.chat-adjunto-pendiente-quitar {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+}
+
+.chat-adjunto-pendiente-quitar:hover {
+  background: rgba(15, 76, 117, 0.1);
+  color: #0f4c75;
+}
+
+.chat-adjunto-limite {
+  font-size: 0.72rem;
+  color: #9ca3af;
+  margin: 0.4rem 0 0;
+  text-align: center;
+}
+
 /* ============================================
    Recordatorios
 ============================================ */
