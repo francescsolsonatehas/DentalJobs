@@ -1065,7 +1065,7 @@ async function recopilarDatosCv(usuarioId) {
     [usuarioId]
   );
   const experienciaLaboral = await all(
-    "SELECT puesto, especialidad, lugar, fecha_inicio, fecha_fin, actual, descripcion FROM experiencia_laboral WHERE usuario_id = ? ORDER BY orden ASC, fecha_inicio DESC",
+    "SELECT especialidad, lugar, fecha_inicio, fecha_fin, actual, descripcion FROM experiencia_laboral WHERE usuario_id = ? ORDER BY orden ASC, fecha_inicio DESC",
     [usuarioId]
   );
   const formacionLista = await all(
@@ -1123,8 +1123,7 @@ app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
     const gris = "#4b5563";
 
     // Cabecera
-    doc.fillColor(azul).fontSize(26).font("Helvetica-Bold").text(usuario.nombre);
-    doc.fillColor(gris).fontSize(12).font("Helvetica").text("Dentista", { paragraphGap: 4 });
+    doc.fillColor(azul).fontSize(26).font("Helvetica-Bold").text(usuario.nombre, { paragraphGap: 4 });
 
     const contacto = [
       usuario.email,
@@ -1171,10 +1170,9 @@ app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
       const anchoRango = 120; // hueco reservado a la derecha para el año-mes
       experienciaLaboral.forEach(e => {
         const rango = [e.fecha_inicio, e.actual ? "Actualidad" : e.fecha_fin].filter(Boolean).join(" – ");
-        // La especialidad titula la experiencia (fallback al puesto en entradas
-        // anteriores al cambio). El rango de fechas va al lado, a la derecha y en la
-        // misma línea.
-        const titulo = `${e.especialidad || e.puesto || ""}${e.lugar ? ` · ${e.lugar}` : ""}`;
+        // La especialidad titula la experiencia. El rango de fechas va al lado, a la
+        // derecha y en la misma línea.
+        const titulo = `${e.especialidad || ""}${e.lugar ? ` · ${e.lugar}` : ""}`;
         const y = doc.y;
         if (rango) {
           doc.font("Helvetica").fillColor(gris).fontSize(10).text(rango, izq, y, { width: anchoUtil, align: "right" });
@@ -1309,7 +1307,7 @@ app.get("/usuarios/:id/publico", (req, res) => {
 app.get("/usuarios/:id/trayectoria", (req, res) => {
   const usuarioId = req.params.id;
   db.all(
-    "SELECT id, puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion, especialidad FROM experiencia_laboral WHERE usuario_id = ? ORDER BY orden ASC, fecha_inicio DESC",
+    "SELECT id, lugar, fecha_inicio, fecha_fin, actual, descripcion, especialidad FROM experiencia_laboral WHERE usuario_id = ? ORDER BY orden ASC, fecha_inicio DESC",
     [usuarioId],
     (err, experiencia) => {
       if (err) {
@@ -1357,17 +1355,16 @@ app.get("/usuarios/:id/trayectoria", (req, res) => {
 });
 
 app.post("/experiencia-laboral", verifyToken, (req, res) => {
-  const { puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion, especialidad } = req.body;
-  // La especialidad ocupa el lugar del antiguo "puesto" como campo obligatorio de
-  // cada experiencia. `puesto` se conserva en el esquema (NOT NULL, y hay entradas
-  // antiguas que solo lo tienen a él), pero ya no se pide: se guarda vacío.
+  const { lugar, fecha_inicio, fecha_fin, actual, descripcion, especialidad } = req.body;
   if (!especialidad || !especialidad.trim()) {
     return res.status(400).json({ error: "La especialidad es obligatoria" });
   }
+  // La columna `puesto` ya no se usa; se conserva por compatibilidad con datos
+  // antiguos y se guarda vacía (es NOT NULL).
   db.run(
     `INSERT INTO experiencia_laboral (usuario_id, puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion, especialidad)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [req.usuario.id, (puesto || "").trim(), lugar || null, fecha_inicio || null, actual ? null : (fecha_fin || null), actual ? 1 : 0, descripcion || null, especialidad.trim()],
+     VALUES (?, '', ?, ?, ?, ?, ?, ?)`,
+    [req.usuario.id, lugar || null, fecha_inicio || null, actual ? null : (fecha_fin || null), actual ? 1 : 0, descripcion || null, especialidad.trim()],
     function(err) {
       if (err) {
         console.error(err);
@@ -1379,7 +1376,7 @@ app.post("/experiencia-laboral", verifyToken, (req, res) => {
 });
 
 app.put("/experiencia-laboral/:id", verifyToken, (req, res) => {
-  const { puesto, lugar, fecha_inicio, fecha_fin, actual, descripcion, especialidad } = req.body;
+  const { lugar, fecha_inicio, fecha_fin, actual, descripcion, especialidad } = req.body;
   if (!especialidad || !especialidad.trim()) {
     return res.status(400).json({ error: "La especialidad es obligatoria" });
   }
@@ -1392,8 +1389,8 @@ app.put("/experiencia-laboral/:id", verifyToken, (req, res) => {
       return res.status(403).json({ error: "No tienes permiso para modificar esta experiencia" });
     }
     db.run(
-      `UPDATE experiencia_laboral SET puesto = ?, lugar = ?, fecha_inicio = ?, fecha_fin = ?, actual = ?, descripcion = ?, especialidad = ? WHERE id = ?`,
-      [(puesto || "").trim(), lugar || null, fecha_inicio || null, actual ? null : (fecha_fin || null), actual ? 1 : 0, descripcion || null, especialidad.trim(), req.params.id],
+      `UPDATE experiencia_laboral SET lugar = ?, fecha_inicio = ?, fecha_fin = ?, actual = ?, descripcion = ?, especialidad = ? WHERE id = ?`,
+      [lugar || null, fecha_inicio || null, actual ? null : (fecha_fin || null), actual ? 1 : 0, descripcion || null, especialidad.trim(), req.params.id],
       (err) => {
         if (err) {
           console.error(err);

@@ -4392,7 +4392,7 @@ const app = {
           <h4 style="margin: 0 0 0.75rem 0; color: #0F4C75; font-weight: 700;">💼 Experiencia laboral</h4>
           ${trayectoria.experiencia.map(e => `
             <div style="margin-bottom: 0.9rem;">
-              <strong>${utils.escapeHtml(e.especialidad || e.puesto)}</strong>${e.lugar ? ` · ${utils.escapeHtml(e.lugar)}` : ''}
+              <strong>${utils.escapeHtml(e.especialidad || "")}</strong>${e.lugar ? ` · ${utils.escapeHtml(e.lugar)}` : ''}
               <p style="margin: 0.2rem 0; font-size: 0.85rem; color: #6b7280;">${utils.escapeHtml(app.trayectoria.formatearRango(e.fecha_inicio, e.fecha_fin, e.actual))}</p>
               ${e.descripcion ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.9rem; white-space: pre-wrap;">${utils.escapeHtml(e.descripcion)}</p>` : ''}
             </div>
@@ -5358,7 +5358,7 @@ const app = {
         const expLaboral = (cv.experienciaLaboral || []).map(e => {
           const rango = [e.fecha_inicio, e.actual ? "Actualidad" : e.fecha_fin].filter(Boolean).join(" – ");
           return `<div style="margin-bottom: 0.5rem;">
-            <strong>${utils.escapeHtml(e.puesto)}${e.lugar ? " · " + utils.escapeHtml(e.lugar) : ""}</strong>
+            <strong>${utils.escapeHtml(e.especialidad || "")}${e.lugar ? " · " + utils.escapeHtml(e.lugar) : ""}</strong>
             ${rango ? `<div style="color: #6b7280; font-size: 0.85rem;">${utils.escapeHtml(rango)}</div>` : ""}
             ${e.descripcion ? `<div style="color: #6b7280; font-size: 0.9rem;">${utils.escapeHtml(e.descripcion)}</div>` : ""}
           </div>`;
@@ -6300,7 +6300,7 @@ const app = {
         html += `<div class="info-section"><h4>💼 Experiencia</h4>` +
           tray.experiencia.map(e => {
             const fechas = this.rangoFechas(e.fecha_inicio, e.fecha_fin, e.actual);
-            return `<div style="margin-bottom:.7rem;"><strong>${utils.escapeHtml(e.especialidad || e.puesto)}</strong>${e.lugar ? " · " + utils.escapeHtml(e.lugar) : ""}${fechas ? `<div style="color:#6b7280;font-size:.85rem;">${fechas}</div>` : ""}${e.descripcion ? `<div style="color:#4b5563;font-size:.9rem;margin-top:.15rem;">${utils.escapeHtml(e.descripcion)}</div>` : ""}</div>`;
+            return `<div style="margin-bottom:.7rem;"><strong>${utils.escapeHtml(e.especialidad || "")}</strong>${e.lugar ? " · " + utils.escapeHtml(e.lugar) : ""}${fechas ? `<div style="color:#6b7280;font-size:.85rem;">${fechas}</div>` : ""}${e.descripcion ? `<div style="color:#4b5563;font-size:.9rem;margin-top:.15rem;">${utils.escapeHtml(e.descripcion)}</div>` : ""}</div>`;
           }).join("") + `</div>`;
       }
       if ((tray.formacion || []).length) {
@@ -6588,7 +6588,7 @@ const app = {
       contenedor.innerHTML = lista.map(e => `
         <div style="background: #f8faff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; gap: 1rem;">
           <div>
-            <strong style="color: #0f4c75;">${utils.escapeHtml(e.especialidad || e.puesto)}</strong>${e.lugar ? ` · ${utils.escapeHtml(e.lugar)}` : ''}
+            <strong style="color: #0f4c75;">${utils.escapeHtml(e.especialidad || "")}</strong>${e.lugar ? ` · ${utils.escapeHtml(e.lugar)}` : ''}
             <p style="margin: 0.2rem 0; font-size: 0.85rem; color: #6b7280;">${utils.escapeHtml(this.formatearRango(e.fecha_inicio, e.fecha_fin, e.actual))}</p>
             ${e.descripcion ? `<p style="margin: 0.3rem 0 0 0; font-size: 0.9rem; color: #374151; white-space: pre-wrap;">${utils.escapeHtml(e.descripcion)}</p>` : ''}
           </div>

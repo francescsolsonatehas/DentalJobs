@@ -122,7 +122,7 @@ test("trayectoria profesional (experiencia, formación, idiomas)", async (t) => 
     await request(app)
       .post("/experiencia-laboral")
       .set("Authorization", `Bearer ${dentista.token}`)
-      .send({ puesto: "Otro puesto" });
+      .send({ especialidad: "Endodoncia" });
 
     const del = await request(app)
       .delete("/auth/mi-cuenta")
