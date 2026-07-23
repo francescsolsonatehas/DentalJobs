@@ -4238,7 +4238,9 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
 
 app.get("/archivos/usuario/:userId", (req, res) => {
   db.all(
-    "SELECT id, tipo, nombre_archivo, tamanyo, creado_en FROM archivos WHERE usuario_id = ? ORDER BY creado_en DESC",
+    // mime_type permite distinguir en el cliente lo que se puede mostrar (imágenes del
+    // Book) de lo que solo se descarga (PDF). No expone contenido, solo el formato.
+    "SELECT id, tipo, nombre_archivo, mime_type, tamanyo, creado_en FROM archivos WHERE usuario_id = ? ORDER BY creado_en DESC",
     [req.params.userId],
     (err, archivos) => {
       if (err) {

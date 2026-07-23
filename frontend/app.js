@@ -2869,11 +2869,13 @@ const app = {
       document.getElementById("modalPostulaciones").classList.remove("active");
     },
 
-    abrirCandidatos(publicacionId, publicacionTitulo) {
+    // `centro` es la sede a la que va destinada la publicación: es lo que identifica de
+    // un vistazo a qué se han postulado estos dentistas.
+    abrirCandidatos(publicacionId, centro) {
       document.getElementById("modalCandidatos").classList.add("active");
       const titulo = document.querySelector("#modalCandidatos .modal-header h2");
       if (titulo) {
-        titulo.textContent = `Dentistas: ${publicacionTitulo}`;
+        titulo.textContent = centro || "Dentistas";
       }
       app.candidaturas.cargarCandidatos(publicacionId);
     },
@@ -5961,7 +5963,7 @@ const app = {
                 }
                 return '';
               })()}
-              ${estadoApp.tipoUsuario === 'clinica' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia') && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">👥 Dentistas (${candidatosPorOferta[pub.id]})</button>` : ''}
+              ${estadoApp.tipoUsuario === 'clinica' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia') && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${utils.escapeHtml((pub.sede_nombre || pub.ciudad || generatedTitle).replace(/'/g, "\\'"))}')" style="flex: 1;">👥 Dentistas (${candidatosPorOferta[pub.id]})</button>` : ''}
               ${interesadosHTML}
             </div>
           </div>
@@ -6402,6 +6404,47 @@ const app = {
       }
     },
 
+    // Los archivos del "Book" de un dentista. Las imágenes se ven directamente y el
+    // resto (PDF, sobre todo) se descarga. Se abre en el mismo modal de detalle.
+    async verBook(id, nombre) {
+      try {
+        const archivos = await utils.request(`/archivos/usuario/${id}`);
+        const book = (archivos || []).filter(a => a.tipo === "portfolio");
+
+        let html = `<div class="perfil-dentista"><div class="info-section"><h4>📕 Book</h4>`;
+        if (!book.length) {
+          html += `<p style="color:#9ca3af;">Este dentista aún no ha subido su Book.</p>`;
+        } else {
+          const imagenes = book.filter(a => (a.mime_type || "").startsWith("image/"));
+          const otros = book.filter(a => !(a.mime_type || "").startsWith("image/"));
+
+          if (imagenes.length) {
+            html += `<div class="fotos-gallery">` + imagenes.map(a => `
+              <div class="foto-item">
+                <a href="${API}/archivos/${a.id}/download" target="_blank" rel="noopener">
+                  <img src="${API}/archivos/${a.id}/download" alt="${utils.escapeHtml(a.nombre_archivo)}" loading="lazy">
+                </a>
+              </div>`).join("") + `</div>`;
+          }
+          if (otros.length) {
+            html += otros.map(a => `
+              <div style="display:flex;align-items:center;gap:.6rem;margin-top:.6rem;">
+                <a href="${API}/archivos/${a.id}/download" class="btn-primary btn-small" style="text-decoration:none;display:inline-block;">📄 Descargar</a>
+                <span style="font-size:.9rem;">${utils.escapeHtml(a.nombre_archivo)}</span>
+                <span style="color:#9ca3af;font-size:.85rem;">${a.tamanyo ? utils.formatearTamanyo(a.tamanyo) : ""}</span>
+              </div>`).join("");
+          }
+        }
+        html += `</div></div>`;
+
+        document.getElementById("detalleTitle").textContent = `Book de ${nombre || "este dentista"}`;
+        document.getElementById("detalleBody").innerHTML = html;
+        document.getElementById("modalDetalle").classList.add("active");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
     // Formatea un "YYYY-MM" (input tipo month) como "MM/YYYY"; deja el resto tal cual
     formatearMes(valor) {
       if (!valor) return "";
@@ -6430,6 +6473,12 @@ const app = {
       let tray = { experiencia: [], formacion: [], idiomas: [], certificaciones: [] };
       try { tray = await utils.request(`/usuarios/${id}/trayectoria`); } catch (e) { /* sin trayectoria */ }
       const resumen = await app.resenyas.cargarResumen(id);
+      // El CV que el dentista tenga subido en su perfil ("Mi CV")
+      let cv = null;
+      try {
+        const archivos = await utils.request(`/archivos/usuario/${id}`);
+        cv = (archivos || []).find(a => a.tipo === "cv") || null;
+      } catch (e) { /* sin archivos */ }
 
       const ciudadLabel = u.ciudad ? (u.provincia ? `${u.ciudad} (${u.provincia})` : u.ciudad) : "No indicada";
 
@@ -6445,6 +6494,11 @@ const app = {
         ${this.bloqueEspecialidades(u, false)}
         <p style="margin:.7rem 0 .2rem;font-weight:600;color:#0f4c75;">Sobre mí</p>
         <p style="margin:.2rem 0;">${u.descripcion ? utils.escapeHtml(u.descripcion) : `<span style="color:#9ca3af;">Este dentista aún no ha añadido una descripción.</span>`}</p>
+        <p style="margin:.7rem 0 .2rem;font-weight:600;color:#0f4c75;">CV</p>
+        ${cv
+          ? `<a href="${API}/archivos/${cv.id}/download" class="btn-primary btn-small" style="text-decoration:none;display:inline-block;">📄 Descargar CV</a>
+             <span style="color:#9ca3af;font-size:.85rem;margin-left:.5rem;">${utils.escapeHtml(cv.nombre_archivo)}${cv.tamanyo ? " · " + utils.formatearTamanyo(cv.tamanyo) : ""}</span>`
+          : `<p style="margin:.2rem 0;color:#9ca3af;">Este dentista aún no ha subido su CV.</p>`}
         <p style="margin:.7rem 0 0;color:#9ca3af;font-size:.85rem;">En DentalJobs desde ${utils.formatearFecha(u.creado_en)}</p>
       </div>`;
 
@@ -8269,7 +8323,7 @@ const app = {
         }
         const html = candidatos.map(c => {
           const estadoColor = utils.colorEstado(c.estado);
-          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.nombre)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Email:</strong> ${utils.escapeHtml(c.email)}</p>${c.telefono ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Teléfono:</strong> ${utils.escapeHtml(c.telefono)}</p>` : ''}${c.movil ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Móvil:</strong> ${utils.escapeHtml(c.movil)}</p>` : ''}${c.ciudad ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad)}</p>` : ''}${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; padding: 0.75rem; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #2563eb; color: #374151; font-size: 0.9rem;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}${utils.respuestasCribaHtml(c.respuestas)}</div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize; display: inline-block; margin-bottom: 0.5rem;">${utils.textoEstado(c.estado)}</span><div style="display: flex; gap: 0.5rem; flex-direction: column;">${utils.selectorEstado(c.id, c.estado, `app.candidaturas.actualizarEstado(${c.id}, this.value, ${publicacionId})`)}</div></div></div></div>`;
+          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.nombre)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Email:</strong> ${utils.escapeHtml(c.email)}</p>${c.telefono ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Teléfono:</strong> ${utils.escapeHtml(c.telefono)}</p>` : ''}${c.movil ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Móvil:</strong> ${utils.escapeHtml(c.movil)}</p>` : ''}${c.ciudad ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad)}</p>` : ''}${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; padding: 0.75rem; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #2563eb; color: #374151; font-size: 0.9rem;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}${utils.respuestasCribaHtml(c.respuestas)}</div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize; display: inline-block; margin-bottom: 0.5rem;">${utils.textoEstado(c.estado)}</span><div style="display: flex; gap: 0.5rem; flex-direction: column;">${utils.selectorEstado(c.id, c.estado, `app.candidaturas.actualizarEstado(${c.id}, this.value, ${publicacionId})`)}<button class="btn-outline btn-small" onclick="app.perfiles.verDetalle(${c.usuario_id})" title="Perfil del dentista, con su CV">👤 Ver perfil y CV</button><button class="btn-outline btn-small" onclick="app.perfiles.verBook(${c.usuario_id}, '${utils.escapeHtml((c.nombre || 'este dentista').replace(/'/g, "\\'"))}')" title="Archivos del Book del dentista">📕 Ver Book</button></div></div></div></div>`;
         });
         container.innerHTML = `<div>${html.join('')}</div>`;
       } catch (error) {
