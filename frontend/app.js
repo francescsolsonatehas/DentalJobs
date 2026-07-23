@@ -5732,39 +5732,12 @@ const app = {
         const statsGrid = document.getElementById("statsGrid");
 
         if (estadoApp.tipoUsuario === 'clinica') {
-          // Empresa: postulaciones a dentistas, postulaciones recibidas y, en "Mis
-          // Ofertas", las aceptadas
-          const [candidatosInteresados, contactadosList, miPostulacionesDentistas] = await Promise.all([
-            utils.requestOpcional(`/stats/candidatos-interesados/${estadoApp.usuario.id}`),
-            // Contactados: dentistas a los que hemos enviado mensaje (aquí la cifra es
-            // la longitud de la lista, no un campo `total`)
-            utils.requestOpcional(`/stats/contactados-lista/${estadoApp.usuario.id}`),
-            // Postulaciones a dentistas (solicitudes que he visto)
-            utils.requestOpcional(`/stats/mis-postulaciones/${estadoApp.usuario.id}`)
-          ]);
-
-          const contactados = Array.isArray(contactadosList) ? contactadosList.length : "—";
-
-          // En "Mis Ofertas" el panel es otro: solo las dos cifras de postulaciones
-          // recibidas. Sale de la función porque si no, el render general de abajo
-          // lo sobrescribiría (era justo el bug: estas dos tarjetas nunca se veían).
-          if (estadoApp.filtros.soloMias) {
-            statsGrid.innerHTML = `
-              <div class="stat-item stat-clickable" onclick="app.stats.mostrarCandidatosInteresados()">
-                <span>📧</span>
-                <h3>${utils.cifra(candidatosInteresados)}</h3>
-                <p>Postulaciones Recibidas</p>
-                <div class="stat-tooltip">Dentistas postulados a nuestras publicaciones</div>
-              </div>
-              <div class="stat-item stat-clickable" onclick="app.stats.mostrarContactados()">
-                <span>✅</span>
-                <h3>${contactados}</h3>
-                <p>Postulaciones Recibidas Aceptadas</p>
-                <div class="stat-tooltip">Dentistas postulados a nuestras publicaciones aceptados</div>
-              </div>
-            `;
-            return;
-          }
+          // Empresa: solo las postulaciones a dentistas. "Mis Publicaciones" ya no
+          // necesita un panel propio (mostraba las postulaciones recibidas), así que
+          // usa este mismo.
+          const miPostulacionesDentistas = await utils.requestOpcional(
+            `/stats/mis-postulaciones/${estadoApp.usuario.id}`
+          );
 
           statsGrid.innerHTML = `
             <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulacionesDentistas()">
@@ -5772,12 +5745,6 @@ const app = {
               <h3>${utils.cifra(miPostulacionesDentistas)}</h3>
               <p>Postulaciones a Dentistas</p>
               <div class="stat-tooltip">Postulaciones a publicaciones de dentistas</div>
-            </div>
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarCandidatosInteresados()">
-              <span>📧</span>
-              <h3>${utils.cifra(candidatosInteresados)}</h3>
-              <p>Postulaciones Recibidas</p>
-              <div class="stat-tooltip">Dentistas postulados a nuestras publicaciones</div>
             </div>
           `;
         } else {
