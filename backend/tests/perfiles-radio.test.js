@@ -55,3 +55,33 @@ test("listado de dentistas por radio (búsqueda de perfiles)", async (t) => {
     assert.equal(res.body.perfiles.length, 0);
   });
 });
+
+test("ciudades disponibles para elegir en la búsqueda de dentistas", async (t) => {
+  const { app, dbPath } = createTestApp();
+  t.after(() => cleanupTestApp(dbPath));
+
+  const a = await registrar(app, { nombre: "Dent A", email: "dc-a@test.com", tipo: "dentista" });
+  const b = await registrar(app, { nombre: "Dent B", email: "dc-b@test.com", tipo: "dentista" });
+  const c = await registrar(app, { nombre: "Dent C", email: "dc-c@test.com", tipo: "dentista" });
+  const sinCiudad = await registrar(app, { nombre: "Dent D", email: "dc-d@test.com", tipo: "dentista" });
+
+  await fijarCiudad(app, a, "Barcelona");
+  await fijarCiudad(app, b, "Barcelona");
+  await fijarCiudad(app, c, "Girona");
+  // `sinCiudad` se queda sin ciudad a propósito
+  assert.ok(sinCiudad.token);
+
+  await t.test("devuelve las ciudades con dentistas, agrupadas y ordenadas", async () => {
+    const res = await request(app).get("/perfiles/ciudades?rol=dentista");
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.ciudades, [
+      { ciudad: "Barcelona", total: 2 },
+      { ciudad: "Girona", total: 1 }
+    ]);
+  });
+
+  await t.test("sin elegir ciudad salen todos los dentistas, también los que no la tienen", async () => {
+    const res = await request(app).get("/perfiles?rol=dentista");
+    assert.equal(res.body.perfiles.length, 4);
+  });
+});

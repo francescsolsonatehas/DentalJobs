@@ -5094,6 +5094,28 @@ app.get("/perfiles", (req, res) => {
   });
 });
 
+// Ciudades en las que hay perfiles de un rol, para poder elegirlas de una lista en la
+// búsqueda (en vez de escribirlas a mano). Se devuelven con su número de perfiles.
+app.get("/perfiles/ciudades", (req, res) => {
+  const tipo = req.query.rol === 'clinica' ? 'clinica' : 'dentista';
+  db.all(
+    `SELECT ciudad, COUNT(*) AS total
+       FROM usuarios
+      WHERE tipo = ? AND nombre != 'Usuario eliminado'
+        AND ciudad IS NOT NULL AND TRIM(ciudad) != ''
+      GROUP BY ciudad
+      ORDER BY ciudad`,
+    [tipo],
+    (err, filas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener las ciudades" });
+      }
+      res.json({ ciudades: filas || [] });
+    }
+  );
+});
+
 // Chat directo de una clínica con un dentista "abierto a cambios profesionales". A
 // diferencia de "Contactar" (que crea una solicitud pendiente que el dentista debe
 // aceptar), aquí se abre el canal ya aceptado para poder escribir de inmediato. Se

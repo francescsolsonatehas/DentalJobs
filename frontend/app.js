@@ -1860,6 +1860,12 @@ const app = {
 
       set("filterEquipamiento", !esDentistas && estadoApp.tipoUsuario === "dentista");
       set("filterCertificacion", !esDentistas && estadoApp.tipoUsuario === "clinica");
+
+      // En "Dentistas" la ciudad se elige de una lista; en el resto se escribe a mano
+      const grupoTexto = document.getElementById("filterCiudadGroup");
+      const grupoLista = document.getElementById("filterCiudadListaGroup");
+      if (grupoTexto) grupoTexto.style.display = esDentistas ? "none" : "";
+      if (grupoLista) grupoLista.style.display = esDentistas ? "" : "none";
     },
 
     // Muestra u oculta los filtros propios de la vista de suplencias (fechas, "encaja
@@ -1934,9 +1940,13 @@ const app = {
       filtersTitle.textContent = estadoApp.tipoUsuario === 'clinica' ? "Dentistas" : "Perfiles de clínicas";
       filtersTitle.style.display = "block";
 
-      // La ciudad se elige del catálogo de municipios (autocompletado). Al elegir una,
-      // se recarga la búsqueda.
-      app.ciudades.montar(document.getElementById("filterCiudad"), null, null, () => app.filtros.buscar());
+      // La clínica elige la ciudad de una lista (las que tienen dentistas); el dentista,
+      // que busca clínicas, sigue con el campo de texto y su autocompletado del catálogo.
+      if (estadoApp.tipoUsuario === 'clinica') {
+        app.perfiles.cargarCiudades();
+      } else {
+        app.ciudades.montar(document.getElementById("filterCiudad"), null, null, () => app.filtros.buscar());
+      }
 
       this.sincronizarUISuplencias();
       app.perfiles.cargar();
@@ -6149,6 +6159,24 @@ const app = {
   // ============================================
 
   perfiles: {
+    // Rellena el desplegable de ciudad de la vista "Dentistas" con las ciudades en las
+    // que hay dentistas (con su número). Conserva la elección actual si sigue existiendo.
+    async cargarCiudades() {
+      const sel = document.getElementById("filterCiudadLista");
+      if (!sel || estadoApp.tipoUsuario !== 'clinica') return;
+      try {
+        const data = await utils.request("/perfiles/ciudades?rol=dentista");
+        const elegida = sel.value;
+        sel.innerHTML = `<option value="">Todas las ciudades</option>` +
+          (data.ciudades || []).map(c =>
+            `<option value="${utils.escapeHtml(c.ciudad)}">${utils.escapeHtml(c.ciudad)} (${c.total})</option>`
+          ).join("");
+        sel.value = elegida;
+      } catch (error) {
+        console.error("Error al cargar las ciudades de dentistas:", error);
+      }
+    },
+
     async cargar() {
       if (!estadoApp.usuario) {
         utils.mostrarAlerta("Debes iniciar sesión", "error");
@@ -6156,7 +6184,11 @@ const app = {
       }
       const rol = estadoApp.tipoUsuario === 'clinica' ? 'dentista' : 'clinica';
       const q = document.getElementById("filterQ").value;
-      const ciudad = document.getElementById("filterCiudad").value;
+      // En "Dentistas" (clínica) la ciudad viene del desplegable; si no se elige
+      // ninguna, no se filtra y salen todos, ordenados por ciudad más abajo.
+      const ciudad = estadoApp.tipoUsuario === 'clinica'
+        ? (document.getElementById("filterCiudadLista")?.value || "")
+        : document.getElementById("filterCiudad").value;
       const especialidad = document.getElementById("filterEspecialidad").value;
       const radioKm = document.getElementById("filterRadio")?.value || "";
 

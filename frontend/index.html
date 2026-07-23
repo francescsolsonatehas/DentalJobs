@@ -211,9 +211,16 @@
                     <label for="filterQ">Buscar</label>
                     <input id="filterQ" placeholder="Ej: implantología, invisalign…" oninput="app.publicaciones.cargar()">
                 </div>
-                <div class="filter-group">
+                <div class="filter-group" id="filterCiudadGroup">
                     <label for="filterCiudad">Ciudad</label>
                     <input id="filterCiudad" placeholder="Ej: Madrid, Barcelona..." autocomplete="off" oninput="app.filtros.buscar()">
+                </div>
+                <!-- En la vista "Dentistas" la ciudad se elige de una lista con las ciudades que tienen dentistas -->
+                <div class="filter-group" id="filterCiudadListaGroup" style="display: none;">
+                    <label for="filterCiudadLista">Ciudad</label>
+                    <select id="filterCiudadLista" onchange="app.filtros.buscar()">
+                        <option value="">Todas las ciudades</option>
+                    </select>
                 </div>
                 <div class="filter-group">
                     <label for="filterRadio">Radio</label>
