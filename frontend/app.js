@@ -3701,7 +3701,7 @@ const app = {
               <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #0c4a6e; white-space: pre-wrap;">${utils.escapeHtml(post.mensaje)}</p>
             </div>` : ''}
             <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
-              <button class="btn-primary" onclick="app.stats.mostrarDetalleMiPostulacion(${utils.escapeJsonForHtml(postConEspecialidad)})" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Ver Publicación</button>
+              <button class="btn-primary" onclick="app.stats.abrirPublicacionDePostulacion(${post.publicacion_id})" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Ver Publicación</button>
               ${post.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${post.id}, '${utils.escapeHtml((post.empresa_nombre || 'la otra parte').replace(/'/g, "\\'"))}')" style="flex: 1; background: #f59e0b; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">⭐ Valorar</button>` : ''}
               <button onclick="app.candidaturas.retirarPostulacion(${post.id})" style="flex: 1; background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">🗑️ Retirar</button>
             </div>
@@ -3710,6 +3710,22 @@ const app = {
       });
       html += "</div>";
       return html;
+    },
+
+    // "Ver Publicación" desde una postulación: abre exactamente la misma ficha que en
+    // "Publicaciones de dentistas". Antes se detiene el refresco automático de la
+    // lista, que si no seguiría repintándola por detrás del detalle.
+    async abrirPublicacionDePostulacion(publicacionId) {
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+        this.pollingInterval = null;
+      }
+      try {
+        await app.rutas.abrirPublicacion(publicacionId);
+      } catch (error) {
+        console.error("Error al abrir la publicación:", error);
+        utils.mostrarAlerta("No se ha podido abrir la publicación", "error");
+      }
     },
 
     mostrarDetalleMiPostulacion(post) {
