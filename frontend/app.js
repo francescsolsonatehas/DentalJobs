@@ -6164,8 +6164,9 @@ const app = {
     // el resto del catálogo de municipios, para poder centrar una búsqueda por radio en
     // una ciudad sin dentistas (p. ej. Sant Cugat a 25 km para alcanzar los de Barcelona).
     //
-    // Se agrupa por nombre de municipio, sin provincia, porque el filtro y la
-    // geocodificación del servidor trabajan con el nombre.
+    // Cada ciudad se muestra con su provincia — "Sant Cugat del Vallès (Barcelona)" —
+    // igual que en el autocompletado del catálogo. El valor enviado es solo el nombre,
+    // que es con lo que trabajan el filtro y la geocodificación del servidor.
     async cargarCiudades() {
       const sel = document.getElementById("filterCiudadLista");
       if (!sel || estadoApp.tipoUsuario !== 'clinica') return;
@@ -6174,9 +6175,16 @@ const app = {
         const conDentistas = data.ciudades || [];
         const yaListadas = new Set(conDentistas.map(c => c.ciudad));
 
-        const otras = [...new Set((window.MUNICIPIOS_ES || []).map(m => m.m))]
-          .filter(nombre => !yaListadas.has(nombre))
-          .sort((a, b) => a.localeCompare(b, "es"));
+        const catalogo = window.MUNICIPIOS_ES || [];
+        // Provincia de cada municipio, para poder etiquetar también las ciudades con
+        // dentistas (el servidor solo devuelve el nombre)
+        const provinciaDe = new Map();
+        catalogo.forEach(m => { if (!provinciaDe.has(m.m)) provinciaDe.set(m.m, m.p); });
+        const etiqueta = (nombre, provincia) => (provincia ? `${nombre} (${provincia})` : nombre);
+
+        const otras = catalogo
+          .filter(m => !yaListadas.has(m.m))
+          .sort((a, b) => a.m.localeCompare(b.m, "es"));
 
         const opcion = (valor, texto) =>
           `<option value="${utils.escapeHtml(valor)}">${utils.escapeHtml(texto)}</option>`;
@@ -6186,12 +6194,14 @@ const app = {
           `<option value="">Todas las ciudades</option>` +
           (conDentistas.length
             ? `<optgroup label="Con dentistas">` +
-              conDentistas.map(c => opcion(c.ciudad, `${c.ciudad} (${c.total})`)).join("") +
+              conDentistas.map(c =>
+                opcion(c.ciudad, `${etiqueta(c.ciudad, provinciaDe.get(c.ciudad))} · ${c.total}`)
+              ).join("") +
               `</optgroup>`
             : "") +
           (otras.length
             ? `<optgroup label="Resto de ciudades">` +
-              otras.map(nombre => opcion(nombre, nombre)).join("") +
+              otras.map(m => opcion(m.m, etiqueta(m.m, m.p))).join("") +
               `</optgroup>`
             : "");
         sel.value = elegida;
