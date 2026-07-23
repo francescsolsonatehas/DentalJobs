@@ -1874,6 +1874,10 @@ app.get("/publicaciones", (req, res) => {
 
   if (sort === 'salario') {
     query += " ORDER BY p.salario_min DESC, p.creado_en DESC";
+  } else if (sort === 'tipo') {
+    // "Mis Publicaciones": primero las ofertas de empleo y después las suplencias
+    query += ` ORDER BY CASE p.tipo WHEN 'oferta' THEN 0 WHEN 'suplencia' THEN 1 ELSE 2 END ASC,
+                        p.creado_en DESC`;
   } else if (sort === 'ciudad') {
     // Por ciudad y, dentro de cada una, por especialidad (igual que el listado de
     // dentistas). Las que no tienen ciudad van al final.

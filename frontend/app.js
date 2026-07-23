@@ -1481,6 +1481,9 @@ const app = {
       if (tipo) url += `tipo=${tipo}&`;
       if (estadoApp.filtros.soloMias && estadoApp.usuario) {
         url += `usuario_id=${estadoApp.usuario.id}&`;
+        // "Mis Publicaciones": primero las ofertas de empleo y luego las suplencias.
+        // Aquí no hay filtros que aplicar: son las propias y salen todas.
+        url += `sort=tipo&`;
       } else {
         if (q) url += `q=${encodeURIComponent(q)}&`;
         if (ciudad) url += `ciudad=${encodeURIComponent(ciudad)}&`;
@@ -1869,6 +1872,13 @@ const app = {
       const reducida = this.vistaReducida();
       const grupoDe = (id) => { const el = document.getElementById(id); return el && el.closest(".filter-group"); };
       const set = (id, visible) => { const g = grupoDe(id); if (g) g.style.display = visible ? "" : "none"; };
+
+      // En "Mis Publicaciones" no se busca nada: son las propias, y salen todas. Se
+      // esconde la fila de filtros entera (los botones de vista siguen arriba).
+      const filaFiltros = document.getElementById("filterRow");
+      if (filaFiltros) {
+        filaFiltros.style.display = estadoApp.vistaActual === "mis-publicaciones" ? "none" : "";
+      }
 
       const ocultos = ["filterQ", "filterContrato", "filterJornada", "filterRetribucion",
                        "filterSalarioMin", "filterExperienciaMin", "filterOrden"];
