@@ -1461,7 +1461,7 @@ const app = {
       }
 
       const q = document.getElementById("filterQ").value;
-      const ciudad = document.getElementById("filterCiudad").value;
+      const ciudad = app.filtros.ciudadSeleccionada();
       const radioKm = document.getElementById("filterRadio")?.value || "";
       const especialidad = document.getElementById("filterEspecialidad").value;
       const contrato = document.getElementById("filterContrato").value;
@@ -1847,25 +1847,100 @@ const app = {
       return app.publicaciones.cargar();
     },
 
-    // En la vista "Dentistas" (una clínica viendo dentistas) la búsqueda se reduce a
-    // Ciudad, Radio y Especialidad; el resto de filtros se ocultan. En las demás vistas
-    // se muestran todos (Equipamiento/Certificación siguen dependiendo del rol).
+    // Las dos búsquedas de la clínica sobre dentistas —sus perfiles ("Dentistas") y sus
+    // publicaciones ("Publicaciones de dentistas")— comparten la misma búsqueda
+    // reducida: Ciudad (de una lista), Radio y Especialidad.
+    vistaReducida() {
+      return estadoApp.tipoUsuario === "clinica" &&
+        (estadoApp.vistaActual === "perfiles" || estadoApp.vistaActual === "publicaciones");
+    },
+
+    // La ciudad sale del desplegable en las búsquedas reducidas y del campo de texto
+    // en el resto. Lo usan el listado y la exportación, para que miren lo mismo.
+    ciudadSeleccionada() {
+      const id = this.vistaReducida() ? "filterCiudadLista" : "filterCiudad";
+      return document.getElementById(id)?.value || "";
+    },
+
+    // En las búsquedas reducidas se dejan solo Ciudad, Radio y Especialidad; el resto de
+    // filtros se ocultan y se vacían (si no, seguirían filtrando sin verse). En las demás
+    // vistas se muestran todos (Equipamiento/Certificación dependen del rol).
     configurarFiltrosVista() {
-      const esDentistas = estadoApp.tipoUsuario === "clinica" && estadoApp.vistaActual === "perfiles";
+      const reducida = this.vistaReducida();
       const grupoDe = (id) => { const el = document.getElementById(id); return el && el.closest(".filter-group"); };
       const set = (id, visible) => { const g = grupoDe(id); if (g) g.style.display = visible ? "" : "none"; };
 
-      ["filterQ", "filterContrato", "filterJornada", "filterRetribucion", "filterSalarioMin", "filterExperienciaMin", "filterOrden"]
-        .forEach(id => set(id, !esDentistas));
+      const ocultos = ["filterQ", "filterContrato", "filterJornada", "filterRetribucion",
+                       "filterSalarioMin", "filterExperienciaMin", "filterOrden"];
+      ocultos.forEach(id => set(id, !reducida));
 
-      set("filterEquipamiento", !esDentistas && estadoApp.tipoUsuario === "dentista");
-      set("filterCertificacion", !esDentistas && estadoApp.tipoUsuario === "clinica");
+      set("filterEquipamiento", !reducida && estadoApp.tipoUsuario === "dentista");
+      set("filterCertificacion", !reducida && estadoApp.tipoUsuario === "clinica");
 
-      // En "Dentistas" la ciudad se elige de una lista; en el resto se escribe a mano
+      // La ciudad se elige de una lista en las reducidas; en el resto se escribe a mano
       const grupoTexto = document.getElementById("filterCiudadGroup");
       const grupoLista = document.getElementById("filterCiudadListaGroup");
-      if (grupoTexto) grupoTexto.style.display = esDentistas ? "none" : "";
-      if (grupoLista) grupoLista.style.display = esDentistas ? "" : "none";
+      if (grupoTexto) grupoTexto.style.display = reducida ? "none" : "";
+      if (grupoLista) grupoLista.style.display = reducida ? "" : "none";
+
+      if (reducida) {
+        // Un filtro oculto con valor filtraría a escondidas. El orden vuelve al de por
+        // defecto, que en estas vistas es por ciudad.
+        ocultos.filter(id => id !== "filterOrden").forEach(id => {
+          const el = document.getElementById(id);
+          if (el && el.value) el.value = "";
+        });
+        const orden = document.getElementById("filterOrden");
+        if (orden && orden.value !== "recientes") orden.value = "recientes";
+      }
+    },
+
+    // Rellena el desplegable de ciudad con las que hay en la vista actual: las de los
+    // dentistas, o las de sus publicaciones. Cada una con su número, y el total en
+    // "Todas las ciudades". Conserva la elección si sigue existiendo.
+    async cargarCiudadesLista() {
+      const sel = document.getElementById("filterCiudadLista");
+      if (!sel || !this.vistaReducida()) return;
+      const url = estadoApp.vistaActual === "perfiles"
+        ? "/perfiles/ciudades?rol=dentista"
+        : "/publicaciones/ciudades?tipo=solicitud";
+      try {
+        const data = await utils.request(url);
+        const conDatos = data.ciudades || [];
+        const yaListadas = new Set(conDatos.map(c => c.ciudad));
+
+        const catalogo = window.MUNICIPIOS_ES || [];
+        const provinciaDe = new Map();
+        catalogo.forEach(m => { if (!provinciaDe.has(m.m)) provinciaDe.set(m.m, m.p); });
+        const etiqueta = (nombre, provincia) => (provincia ? `${nombre} (${provincia})` : nombre);
+
+        const otras = catalogo
+          .filter(m => !yaListadas.has(m.m))
+          .sort((a, b) => a.m.localeCompare(b.m, "es"));
+
+        const opcion = (valor, texto) =>
+          `<option value="${utils.escapeHtml(valor)}">${utils.escapeHtml(texto)}</option>`;
+        const rotuloGrupo = estadoApp.vistaActual === "perfiles" ? "Con dentistas" : "Con publicaciones";
+
+        const elegida = sel.value;
+        sel.innerHTML =
+          `<option value="">${utils.escapeHtml(
+            data.total != null ? `Todas las ciudades · ${data.total}` : "Todas las ciudades"
+          )}</option>` +
+          (conDatos.length
+            ? `<optgroup label="${rotuloGrupo}">` +
+              conDatos.map(c => opcion(c.ciudad, `${etiqueta(c.ciudad, provinciaDe.get(c.ciudad))} · ${c.total}`)).join("") +
+              `</optgroup>`
+            : "") +
+          (otras.length
+            ? `<optgroup label="Resto de ciudades">` +
+              otras.map(m => opcion(m.m, etiqueta(m.m, m.p))).join("") +
+              `</optgroup>`
+            : "");
+        sel.value = elegida;
+      } catch (error) {
+        console.error("Error al cargar las ciudades:", error);
+      }
     },
 
     // Muestra u oculta los filtros propios de la vista de suplencias (fechas, "encaja
@@ -1924,6 +1999,9 @@ const app = {
         filtersTitle.textContent = "";
       }
 
+      // La clínica busca aquí publicaciones de dentistas: la ciudad se elige de la lista
+      if (estadoApp.tipoUsuario === 'clinica') this.cargarCiudadesLista();
+
       app.publicaciones.cargar();
     },
 
@@ -1940,10 +2018,10 @@ const app = {
       filtersTitle.textContent = estadoApp.tipoUsuario === 'clinica' ? "Dentistas" : "Perfiles de clínicas";
       filtersTitle.style.display = "block";
 
-      // La clínica elige la ciudad de una lista (las que tienen dentistas); el dentista,
-      // que busca clínicas, sigue con el campo de texto y su autocompletado del catálogo.
+      // La clínica elige la ciudad de una lista; el dentista, que busca clínicas, sigue
+      // con el campo de texto y su autocompletado del catálogo.
       if (estadoApp.tipoUsuario === 'clinica') {
-        app.perfiles.cargarCiudades();
+        this.cargarCiudadesLista();
       } else {
         app.ciudades.montar(document.getElementById("filterCiudad"), null, null, () => app.filtros.buscar());
       }
@@ -6159,59 +6237,6 @@ const app = {
   // ============================================
 
   perfiles: {
-    // Rellena el desplegable de ciudad de la vista "Dentistas". Arriba, las ciudades en
-    // las que hay dentistas (con su número), que es lo que se busca casi siempre; debajo,
-    // el resto del catálogo de municipios, para poder centrar una búsqueda por radio en
-    // una ciudad sin dentistas (p. ej. Sant Cugat a 25 km para alcanzar los de Barcelona).
-    //
-    // Cada ciudad se muestra con su provincia — "Sant Cugat del Vallès (Barcelona)" —
-    // igual que en el autocompletado del catálogo. El valor enviado es solo el nombre,
-    // que es con lo que trabajan el filtro y la geocodificación del servidor.
-    async cargarCiudades() {
-      const sel = document.getElementById("filterCiudadLista");
-      if (!sel || estadoApp.tipoUsuario !== 'clinica') return;
-      try {
-        const data = await utils.request("/perfiles/ciudades?rol=dentista");
-        const conDentistas = data.ciudades || [];
-        const yaListadas = new Set(conDentistas.map(c => c.ciudad));
-
-        const catalogo = window.MUNICIPIOS_ES || [];
-        // Provincia de cada municipio, para poder etiquetar también las ciudades con
-        // dentistas (el servidor solo devuelve el nombre)
-        const provinciaDe = new Map();
-        catalogo.forEach(m => { if (!provinciaDe.has(m.m)) provinciaDe.set(m.m, m.p); });
-        const etiqueta = (nombre, provincia) => (provincia ? `${nombre} (${provincia})` : nombre);
-
-        const otras = catalogo
-          .filter(m => !yaListadas.has(m.m))
-          .sort((a, b) => a.m.localeCompare(b.m, "es"));
-
-        const opcion = (valor, texto) =>
-          `<option value="${utils.escapeHtml(valor)}">${utils.escapeHtml(texto)}</option>`;
-
-        const elegida = sel.value;
-        sel.innerHTML =
-          `<option value="">${utils.escapeHtml(
-            data.total != null ? `Todas las ciudades · ${data.total}` : "Todas las ciudades"
-          )}</option>` +
-          (conDentistas.length
-            ? `<optgroup label="Con dentistas">` +
-              conDentistas.map(c =>
-                opcion(c.ciudad, `${etiqueta(c.ciudad, provinciaDe.get(c.ciudad))} · ${c.total}`)
-              ).join("") +
-              `</optgroup>`
-            : "") +
-          (otras.length
-            ? `<optgroup label="Resto de ciudades">` +
-              otras.map(m => opcion(m.m, etiqueta(m.m, m.p))).join("") +
-              `</optgroup>`
-            : "");
-        sel.value = elegida;
-      } catch (error) {
-        console.error("Error al cargar las ciudades de dentistas:", error);
-      }
-    },
-
     async cargar() {
       if (!estadoApp.usuario) {
         utils.mostrarAlerta("Debes iniciar sesión", "error");
@@ -6221,9 +6246,7 @@ const app = {
       const q = document.getElementById("filterQ").value;
       // En "Dentistas" (clínica) la ciudad viene del desplegable; si no se elige
       // ninguna, no se filtra y salen todos, ordenados por ciudad más abajo.
-      const ciudad = estadoApp.tipoUsuario === 'clinica'
-        ? (document.getElementById("filterCiudadLista")?.value || "")
-        : document.getElementById("filterCiudad").value;
+      const ciudad = app.filtros.ciudadSeleccionada();
       const especialidad = document.getElementById("filterEspecialidad").value;
       const radioKm = document.getElementById("filterRadio")?.value || "";
 
@@ -6582,10 +6605,8 @@ const app = {
     // que el CSV traiga exactamente las filas que se están viendo.
     filtrosQuery() {
       const params = new URLSearchParams();
-      // En "Dentistas" la ciudad sale del desplegable, no del campo de texto (oculto ahí)
-      const idCiudad = (estadoApp.tipoUsuario === "clinica" && estadoApp.vistaActual === "perfiles")
-        ? "filterCiudadLista"
-        : "filterCiudad";
+      // En las búsquedas reducidas la ciudad sale del desplegable, no del campo de texto
+      const idCiudad = app.filtros.vistaReducida() ? "filterCiudadLista" : "filterCiudad";
       const campos = {
         q: "filterQ", ciudad: idCiudad, especialidad: "filterEspecialidad",
         contrato: "filterContrato", jornada: "filterJornada", equipamiento: "filterEquipamiento",

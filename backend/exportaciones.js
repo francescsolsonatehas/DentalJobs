@@ -72,16 +72,37 @@ const ESPECIALIDADES_USUARIO = `(SELECT GROUP_CONCAT(e.nombre, ', ')
    FROM usuario_especialidades ue INNER JOIN especialidades e ON e.id = ue.especialidad_id
    WHERE ue.usuario_id = u.id) AS especialidades`;
 
+// Orden por ciudad y, dentro de cada una, por especialidad: el mismo del listado
+// cuando la clínica busca publicaciones de dentistas. Las que no tienen ciudad, al final.
+const ORDEN_POR_CIUDAD = `ORDER BY (p.ciudad IS NULL OR TRIM(p.ciudad) = '') ASC,
+                                   p.ciudad COLLATE NOCASE ASC,
+                                   especialidades COLLATE NOCASE ASC,
+                                   p.creado_en DESC`;
+
 // Publicaciones ajenas: mismos campos de contacto que expone GET /publicaciones
-function consultarPublicaciones(db, query) {
-  const filtros = construirFiltros(query);
+function consultarPublicaciones(db, query, orden = "ORDER BY p.creado_en DESC") {
+  // Mismo tratamiento del radio que GET /publicaciones: la ciudad se geocodifica como
+  // centro y manda la distancia. Si no se reconoce, se ignora el radio y se filtra por
+  // el nombre de la ciudad.
+  const filtrosQuery = { ...query };
+  if (filtrosQuery.radioKm && filtrosQuery.ciudad) {
+    const centro = geocodificarCiudad(filtrosQuery.ciudad);
+    if (centro) {
+      filtrosQuery.latCentro = centro.lat;
+      filtrosQuery.lonCentro = centro.lon;
+    } else {
+      delete filtrosQuery.radioKm;
+    }
+  }
+
+  const filtros = construirFiltros(filtrosQuery);
   return todos(
     db,
     `SELECT p.*, u.nombre AS autor, u.email AS autor_email, u.telefono AS autor_telefono,
             ${ESPECIALIDADES_PUBLICACION}, ${EQUIPAMIENTO_PUBLICACION}
      FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id
      WHERE p.activo = 1${filtros.sql}
-     ORDER BY p.creado_en DESC`,
+     ${orden}`,
     filtros.params
   );
 }
@@ -132,7 +153,8 @@ const VISTAS = {
     archivo: (usuario) => (usuario.tipo === "clinica" ? "publicaciones-de-dentistas" : "publicaciones-de-clinicas"),
     async consultar(db, usuario, query) {
       const tipo = usuario.tipo === "clinica" ? "solicitud" : "oferta";
-      const filas = await consultarPublicaciones(db, { ...query, tipo, usuario_id: undefined });
+      // Mismo orden que el listado de esta vista: por ciudad y luego por especialidad
+      const filas = await consultarPublicaciones(db, { ...query, tipo, usuario_id: undefined }, ORDEN_POR_CIUDAD);
       return {
         columnas: ["Fecha de publicación", "Tipo", "Publicado por", "Email", "Teléfono", "Ciudad", "Provincia",
                    "Contrato", "Jornada", "Salario", "Retribución", "Experiencia mínima (años)",

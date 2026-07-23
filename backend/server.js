@@ -1875,7 +1875,15 @@ app.get("/publicaciones", (req, res) => {
   if (sort === 'salario') {
     query += " ORDER BY p.salario_min DESC, p.creado_en DESC";
   } else if (sort === 'ciudad') {
-    query += " ORDER BY p.ciudad ASC, p.creado_en DESC";
+    // Por ciudad y, dentro de cada una, por especialidad (igual que el listado de
+    // dentistas). Las que no tienen ciudad van al final.
+    query += ` ORDER BY (p.ciudad IS NULL OR TRIM(p.ciudad) = '') ASC,
+                        p.ciudad COLLATE NOCASE ASC,
+                        (SELECT GROUP_CONCAT(e.nombre, ', ')
+                           FROM publicacion_especialidades pe
+                           INNER JOIN especialidades e ON e.id = pe.especialidad_id
+                          WHERE pe.publicacion_id = p.id) COLLATE NOCASE ASC,
+                        p.creado_en DESC`;
   } else if (sort === 'fecha') {
     // Para suplencias: las urgentes primero, luego por fecha de inicio más próxima
     query += " ORDER BY p.urgente DESC, p.fecha_desde ASC, p.creado_en DESC";
@@ -2102,6 +2110,46 @@ app.get("/publicaciones/contactadas/:usuario_id", verifyToken, (req, res) => {
         return res.status(500).json({ error: "Error al obtener solicitudes contactadas" });
       }
       res.json(publicaciones || []);
+    }
+  );
+});
+
+// Ciudades en las que hay publicaciones activas de un tipo, para poder elegirlas de una
+// lista en la búsqueda. `total` es el total de publicaciones del tipo (el número que
+// corresponde a "Todas las ciudades"), e incluye las que no tienen ciudad, así que no
+// es la suma de las ciudades.
+//
+// Va declarada antes que "/publicaciones/:id" para que esa ruta no capture "ciudades"
+// como si fuera un identificador.
+app.get("/publicaciones/ciudades", (req, res) => {
+  const { tipo } = req.query;
+  let where = "p.activo = 1";
+  const params = [];
+  if (tipo) { where += " AND p.tipo = ?"; params.push(tipo); }
+
+  db.all(
+    `SELECT p.ciudad, COUNT(*) AS total
+       FROM publicaciones p
+      WHERE ${where} AND p.ciudad IS NOT NULL AND TRIM(p.ciudad) != ''
+      GROUP BY p.ciudad
+      ORDER BY p.ciudad`,
+    params,
+    (err, filas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener las ciudades" });
+      }
+      db.get(
+        `SELECT COUNT(*) AS total FROM publicaciones p WHERE ${where}`,
+        params,
+        (err2, fila) => {
+          if (err2) {
+            console.error(err2);
+            return res.status(500).json({ error: "Error al obtener las ciudades" });
+          }
+          res.json({ ciudades: filas || [], total: fila ? fila.total : 0 });
+        }
+      );
     }
   );
 });
