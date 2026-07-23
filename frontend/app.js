@@ -6159,18 +6159,41 @@ const app = {
   // ============================================
 
   perfiles: {
-    // Rellena el desplegable de ciudad de la vista "Dentistas" con las ciudades en las
-    // que hay dentistas (con su número). Conserva la elección actual si sigue existiendo.
+    // Rellena el desplegable de ciudad de la vista "Dentistas". Arriba, las ciudades en
+    // las que hay dentistas (con su número), que es lo que se busca casi siempre; debajo,
+    // el resto del catálogo de municipios, para poder centrar una búsqueda por radio en
+    // una ciudad sin dentistas (p. ej. Sant Cugat a 25 km para alcanzar los de Barcelona).
+    //
+    // Se agrupa por nombre de municipio, sin provincia, porque el filtro y la
+    // geocodificación del servidor trabajan con el nombre.
     async cargarCiudades() {
       const sel = document.getElementById("filterCiudadLista");
       if (!sel || estadoApp.tipoUsuario !== 'clinica') return;
       try {
         const data = await utils.request("/perfiles/ciudades?rol=dentista");
+        const conDentistas = data.ciudades || [];
+        const yaListadas = new Set(conDentistas.map(c => c.ciudad));
+
+        const otras = [...new Set((window.MUNICIPIOS_ES || []).map(m => m.m))]
+          .filter(nombre => !yaListadas.has(nombre))
+          .sort((a, b) => a.localeCompare(b, "es"));
+
+        const opcion = (valor, texto) =>
+          `<option value="${utils.escapeHtml(valor)}">${utils.escapeHtml(texto)}</option>`;
+
         const elegida = sel.value;
-        sel.innerHTML = `<option value="">Todas las ciudades</option>` +
-          (data.ciudades || []).map(c =>
-            `<option value="${utils.escapeHtml(c.ciudad)}">${utils.escapeHtml(c.ciudad)} (${c.total})</option>`
-          ).join("");
+        sel.innerHTML =
+          `<option value="">Todas las ciudades</option>` +
+          (conDentistas.length
+            ? `<optgroup label="Con dentistas">` +
+              conDentistas.map(c => opcion(c.ciudad, `${c.ciudad} (${c.total})`)).join("") +
+              `</optgroup>`
+            : "") +
+          (otras.length
+            ? `<optgroup label="Resto de ciudades">` +
+              otras.map(nombre => opcion(nombre, nombre)).join("") +
+              `</optgroup>`
+            : "");
         sel.value = elegida;
       } catch (error) {
         console.error("Error al cargar las ciudades de dentistas:", error);
