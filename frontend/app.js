@@ -5730,24 +5730,17 @@ const app = {
         if (!estadoApp.usuario) return; // el usuario pudo cerrar sesión mientras esto cargaba
 
         const statsGrid = document.getElementById("statsGrid");
+        const statsContainer = document.getElementById("statsContainer");
 
         if (estadoApp.tipoUsuario === 'clinica') {
-          // Empresa: solo las postulaciones a dentistas. "Mis Publicaciones" ya no
-          // necesita un panel propio (mostraba las postulaciones recibidas), así que
-          // usa este mismo.
-          const miPostulacionesDentistas = await utils.requestOpcional(
-            `/stats/mis-postulaciones/${estadoApp.usuario.id}`
-          );
-
-          statsGrid.innerHTML = `
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulacionesDentistas()">
-              <span>📬</span>
-              <h3>${utils.cifra(miPostulacionesDentistas)}</h3>
-              <p>Postulaciones a Dentistas</p>
-              <div class="stat-tooltip">Postulaciones a publicaciones de dentistas</div>
-            </div>
-          `;
+          // La clínica ya no tiene panel de cifras: sus accesos viven en la barra de
+          // búsqueda ("Mis Postulaciones"). Sin tarjetas se oculta el recuadro entero,
+          // que si no quedaría un panel vacío.
+          statsGrid.innerHTML = "";
+          if (statsContainer) statsContainer.style.display = "none";
+          return;
         } else {
+          if (statsContainer) statsContainer.style.display = "block";
           // Dentista: mostrar Clínicas, Clínicas Potenciales, Postulaciones a Clínicas y Postulaciones Recibidas
           const [totalClinicas, clinicasPotenciales, misPostulaciones, postulacionesRecibidas] = await Promise.all([
             utils.requestOpcional("/stats/total-clinicas"),
