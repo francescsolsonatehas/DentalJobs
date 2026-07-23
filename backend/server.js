@@ -3093,19 +3093,6 @@ app.delete("/publicaciones/:id", verifyToken, (req, res) => {
 });
 
 // Endpoints de estadísticas
-app.get("/stats/total-dentistas", (req, res) => {
-  db.get(
-    "SELECT COUNT(DISTINCT usuario_id) as total FROM publicaciones WHERE tipo = 'solicitud' AND activo = 1",
-    (err, result) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener total de dentistas" });
-      }
-      res.json({ total: result.total || 0 });
-    }
-  );
-});
-
 app.get("/stats/total-clinicas", (req, res) => {
   db.get(
     "SELECT COUNT(DISTINCT usuario_id) as total FROM publicaciones WHERE tipo = 'oferta' AND activo = 1",
@@ -3160,21 +3147,6 @@ app.get("/stats/mis-postulaciones-lista/:usuario_id", verifyToken, (req, res) =>
   );
 });
 
-app.get("/stats/mis-postulaciones-aceptadas/:usuario_id", verifyToken, (req, res) => {
-  const usuario_id = req.params.usuario_id;
-  db.get(
-    `SELECT COUNT(*) as total FROM candidaturas WHERE usuario_id = ? AND estado = 'aceptada'`,
-    [usuario_id],
-    (err, result) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener postulaciones aceptadas" });
-      }
-      res.json({ total: result.total || 0 });
-    }
-  );
-});
-
 app.get("/stats/mis-postulaciones-aceptadas-lista/:usuario_id", verifyToken, (req, res) => {
   const usuario_id = req.params.usuario_id;
   db.all(
@@ -3193,62 +3165,6 @@ app.get("/stats/mis-postulaciones-aceptadas-lista/:usuario_id", verifyToken, (re
         return res.status(500).json({ error: "Error al obtener postulaciones aceptadas" });
       }
       res.json(postulaciones || []);
-    }
-  );
-});
-
-app.get("/stats/posibles-candidatos/:empresa_id", verifyToken, (req, res) => {
-  // Contar dentistas únicos que coinciden con Ciudad y Especialidad de mis ofertas
-  db.all(
-    `WITH pub_esp AS (
-       SELECT pe.publicacion_id, pe.especialidad_id FROM publicacion_especialidades pe
-       UNION
-       SELECT p.id as publicacion_id, p.especialidad_id FROM publicaciones p
-       WHERE p.especialidad_id IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
-     )
-     SELECT DISTINCT s.id as publicacion_id, s.usuario_id, u.nombre, u.email, u.telefono, u.movil, u.direccion, u.codigo_postal, u.pais, s.ciudad
-     FROM publicaciones s
-     INNER JOIN usuarios u ON s.usuario_id = u.id
-     WHERE s.tipo = 'solicitud' AND s.activo = 1
-     AND (
-       SELECT COUNT(*) FROM publicaciones o
-       WHERE o.usuario_id = ? AND o.tipo = 'oferta' AND o.activo = 1
-       AND (o.ciudad = s.ciudad OR s.ciudad LIKE '%' || o.ciudad || '%' OR o.ciudad LIKE '%' || s.ciudad || '%')
-       AND (
-         NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = o.id)
-         OR NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = s.id)
-         OR EXISTS (
-           SELECT 1 FROM pub_esp peo INNER JOIN pub_esp pes ON peo.especialidad_id = pes.especialidad_id
-           WHERE peo.publicacion_id = o.id AND pes.publicacion_id = s.id
-         )
-       )
-     ) > 0`,
-    [req.params.empresa_id],
-    (err, candidatos) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener posibles candidatos" });
-      }
-      res.json({ total: (candidatos || []).length });
-    }
-  );
-});
-
-app.get("/stats/candidatos-interesados/:empresa_id", verifyToken, (req, res) => {
-  // Contar total de candidaturas que se han hecho a mis ofertas
-  db.get(
-    `SELECT COUNT(*) as total
-     FROM candidaturas c
-     INNER JOIN publicaciones p ON c.publicacion_id = p.id
-     WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1`,
-    [req.params.empresa_id],
-    (err, result) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener candidatos interesados" });
-      }
-      res.json({ total: result.total || 0 });
     }
   );
 });
@@ -3381,27 +3297,6 @@ app.get("/stats/candidatos-interesados-lista/:empresa_id", verifyToken, (req, re
   );
 });
 
-app.get("/stats/contactados-lista/:empresa_id", verifyToken, (req, res) => {
-  db.all(
-    `SELECT c.id, c.usuario_id, c.estado, c.mensaje, c.creado_en,
-            u.nombre, u.email, u.telefono, u.direccion, u.codigo_postal, u.pais, u.ciudad,
-            p.id as publicacion_id, p.descripcion as oferta_descripcion, p.ciudad as oferta_ciudad, p.contrato, p.jornada, p.salario
-     FROM candidaturas c
-     INNER JOIN usuarios u ON c.usuario_id = u.id
-     INNER JOIN publicaciones p ON c.publicacion_id = p.id
-     WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1 AND c.estado = 'aceptada'
-     ORDER BY p.id, c.creado_en DESC`,
-    [req.params.empresa_id],
-    (err, aceptados) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener aceptados" });
-      }
-      res.json(aceptados || []);
-    }
-  );
-});
-
 app.get("/stats/dentistas-por-especialidad", (req, res) => {
   db.all(
     `WITH pub_esp AS (
@@ -3473,23 +3368,6 @@ app.get("/stats/postulaciones-recibidas-dentista-lista/:usuario_id", verifyToken
         return res.status(500).json({ error: "Error al obtener postulaciones recibidas" });
       }
       res.json(candidatos || []);
-    }
-  );
-});
-
-app.get("/stats/postulaciones-recibidas-aceptadas-dentista/:usuario_id", verifyToken, (req, res) => {
-  db.get(
-    `SELECT COUNT(*) as total
-     FROM candidaturas c
-     INNER JOIN publicaciones p ON c.publicacion_id = p.id
-     WHERE p.usuario_id = ? AND p.tipo = 'solicitud' AND p.activo = 1 AND c.estado = 'aceptada'`,
-    [req.params.usuario_id],
-    (err, result) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener postulaciones recibidas aceptadas" });
-      }
-      res.json({ total: result.total || 0 });
     }
   );
 });

@@ -4239,15 +4239,6 @@ const app = {
       document.getElementById("modalInteresados").classList.add("active");
     },
 
-    async mostrarContactados() {
-      try {
-        const contactados = await utils.request(`/stats/contactados-lista/${estadoApp.usuario.id}`);
-        app.stats.mostrarListaCandidatos(contactados, "Candidatos Contactados");
-      } catch (error) {
-        utils.mostrarAlerta(error.message, "error");
-      }
-    },
-
     async mostrarListaCandidatosSimple(candidatos, titulo) {
       if (candidatos.length === 0) {
         utils.mostrarAlerta(`No hay ${titulo.toLowerCase()}`, "info");
