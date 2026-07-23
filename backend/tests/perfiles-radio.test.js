@@ -85,3 +85,48 @@ test("ciudades disponibles para elegir en la búsqueda de dentistas", async (t) 
     assert.equal(res.body.perfiles.length, 4);
   });
 });
+
+test("el CSV de dentistas exporta lo mismo que muestra el listado", async (t) => {
+  const { app, dbPath } = createTestApp();
+  t.after(() => cleanupTestApp(dbPath));
+
+  const clinica = await registrar(app, { nombre: "Clínica CSV", email: "csv-clinica@test.com", tipo: "clinica" });
+  const bcn = await registrar(app, { nombre: "CSV Barcelona", email: "csv-bcn@test.com", tipo: "dentista" });
+  const bad = await registrar(app, { nombre: "CSV Badalona", email: "csv-bad@test.com", tipo: "dentista" });
+  const mad = await registrar(app, { nombre: "CSV Madrid", email: "csv-mad@test.com", tipo: "dentista" });
+
+  await fijarCiudad(app, bcn, "Barcelona");
+  await fijarCiudad(app, bad, "Badalona");
+  await fijarCiudad(app, mad, "Madrid");
+
+  const nombresDelCsv = (texto) =>
+    texto.replace(/^﻿/, "").trim().split("\n").slice(1)
+      .map(linea => linea.split(";")[0].replace(/"/g, ""));
+
+  await t.test("filtrando por ciudad exporta solo esa ciudad", async () => {
+    const res = await request(app)
+      .get("/exportar/perfiles.csv?ciudad=Barcelona")
+      .set("Authorization", `Bearer ${clinica.token}`);
+    assert.equal(res.status, 200);
+    assert.deepEqual(nombresDelCsv(res.text), ["CSV Barcelona"]);
+  });
+
+  await t.test("el radio se aplica también al exportar", async () => {
+    const listado = await request(app).get("/perfiles?rol=dentista&ciudad=Barcelona&radioKm=25");
+    const csv = await request(app)
+      .get("/exportar/perfiles.csv?ciudad=Barcelona&radioKm=25")
+      .set("Authorization", `Bearer ${clinica.token}`);
+
+    const enListado = listado.body.perfiles.map(p => p.nombre).sort();
+    const enCsv = nombresDelCsv(csv.text).sort();
+    assert.deepEqual(enCsv, enListado);
+    assert.deepEqual(enCsv, ["CSV Badalona", "CSV Barcelona"]);
+  });
+
+  await t.test("sin filtros exporta todos, ordenados por ciudad", async () => {
+    const res = await request(app)
+      .get("/exportar/perfiles.csv")
+      .set("Authorization", `Bearer ${clinica.token}`);
+    assert.deepEqual(nombresDelCsv(res.text), ["CSV Badalona", "CSV Barcelona", "CSV Madrid"]);
+  });
+});

@@ -6576,11 +6576,16 @@ const app = {
       if (config) btn.textContent = `⬇️ Exportar «${config.etiqueta()}» a CSV`;
     },
 
-    // Reúne los filtros del listado tal como los envía app.publicaciones.cargar()
+    // Reúne los filtros del listado tal como los envía app.publicaciones.cargar(), para
+    // que el CSV traiga exactamente las filas que se están viendo.
     filtrosQuery() {
       const params = new URLSearchParams();
+      // En "Dentistas" la ciudad sale del desplegable, no del campo de texto (oculto ahí)
+      const idCiudad = (estadoApp.tipoUsuario === "clinica" && estadoApp.vistaActual === "perfiles")
+        ? "filterCiudadLista"
+        : "filterCiudad";
       const campos = {
-        q: "filterQ", ciudad: "filterCiudad", especialidad: "filterEspecialidad",
+        q: "filterQ", ciudad: idCiudad, especialidad: "filterEspecialidad",
         contrato: "filterContrato", jornada: "filterJornada", equipamiento: "filterEquipamiento",
         certificacion: "filterCertificacion", retribucion: "filterRetribucion",
         salarioMin: "filterSalarioMin", experienciaMin: "filterExperienciaMin"
@@ -6589,6 +6594,9 @@ const app = {
         const el = document.getElementById(id);
         if (el && el.value) params.set(clave, el.value);
       }
+      // El radio solo tiene sentido acompañando a una ciudad
+      const radio = document.getElementById("filterRadio")?.value || "";
+      if (radio && params.get("ciudad")) params.set("radioKm", radio);
       return params;
     },
 

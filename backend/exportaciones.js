@@ -8,6 +8,7 @@
 
 const { construirFiltros } = require("./filtros-publicaciones");
 const { ETIQUETAS_ESTADO } = require("./catalogos");
+const { geocodificarCiudad, distanciaKm } = require("./municipios-coords");
 
 /* ===========================
    🔹 SERIALIZACIÓN
@@ -203,7 +204,12 @@ const VISTAS = {
                  WHERE u.tipo = ? AND u.nombre != 'Usuario eliminado'`;
       const params = [tipo];
 
-      if (query.ciudad) { sql += " AND u.ciudad LIKE ?"; params.push(`%${query.ciudad}%`); }
+      // Búsqueda por radio, igual que en GET /perfiles: con radio manda la distancia al
+      // centro, no que coincida el nombre de la ciudad, así que no se filtra por ella.
+      const centroRadio = (query.radioKm && query.ciudad) ? geocodificarCiudad(query.ciudad) : null;
+      const usarRadio = !!centroRadio;
+
+      if (query.ciudad && !usarRadio) { sql += " AND u.ciudad LIKE ?"; params.push(`%${query.ciudad}%`); }
       if (query.provincia) { sql += " AND u.provincia LIKE ?"; params.push(`%${query.provincia}%`); }
       if (query.especialidad) {
         sql += " AND EXISTS (SELECT 1 FROM usuario_especialidades ue WHERE ue.usuario_id = u.id AND ue.especialidad_id = ?)";
@@ -213,9 +219,22 @@ const VISTAS = {
         sql += " AND (u.nombre LIKE ? OR u.descripcion LIKE ? OR u.ciudad LIKE ?)";
         params.push(`%${query.q}%`, `%${query.q}%`, `%${query.q}%`);
       }
-      sql += " ORDER BY u.creado_en DESC";
+      // Mismo orden que el listado: por ciudad y, dentro de ella, por especialidad.
+      // Los perfiles sin ciudad van al final.
+      sql += ` ORDER BY (u.ciudad IS NULL OR TRIM(u.ciudad) = '') ASC,
+                        u.ciudad COLLATE NOCASE ASC,
+                        especialidades COLLATE NOCASE ASC`;
 
-      const filas = await todos(db, sql, params);
+      let filas = await todos(db, sql, params);
+
+      if (usarRadio) {
+        const r = parseFloat(query.radioKm);
+        filas = filas.filter(f => {
+          const c = f.ciudad ? geocodificarCiudad(f.ciudad) : null;
+          return c && distanciaKm(centroRadio.lat, centroRadio.lon, c.lat, c.lon) <= r;
+        });
+      }
+
       return {
         columnas: ["Nombre", "Tipo", "Ciudad", "Provincia", "Años de experiencia",
                    "Especialidades", "Alta en la plataforma", "Descripción"],
