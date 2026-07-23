@@ -5096,6 +5096,10 @@ app.get("/perfiles", (req, res) => {
 
 // Ciudades en las que hay perfiles de un rol, para poder elegirlas de una lista en la
 // búsqueda (en vez de escribirlas a mano). Se devuelven con su número de perfiles.
+//
+// `total` es el total de perfiles del rol, incluidos los que no tienen ciudad: es la
+// cifra que corresponde a la opción "Todas las ciudades", y por eso no coincide con la
+// suma de las ciudades.
 app.get("/perfiles/ciudades", (req, res) => {
   const tipo = req.query.rol === 'clinica' ? 'clinica' : 'dentista';
   db.all(
@@ -5111,7 +5115,17 @@ app.get("/perfiles/ciudades", (req, res) => {
         console.error(err);
         return res.status(500).json({ error: "Error al obtener las ciudades" });
       }
-      res.json({ ciudades: filas || [] });
+      db.get(
+        "SELECT COUNT(*) AS total FROM usuarios WHERE tipo = ? AND nombre != 'Usuario eliminado'",
+        [tipo],
+        (err2, fila) => {
+          if (err2) {
+            console.error(err2);
+            return res.status(500).json({ error: "Error al obtener las ciudades" });
+          }
+          res.json({ ciudades: filas || [], total: fila ? fila.total : 0 });
+        }
+      );
     }
   );
 });

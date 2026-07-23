@@ -6191,7 +6191,9 @@ const app = {
 
         const elegida = sel.value;
         sel.innerHTML =
-          `<option value="">Todas las ciudades</option>` +
+          `<option value="">${utils.escapeHtml(
+            data.total != null ? `Todas las ciudades · ${data.total}` : "Todas las ciudades"
+          )}</option>` +
           (conDentistas.length
             ? `<optgroup label="Con dentistas">` +
               conDentistas.map(c =>

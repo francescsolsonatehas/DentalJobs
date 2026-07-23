@@ -84,6 +84,15 @@ test("ciudades disponibles para elegir en la búsqueda de dentistas", async (t) 
     const res = await request(app).get("/perfiles?rol=dentista");
     assert.equal(res.body.perfiles.length, 4);
   });
+
+  // El total es el de la opción "Todas las ciudades": cuenta también a quien no tiene
+  // ciudad, así que no es la suma de las ciudades (aquí 4 frente a 3).
+  await t.test("devuelve el total de dentistas, incluidos los que no tienen ciudad", async () => {
+    const res = await request(app).get("/perfiles/ciudades?rol=dentista");
+    assert.equal(res.body.total, 4);
+    const sumaPorCiudad = res.body.ciudades.reduce((n, c) => n + c.total, 0);
+    assert.equal(sumaPorCiudad, 3);
+  });
 });
 
 test("el CSV de dentistas exporta lo mismo que muestra el listado", async (t) => {
