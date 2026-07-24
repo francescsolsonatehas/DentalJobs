@@ -2220,6 +2220,9 @@ const app = {
 
   modal: {
     cerrarTodosModales() {
+      // Al cerrarlo todo, el detalle deja de estar apilado sobre nada
+      document.getElementById("modalDetalle")?.classList.remove("modal-encima");
+
       // Cerrar todos los modales para evitar bloqueos
       const modales = [
         "modalAuth",
@@ -2848,6 +2851,14 @@ const app = {
     },
 
     cerrarDetalle() {
+      // Si el detalle se abrió por encima de otro modal (p. ej. el perfil o el Book de
+      // un candidato sobre la lista de candidatos), se cierra solo él y se vuelve a lo
+      // que había debajo, en vez de cerrarlo todo.
+      const detalle = document.getElementById("modalDetalle");
+      if (detalle && detalle.classList.contains("modal-encima")) {
+        detalle.classList.remove("modal-encima", "active");
+        return;
+      }
       this.cerrarTodosModales();
     },
 
@@ -6389,7 +6400,9 @@ const app = {
       }
     },
 
-    async verDetalle(id) {
+    // `encima`: la ficha se abre sobre otro modal (la lista de candidatos) y debe verse
+    // por delante; al cerrarla se vuelve a esa lista.
+    async verDetalle(id, encima = false) {
       try {
         const u = await utils.request(`/usuarios/${id}/publico`);
         const html = u.tipo === "clinica"
@@ -6398,7 +6411,9 @@ const app = {
 
         document.getElementById("detalleTitle").textContent = u.nombre;
         document.getElementById("detalleBody").innerHTML = html;
-        document.getElementById("modalDetalle").classList.add("active");
+        const modal = document.getElementById("modalDetalle");
+        modal.classList.toggle("modal-encima", !!encima);
+        modal.classList.add("active");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -6406,7 +6421,7 @@ const app = {
 
     // Los archivos del "Book" de un dentista. Las imágenes se ven directamente y el
     // resto (PDF, sobre todo) se descarga. Se abre en el mismo modal de detalle.
-    async verBook(id, nombre) {
+    async verBook(id, nombre, encima = false) {
       try {
         const archivos = await utils.request(`/archivos/usuario/${id}`);
         const book = (archivos || []).filter(a => a.tipo === "portfolio");
@@ -6439,7 +6454,9 @@ const app = {
 
         document.getElementById("detalleTitle").textContent = `Book de ${nombre || "este dentista"}`;
         document.getElementById("detalleBody").innerHTML = html;
-        document.getElementById("modalDetalle").classList.add("active");
+        const modal = document.getElementById("modalDetalle");
+        modal.classList.toggle("modal-encima", !!encima);
+        modal.classList.add("active");
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -6494,11 +6511,6 @@ const app = {
         ${this.bloqueEspecialidades(u, false)}
         <p style="margin:.7rem 0 .2rem;font-weight:600;color:#0f4c75;">Sobre mí</p>
         <p style="margin:.2rem 0;">${u.descripcion ? utils.escapeHtml(u.descripcion) : `<span style="color:#9ca3af;">Este dentista aún no ha añadido una descripción.</span>`}</p>
-        <p style="margin:.7rem 0 .2rem;font-weight:600;color:#0f4c75;">CV</p>
-        ${cv
-          ? `<a href="${API}/archivos/${cv.id}/download" class="btn-primary btn-small" style="text-decoration:none;display:inline-block;">📄 Descargar CV</a>
-             <span style="color:#9ca3af;font-size:.85rem;margin-left:.5rem;">${utils.escapeHtml(cv.nombre_archivo)}${cv.tamanyo ? " · " + utils.formatearTamanyo(cv.tamanyo) : ""}</span>`
-          : `<p style="margin:.2rem 0;color:#9ca3af;">Este dentista aún no ha subido su CV.</p>`}
         <p style="margin:.7rem 0 0;color:#9ca3af;font-size:.85rem;">En DentalJobs desde ${utils.formatearFecha(u.creado_en)}</p>
       </div>`;
 
@@ -6530,6 +6542,15 @@ const app = {
         }
       }
       html += `</div>`;
+
+      // El CV cierra la ficha: es lo último que se mira y lo que uno se lleva. Sin
+      // rótulo, el propio botón dice lo que hace.
+      html += `<div class="info-section">
+        ${cv
+          ? `<a href="${API}/archivos/${cv.id}/download" class="btn-primary" style="text-decoration:none;display:inline-block;">📄 Descargar CV</a>
+             <span style="color:#9ca3af;font-size:.85rem;margin-left:.5rem;">${utils.escapeHtml(cv.nombre_archivo)}${cv.tamanyo ? " · " + utils.formatearTamanyo(cv.tamanyo) : ""}</span>`
+          : `<p style="margin:0;color:#9ca3af;">Este dentista aún no ha subido su CV.</p>`}
+      </div>`;
 
       html += `</div>`;
       return html;
@@ -8323,7 +8344,7 @@ const app = {
         }
         const html = candidatos.map(c => {
           const estadoColor = utils.colorEstado(c.estado);
-          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.nombre)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Email:</strong> ${utils.escapeHtml(c.email)}</p>${c.telefono ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Teléfono:</strong> ${utils.escapeHtml(c.telefono)}</p>` : ''}${c.movil ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Móvil:</strong> ${utils.escapeHtml(c.movil)}</p>` : ''}${c.ciudad ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad)}</p>` : ''}${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; padding: 0.75rem; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #2563eb; color: #374151; font-size: 0.9rem;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}${utils.respuestasCribaHtml(c.respuestas)}</div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize; display: inline-block; margin-bottom: 0.5rem;">${utils.textoEstado(c.estado)}</span><div style="display: flex; gap: 0.5rem; flex-direction: column;">${utils.selectorEstado(c.id, c.estado, `app.candidaturas.actualizarEstado(${c.id}, this.value, ${publicacionId})`)}<button class="btn-outline btn-small" onclick="app.perfiles.verDetalle(${c.usuario_id})" title="Perfil del dentista, con su CV">👤 Ver perfil y CV</button><button class="btn-outline btn-small" onclick="app.perfiles.verBook(${c.usuario_id}, '${utils.escapeHtml((c.nombre || 'este dentista').replace(/'/g, "\\'"))}')" title="Archivos del Book del dentista">📕 Ver Book</button></div></div></div></div>`;
+          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.nombre)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Email:</strong> ${utils.escapeHtml(c.email)}</p>${c.telefono ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Teléfono:</strong> ${utils.escapeHtml(c.telefono)}</p>` : ''}${c.movil ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Móvil:</strong> ${utils.escapeHtml(c.movil)}</p>` : ''}${c.ciudad ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad)}</p>` : ''}${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; padding: 0.75rem; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #2563eb; color: #374151; font-size: 0.9rem;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}${utils.respuestasCribaHtml(c.respuestas)}</div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize; display: inline-block; margin-bottom: 0.5rem;">${utils.textoEstado(c.estado)}</span><div style="display: flex; gap: 0.5rem; flex-direction: column;">${utils.selectorEstado(c.id, c.estado, `app.candidaturas.actualizarEstado(${c.id}, this.value, ${publicacionId})`)}<button class="btn-outline btn-small" onclick="app.perfiles.verDetalle(${c.usuario_id}, true)" title="Perfil del dentista, con su CV">👤 Ver perfil y CV</button><button class="btn-outline btn-small" onclick="app.perfiles.verBook(${c.usuario_id}, '${utils.escapeHtml((c.nombre || 'este dentista').replace(/'/g, "\\'"))}', true)" title="Archivos del Book del dentista">📕 Descargar Book</button></div></div></div></div>`;
         });
         container.innerHTML = `<div>${html.join('')}</div>`;
       } catch (error) {

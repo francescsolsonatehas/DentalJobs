@@ -947,6 +947,13 @@ input:focus, select:focus {
   visibility: visible !important;
 }
 
+/* Modal que se abre desde otro y debe verse por encima (p. ej. el perfil o el Book de
+   un candidato sobre la lista de candidatos). Sin esto quedaría detrás —todos los
+   modales comparten z-index— y parecería que el botón no hace nada. */
+.modal.modal-encima.active {
+  z-index: 1100 !important;
+}
+
 .modal-content {
   background: var(--white);
   border-radius: 12px;
