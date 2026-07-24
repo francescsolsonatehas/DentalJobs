@@ -6419,6 +6419,36 @@ const app = {
       }
     },
 
+    // Todo el Book en un ZIP. El endpoint pide sesión, así que no vale un enlace
+    // normal: se pide con el token y se descarga el blob resultante.
+    async descargarBookCompleto(id, nombre, boton) {
+      const textoOriginal = boton ? boton.textContent : null;
+      if (boton) { boton.disabled = true; boton.textContent = "⏳ Preparando…"; }
+      try {
+        const respuesta = await fetch(`${API}/archivos/book/${id}.zip`, {
+          headers: { Authorization: `Bearer ${estadoApp.token}` }
+        });
+        if (!respuesta.ok) {
+          const data = await respuesta.json().catch(() => ({}));
+          throw new Error(data.error || "No se ha podido preparar el Book");
+        }
+
+        const blob = await respuesta.blob();
+        const url = URL.createObjectURL(blob);
+        const enlace = document.createElement("a");
+        enlace.href = url;
+        enlace.download = `Book-${(nombre || "dentista").replace(/\s+/g, "-")}.zip`;
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      } finally {
+        if (boton) { boton.disabled = false; boton.textContent = textoOriginal; }
+      }
+    },
+
     // Los archivos del "Book" de un dentista. Las imágenes se ven directamente y el
     // resto (PDF, sobre todo) se descarga. Se abre en el mismo modal de detalle.
     async verBook(id, nombre, encima = false) {
@@ -6430,6 +6460,11 @@ const app = {
         if (!book.length) {
           html += `<p style="color:#9ca3af;">Este dentista aún no ha subido su Book.</p>`;
         } else {
+          // Atajo opcional: todo de una vez. Debajo siguen los archivos uno a uno.
+          html += `<div style="margin-bottom:1rem;">
+            <button class="btn-primary" onclick="app.perfiles.descargarBookCompleto(${id}, '${utils.escapeHtml((nombre || 'dentista').replace(/'/g, "\\'"))}', this)">⬇️ Descargar todo el Book (${book.length})</button>
+          </div>`;
+
           const imagenes = book.filter(a => (a.mime_type || "").startsWith("image/"));
           const otros = book.filter(a => !(a.mime_type || "").startsWith("image/"));
 

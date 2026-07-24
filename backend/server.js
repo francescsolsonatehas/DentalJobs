@@ -22,6 +22,7 @@ const { calcularCompatibilidad, DIMENSIONES, DIMENSIONES_CUESTIONARIO, NIVELES_P
 const { construirFiltros } = require("./filtros-publicaciones");
 const { generarCsv } = require("./exportaciones");
 const { geocodificarCiudad, distanciaKm } = require("./municipios-coords");
+const { crearZip } = require("./zip");
 const { expandirRango, sanearDias } = require("./fechas");
 const crypto = require("crypto");
 
@@ -4251,6 +4252,56 @@ app.get("/archivos/usuario/:userId", (req, res) => {
       res.json(archivos || []);
     }
   );
+});
+
+// Todo el Book de un dentista en un ZIP, para no ir descargando archivo a archivo.
+// Pide sesión: los ficheros sueltos ya son accesibles por su id, pero empaquetar el
+// Book entero de alguien es justo lo que convendría no dejar abierto de par en par.
+//
+// Va declarada antes que "/archivos/:id/download" para que esa ruta no capture "book".
+app.get("/archivos/book/:userId.zip", verifyToken, (req, res) => {
+  const userId = parseInt(req.params.userId);
+  if (!userId) return res.status(400).json({ error: "Usuario inválido" });
+
+  db.get("SELECT nombre FROM usuarios WHERE id = ?", [userId], (errU, usuario) => {
+    if (errU) {
+      console.error(errU);
+      return res.status(500).json({ error: "Error al preparar el Book" });
+    }
+    if (!usuario) return res.status(404).json({ error: "Usuario no encontrado" });
+
+    db.all(
+      "SELECT nombre_archivo, contenido FROM archivos WHERE usuario_id = ? AND tipo = 'portfolio' ORDER BY creado_en",
+      [userId],
+      (err, archivos) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al preparar el Book" });
+        }
+        if (!archivos || archivos.length === 0) {
+          return res.status(404).json({ error: "Este dentista no tiene Book" });
+        }
+
+        let zip;
+        try {
+          zip = crearZip(archivos.map(a => ({ nombre: a.nombre_archivo, contenido: a.contenido })));
+        } catch (errZip) {
+          console.error(errZip);
+          return res.status(500).json({ error: "Error al preparar el Book" });
+        }
+
+        // Nombre del fichero sin acentos ni espacios, que viaja por una cabecera
+        const base = `Book-${usuario.nombre}`
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-zA-Z0-9._-]+/g, "-")
+          .replace(/^-+|-+$/g, "") || "Book";
+
+        res.setHeader("Content-Type", "application/zip");
+        res.setHeader("Content-Disposition", `attachment; filename="${base}.zip"`);
+        res.send(zip);
+      }
+    );
+  });
 });
 
 app.get("/archivos/:id/download", (req, res) => {
