@@ -6450,17 +6450,31 @@ const app = {
     },
 
     // Visor de un archivo del Book: lo muestra a tamaño grande (imagen o PDF) en una
-    // capa por encima de todo, con un botón para descargarlo y otro para cerrar.
-    verArchivo(id, nombre, mime) {
+    // ventana por encima de todo, con un botón para descargarlo y otro para cerrar.
+    //
+    // El archivo se trae como blob y se muestra (y se descarga) desde una URL de objeto
+    // (blob:), que es del mismo origen. Así se ve aunque la API esté en otro dominio —un
+    // iframe o una imagen apuntando a la API cross-origin los bloquean X-Frame-Options y
+    // CORP— y el botón de descargar puede forzar la bajada con el nombre correcto sin
+    // abrir ninguna pestaña.
+    async verArchivo(id, nombre, mime) {
       mime = mime || "";
-      const urlInline = `${API}/archivos/${id}/download?inline=1`;
-      const urlDescarga = `${API}/archivos/${id}/download`;
+
+      let blobUrl;
+      try {
+        const respuesta = await fetch(`${API}/archivos/${id}/download?inline=1`);
+        if (!respuesta.ok) throw new Error();
+        blobUrl = URL.createObjectURL(await respuesta.blob());
+      } catch (e) {
+        utils.mostrarAlerta("No se ha podido abrir el archivo", "error");
+        return;
+      }
 
       let visor;
       if (mime.startsWith("image/")) {
-        visor = `<img src="${urlInline}" alt="${utils.escapeHtml(nombre || "")}" class="visor-imagen">`;
+        visor = `<img src="${blobUrl}" alt="${utils.escapeHtml(nombre || "")}" class="visor-imagen">`;
       } else if (mime === "application/pdf") {
-        visor = `<iframe src="${urlInline}" title="${utils.escapeHtml(nombre || "")}" class="visor-iframe"></iframe>`;
+        visor = `<iframe src="${blobUrl}" title="${utils.escapeHtml(nombre || "")}" class="visor-iframe"></iframe>`;
       } else {
         visor = `<div class="visor-sin-preview">Este archivo no se puede previsualizar. Descárgalo para verlo.</div>`;
       }
@@ -6471,7 +6485,7 @@ const app = {
         <div class="visor-barra">
           <span class="visor-nombre">${utils.escapeHtml(nombre || "Archivo")}</span>
           <span class="visor-acciones">
-            <a class="btn-primary btn-small" href="${urlDescarga}" download="${utils.escapeHtml(nombre || "")}">⬇️ Descargar</a>
+            <a class="btn-primary btn-small" href="${blobUrl}" download="${utils.escapeHtml(nombre || "archivo")}">⬇️ Descargar</a>
             <button type="button" class="btn-outline btn-small" data-cerrar>✕ Cerrar</button>
           </span>
         </div>
@@ -6479,6 +6493,7 @@ const app = {
 
       const cerrar = () => {
         overlay.remove();
+        URL.revokeObjectURL(blobUrl);
         document.removeEventListener("keydown", alPulsarTecla);
       };
       const alPulsarTecla = (e) => { if (e.key === "Escape") cerrar(); };
