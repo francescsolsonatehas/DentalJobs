@@ -943,12 +943,12 @@ const app = {
     },
 
     // La publicación puede haberse borrado desde que se envió la notificación
-    async abrirPublicacion(id) {
+    async abrirPublicacion(id, soloVer = false) {
       const publicacion = await utils.request(`/publicaciones/${encodeURIComponent(id)}`);
       // Si se viene de la lista de suplencias, hay que cerrarla: el detalle se abriría
       // por debajo y parecería que el botón no hace nada.
       document.getElementById("modalInteresados")?.classList.remove("active");
-      app.modal.abrirDetalleConManejo(publicacion);
+      app.modal.abrirDetalleConManejo(publicacion, soloVer);
     },
 
     // `argumento` es "publicacionId-otroId". El nombre del interlocutor no viaja en
@@ -1346,13 +1346,23 @@ const app = {
       }
     },
 
-    // Procesa los enlaces que llegan por correo (#verificar= / #restablecer= / #confirmar-email=)
+    // Procesa los enlaces que llegan por correo (#verificar= / #restablecer= /
+    // #confirmar-email=) y el enlace público de una publicación (#publicacion=).
     async procesarEnlacesDeCorreo() {
       const hash = window.location.hash || "";
 
       const limpiarHash = () => history.replaceState(null, "", window.location.pathname + window.location.search);
 
-      if (hash.startsWith("#verificar=")) {
+      if (hash.startsWith("#publicacion=")) {
+        // Enlace "Copiar Enlace": abre la ficha de la publicación en solo lectura, con
+        // el único botón de "Cerrar". Funciona sin necesidad de tener cuenta.
+        const id = hash.slice("#publicacion=".length);
+        limpiarHash();
+        app.rutas.abrirPublicacion(id, true).catch(error => {
+          console.error("Error al abrir la publicación del enlace:", error);
+          utils.mostrarAlerta("No se ha podido abrir la publicación", "error");
+        });
+      } else if (hash.startsWith("#verificar=")) {
         const token = hash.slice("#verificar=".length);
         limpiarHash();
         try {
@@ -1810,17 +1820,11 @@ const app = {
     },
 
     // Copia al portapapeles la URL pública (indexable) de una oferta
-    // "Copiar Enlace": copia el enlace público al portapapeles y abre una vista previa
-    // de la publicación tal como se comparte (solo lectura, solo el botón "Cerrar").
-    compartirPublicacion(pub) {
-      if (typeof pub === "string") pub = JSON.parse(pub);
-      this.copiarEnlacePublico(pub.id);
-      app.modal.abrirDetalleConManejo(pub, true);
-    },
-
     async copiarEnlacePublico(publicacionId) {
-      const base = API || window.location.origin;
-      const url = `${base}/oferta/${publicacionId}`;
+      // Enlace a la propia app: al abrirlo, se procesa el hash y se muestra la ficha de
+      // la publicación en solo lectura (ver app.auth.procesarEnlacesDeCorreo). Se parte
+      // de la URL actual (sin su hash) para conservar dominio y ruta de la app.
+      const url = `${window.location.href.split("#")[0]}#publicacion=${publicacionId}`;
       try {
         await navigator.clipboard.writeText(url);
         utils.mostrarAlerta("🔗 Enlace copiado: compártelo donde quieras", "success");
@@ -5956,7 +5960,7 @@ const app = {
               <button class="btn-primary" onclick="app.modal.abrirDetalleConManejo(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver Publicación</button>
               ${(() => {
                 if (estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id)) {
-                  return `${(pub.tipo === 'oferta' || pub.tipo === 'suplencia') ? `<button class="btn-outline" onclick="app.publicaciones.compartirPublicacion(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;" title="Copiar el enlace público y ver cómo se comparte">🔗 Copiar Enlace</button>` : ''}
+                  return `${(pub.tipo === 'oferta' || pub.tipo === 'suplencia') ? `<button class="btn-outline" onclick="app.publicaciones.copiarEnlacePublico(${pub.id})" style="flex: 1;" title="Copiar el enlace público de esta publicación">🔗 Copiar Enlace</button>` : ''}
                           ${pub.tipo === 'suplencia' ? `<button class="btn-outline" onclick="app.suplencias.verDisponibles(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;" title="Dentistas disponibles para estos días">🗓️ Disponibles</button>` : ''}
                           <button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">📊 Estadísticas</button>
                           <button class="btn-danger" onclick="app.publicaciones.retirarPublicacion(${pub.id})" style="flex: 1;">🗑️ Retirar</button>`;
