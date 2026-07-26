@@ -5976,7 +5976,7 @@ const app = {
               ${pub.experiencia_minima !== null && pub.experiencia_minima !== undefined ? `<div class="detail"><span class="detail-icon">🎓</span><span>${pub.experiencia_minima} años exp.</span></div>` : ""}
             </div>
             <div class="badges">
-              ${pub.nombre_contacto ? `<span class="badge">${utils.escapeHtml(pub.nombre_contacto)}</span>` : ""}
+              ${estadoApp.tipoUsuario !== 'clinica' && pub.nombre_contacto ? `<span class="badge">${utils.escapeHtml(pub.nombre_contacto)}</span>` : ""}
               <span class="badge" style="margin-left: auto;">${utils.formatearFecha(pub.creado_en)}</span>
             </div>
             <div class="card-footer" style="display: flex; gap: 0.5rem;">
@@ -5984,7 +5984,7 @@ const app = {
               ${(() => {
                 if (estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id)) {
                   return `${(pub.tipo === 'oferta' || pub.tipo === 'suplencia') ? `<button class="btn-outline" onclick="app.publicaciones.copiarEnlacePublico(${pub.id})" style="flex: 1;" title="Copiar el enlace público de esta publicación">🔗 Copiar Enlace</button>` : ''}
-                          ${pub.tipo === 'suplencia' ? `<button class="btn-outline" onclick="app.suplencias.verDisponibles(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;" title="Dentistas disponibles para estos días">🗓️ Disponibles</button>` : ''}
+                          ${pub.tipo === 'suplencia' ? `<button class="btn-outline" onclick="app.suplencias.verDisponibles(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;" title="Dentistas disponibles para estos días">🗓️ Dentistas Disponibles</button>` : ''}
                           <button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">📊 Estadísticas</button>
                           <button class="btn-danger" onclick="app.publicaciones.retirarPublicacion(${pub.id})" style="flex: 1;">🗑️ Retirar</button>`;
                 }
