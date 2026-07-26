@@ -3678,7 +3678,9 @@ const app = {
       this.pollingInterval = setInterval(hacerPolling, 3000);
     },
 
-    async generarHtmlPostulaciones(postulaciones) {
+    // `opciones.soloEstado`: muestra la ficha como en "Mis Postulaciones" pero sin los
+    // botones "Ver Publicación" ni "Retirar" (se usa desde "Postulada. Ver estado").
+    async generarHtmlPostulaciones(postulaciones, opciones = {}) {
       if (postulaciones.length === 0) {
         return '<div style="padding: 2rem; text-align: center; color: #6b7280;"><p>No hay postulaciones</p></div>';
       }
@@ -3732,16 +3734,37 @@ const app = {
               <p style="margin: 0; font-size: 0.85rem; color: #0c4a6e; font-weight: 600;">💬 Tu mensaje:</p>
               <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #0c4a6e; white-space: pre-wrap;">${utils.escapeHtml(post.mensaje)}</p>
             </div>` : ''}
-            <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
-              <button class="btn-primary" onclick="app.stats.abrirPublicacionDePostulacion(${post.publicacion_id})" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Ver Publicación</button>
-              ${post.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${post.id}, '${utils.escapeHtml((post.empresa_nombre || 'la otra parte').replace(/'/g, "\\'"))}')" style="flex: 1; background: #f59e0b; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">⭐ Valorar</button>` : ''}
-              <button onclick="app.candidaturas.retirarPostulacion(${post.id})" style="flex: 1; background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">🗑️ Retirar</button>
-            </div>
+            ${(() => {
+              const botones = [];
+              if (!opciones.soloEstado) botones.push(`<button class="btn-primary" onclick="app.stats.abrirPublicacionDePostulacion(${post.publicacion_id})" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Ver Publicación</button>`);
+              if (post.estado === 'aceptada') botones.push(`<button onclick="app.resenyas.abrirFormulario(${post.id}, '${utils.escapeHtml((post.empresa_nombre || 'la otra parte').replace(/'/g, "\\'"))}')" style="flex: 1; background: #f59e0b; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">⭐ Valorar</button>`);
+              if (!opciones.soloEstado) botones.push(`<button onclick="app.candidaturas.retirarPostulacion(${post.id})" style="flex: 1; background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">🗑️ Retirar</button>`);
+              return botones.length ? `<div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">${botones.join("")}</div>` : "";
+            })()}
           </div>
         `;
       });
       html += "</div>";
       return html;
+    },
+
+    // "Postulada. Ver estado": muestra el estado de mi postulación a esa publicación,
+    // igual que en "Mis Postulaciones a Dentistas" pero sin "Ver Publicación" ni "Retirar".
+    async mostrarEstadoMiPostulacion(publicacionId) {
+      try {
+        const data = await utils.request("/candidaturas/mis-postulaciones");
+        const post = (data.candidaturas || []).find(p => p.publicacion_id === publicacionId);
+        if (!post) {
+          utils.mostrarAlerta("No se ha encontrado tu postulación", "error");
+          return;
+        }
+        const html = await this.generarHtmlPostulaciones([post], { soloEstado: true });
+        document.getElementById("interesadosBody").innerHTML = html;
+        document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = "Estado de tu postulación";
+        document.getElementById("modalInteresados").classList.add("active");
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
     },
 
     // "Ver Publicación" desde una postulación: abre exactamente la misma ficha que en
@@ -5983,12 +6006,16 @@ const app = {
               })()}
               ${(() => {
                 if (estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'solicitud') {
+                  const nombreDent = utils.escapeHtml((pub.usuario_nombre || pub.nombre_contacto || 'este dentista').replace(/'/g, "\\'"));
+                  const chatBtn = `<button class="btn-outline" onclick="app.perfiles.iniciarChat(${pub.usuario_id}, '${nombreDent}')" style="flex: 1;" title="Empezar a chatear con el dentista">💬 Iniciar chat</button>`;
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
                   if (yaPostulada) {
-                    return `<button class="btn-success" style="flex: 1; opacity: 0.7;">✓ Postulada</button>
-                            <button class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Retirar</button>`;
+                    return `<button class="btn-success" onclick="app.stats.mostrarEstadoMiPostulacion(${pub.id})" style="flex: 1;" title="Ver el estado de tu postulación">Postulada. Ver estado</button>
+                            <button class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Retirar</button>
+                            ${chatBtn}`;
                   } else {
-                    return `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>`;
+                    return `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>
+                            ${chatBtn}`;
                   }
                 }
                 return '';
