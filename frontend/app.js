@@ -6449,8 +6449,50 @@ const app = {
       }
     },
 
-    // Los archivos del "Book" de un dentista. Las imágenes se ven directamente y el
-    // resto (PDF, sobre todo) se descarga. Se abre en el mismo modal de detalle.
+    // Visor de un archivo del Book: lo muestra a tamaño grande (imagen o PDF) en una
+    // capa por encima de todo, con un botón para descargarlo y otro para cerrar.
+    verArchivo(id, nombre, mime) {
+      mime = mime || "";
+      const urlInline = `${API}/archivos/${id}/download?inline=1`;
+      const urlDescarga = `${API}/archivos/${id}/download`;
+
+      let visor;
+      if (mime.startsWith("image/")) {
+        visor = `<img src="${urlInline}" alt="${utils.escapeHtml(nombre || "")}" class="visor-imagen">`;
+      } else if (mime === "application/pdf") {
+        visor = `<iframe src="${urlInline}" title="${utils.escapeHtml(nombre || "")}" class="visor-iframe"></iframe>`;
+      } else {
+        visor = `<div class="visor-sin-preview">Este archivo no se puede previsualizar. Descárgalo para verlo.</div>`;
+      }
+
+      const overlay = document.createElement("div");
+      overlay.className = "visor-archivo";
+      overlay.innerHTML = `
+        <div class="visor-barra">
+          <span class="visor-nombre">${utils.escapeHtml(nombre || "Archivo")}</span>
+          <span class="visor-acciones">
+            <a class="btn-primary btn-small" href="${urlDescarga}" download="${utils.escapeHtml(nombre || "")}">⬇️ Descargar</a>
+            <button type="button" class="btn-outline btn-small" data-cerrar>✕ Cerrar</button>
+          </span>
+        </div>
+        <div class="visor-contenido">${visor}</div>`;
+
+      const cerrar = () => {
+        overlay.remove();
+        document.removeEventListener("keydown", alPulsarTecla);
+      };
+      const alPulsarTecla = (e) => { if (e.key === "Escape") cerrar(); };
+
+      overlay.querySelector("[data-cerrar]").addEventListener("click", cerrar);
+      // Cerrar también al pinchar fuera del contenido
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) cerrar(); });
+      document.addEventListener("keydown", alPulsarTecla);
+
+      document.body.appendChild(overlay);
+    },
+
+    // Los archivos del "Book" de un dentista. Cada uno se abre en un visor (imagen o
+    // PDF) con botones de descargar y cerrar. Se abre en el mismo modal de detalle.
     async verBook(id, nombre, encima = false) {
       try {
         const archivos = await utils.request(`/archivos/usuario/${id}`);
@@ -6465,23 +6507,29 @@ const app = {
             <button class="btn-primary" onclick="app.perfiles.descargarBookCompleto(${id}, '${utils.escapeHtml((nombre || 'dentista').replace(/'/g, "\\'"))}', this)">⬇️ Descargar todo el Book (${book.length})</button>
           </div>`;
 
+          // Cada fichero se abre en un visor (imagen o PDF a tamaño grande), con sus
+          // botones de descargar y cerrar. `argJs` deja el texto seguro para el onclick.
+          const argJs = s => utils.escapeHtml(String(s || "").replace(/'/g, "\\'"));
+          const abrir = a => `app.perfiles.verArchivo(${a.id}, '${argJs(a.nombre_archivo)}', '${argJs(a.mime_type || "")}')`;
+
           const imagenes = book.filter(a => (a.mime_type || "").startsWith("image/"));
           const otros = book.filter(a => !(a.mime_type || "").startsWith("image/"));
 
           if (imagenes.length) {
             html += `<div class="fotos-gallery">` + imagenes.map(a => `
-              <div class="foto-item">
-                <a href="${API}/archivos/${a.id}/download" target="_blank" rel="noopener">
-                  <img src="${API}/archivos/${a.id}/download" alt="${utils.escapeHtml(a.nombre_archivo)}" loading="lazy">
-                </a>
+              <div class="foto-item" style="cursor:pointer;" onclick="${abrir(a)}" title="Ver ${utils.escapeHtml(a.nombre_archivo)}">
+                <img src="${API}/archivos/${a.id}/download?inline=1" alt="${utils.escapeHtml(a.nombre_archivo)}" loading="lazy">
               </div>`).join("") + `</div>`;
           }
           if (otros.length) {
             html += otros.map(a => `
-              <div style="display:flex;align-items:center;gap:.6rem;margin-top:.6rem;">
-                <a href="${API}/archivos/${a.id}/download" class="btn-primary btn-small" style="text-decoration:none;display:inline-block;">📄 Descargar</a>
-                <span style="font-size:.9rem;">${utils.escapeHtml(a.nombre_archivo)}</span>
-                <span style="color:#9ca3af;font-size:.85rem;">${a.tamanyo ? utils.formatearTamanyo(a.tamanyo) : ""}</span>
+              <div class="book-fichero" onclick="${abrir(a)}" title="Ver ${utils.escapeHtml(a.nombre_archivo)}">
+                <span class="book-fichero-icono">${(a.mime_type || "") === "application/pdf" ? "📄" : "📎"}</span>
+                <span class="book-fichero-texto">
+                  <span class="book-fichero-nombre">${utils.escapeHtml(a.nombre_archivo)}</span>
+                  <span class="book-fichero-meta">${a.tamanyo ? utils.formatearTamanyo(a.tamanyo) : ""}</span>
+                </span>
+                <span class="book-fichero-ver">👁️ Ver</span>
               </div>`).join("");
           }
         }

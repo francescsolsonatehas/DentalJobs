@@ -4318,8 +4318,11 @@ app.get("/archivos/:id/download", (req, res) => {
         return res.status(404).json({ error: "Archivo no encontrado" });
       }
 
+      // Con ?inline=1 el navegador lo muestra en vez de descargarlo (para la vista
+      // previa del Book). Por defecto sigue siendo descarga, como hasta ahora.
+      const disposicion = req.query.inline === "1" ? "inline" : "attachment";
       res.setHeader("Content-Type", archivo.mime_type || "application/octet-stream");
-      res.setHeader("Content-Disposition", `attachment; filename="${archivo.nombre_archivo}"`);
+      res.setHeader("Content-Disposition", `${disposicion}; filename="${archivo.nombre_archivo}"`);
       res.send(archivo.contenido);
     }
   );
