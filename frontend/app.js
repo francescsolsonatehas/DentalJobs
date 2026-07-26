@@ -5749,9 +5749,9 @@ const app = {
         btnMias.style.display = "none";
         document.getElementById("btnPublicaciones").style.display = "inline-block";
         btnContactadas.style.display = "none";
-        const btnMisPostClinica = document.getElementById("btnMisPostulacionesDentistas");
-        btnMisPostClinica.style.display = "inline-block";
-        btnMisPostClinica.textContent = "📌 Mis Postulaciones";
+        // "Mis Postulaciones" se retiró: la clínica ve el estado de cada postulación
+        // desde la propia publicación ("Postulada. Ver estado").
+        document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
         document.getElementById("btnKanban").style.display = "none";
         document.getElementById("btnSuplencias").style.display = "none";
