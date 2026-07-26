@@ -6011,7 +6011,7 @@ const app = {
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
                   if (yaPostulada) {
                     return `<button class="btn-success" onclick="app.stats.mostrarEstadoMiPostulacion(${pub.id})" style="flex: 1;" title="Ver el estado de tu postulación">Postulada. Ver estado</button>
-                            <button class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Retirar</button>
+                            <button class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Retirar Postulación</button>
                             ${chatBtn}`;
                   } else {
                     return `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>
