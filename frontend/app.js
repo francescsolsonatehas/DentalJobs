@@ -1810,6 +1810,14 @@ const app = {
     },
 
     // Copia al portapapeles la URL pública (indexable) de una oferta
+    // "Copiar Enlace": copia el enlace público al portapapeles y abre una vista previa
+    // de la publicación tal como se comparte (solo lectura, solo el botón "Cerrar").
+    compartirPublicacion(pub) {
+      if (typeof pub === "string") pub = JSON.parse(pub);
+      this.copiarEnlacePublico(pub.id);
+      app.modal.abrirDetalleConManejo(pub, true);
+    },
+
     async copiarEnlacePublico(publicacionId) {
       const base = API || window.location.origin;
       const url = `${base}/oferta/${publicacionId}`;
@@ -2360,8 +2368,8 @@ const app = {
       document.getElementById("modalPublicarTitle").textContent = titulos[tab] || "Publicar";
     },
 
-    abrirDetalleConManejo(publicacion) {
-      this.abrirDetalle(publicacion).catch(error => {
+    abrirDetalleConManejo(publicacion, soloVer = false) {
+      this.abrirDetalle(publicacion, soloVer).catch(error => {
         console.error("Error al cargar detalles:", error);
         utils.mostrarAlerta("Error al cargar detalles de la publicación", "error");
       });
@@ -2451,7 +2459,7 @@ const app = {
         </div>`;
     },
 
-    async abrirDetalle(publicacion) {
+    async abrirDetalle(publicacion, soloVer = false) {
       estadoApp.publicacionActual = publicacion;
 
       // Registrar vista si quien mira no es el dueño
@@ -2613,7 +2621,13 @@ const app = {
 
       // Agregar botón de editar si es propietario
       const esPropio = publicacion.usuario_id === estadoApp.usuario?.id;
-      if (esPropio) {
+      if (soloVer) {
+        // Vista previa de solo lectura (la usa "Copiar Enlace"): sin editar, solo cerrar
+        html = `<div id="detalleVistaPrevia">${html}</div>
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                  <button class="btn-text" onclick="app.modal.cerrarDetalle()">Cerrar</button>
+                </div>`;
+      } else if (esPropio) {
         html = `<div id="detalleVistaPrevia">${html}</div>
                 <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
                   <button class="btn-primary" onclick="app.modal.activarEdicionConManejo()">Editar</button>
@@ -2641,9 +2655,10 @@ const app = {
       document.getElementById("detalleBody").innerHTML = html;
       document.getElementById("detalleTitle").textContent = publicacion.tipo === "oferta" ? "Oferta de trabajo" : publicacion.tipo === "suplencia" ? "Suplencia / turno suelto" : "Solicitud de empleo";
 
-      // Ocultar sección de contacto si es propia publicación
+      // Ocultar la sección interactiva de contacto en la propia publicación y en la
+      // vista previa de solo lectura
       const detalleContacto = document.getElementById("detalleContacto");
-      if (esPropio) {
+      if (esPropio || soloVer) {
         detalleContacto.style.display = "none";
       } else {
         detalleContacto.style.display = "block";
@@ -5941,7 +5956,7 @@ const app = {
               <button class="btn-primary" onclick="app.modal.abrirDetalleConManejo(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver Publicación</button>
               ${(() => {
                 if (estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id)) {
-                  return `${(pub.tipo === 'oferta' || pub.tipo === 'suplencia') ? `<button class="btn-outline" onclick="app.publicaciones.copiarEnlacePublico(${pub.id})" style="flex: 1;" title="Copiar el enlace público de esta publicación">🔗 Copiar Enlace</button>` : ''}
+                  return `${(pub.tipo === 'oferta' || pub.tipo === 'suplencia') ? `<button class="btn-outline" onclick="app.publicaciones.compartirPublicacion(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;" title="Copiar el enlace público y ver cómo se comparte">🔗 Copiar Enlace</button>` : ''}
                           ${pub.tipo === 'suplencia' ? `<button class="btn-outline" onclick="app.suplencias.verDisponibles(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;" title="Dentistas disponibles para estos días">🗓️ Disponibles</button>` : ''}
                           <button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">📊 Estadísticas</button>
                           <button class="btn-danger" onclick="app.publicaciones.retirarPublicacion(${pub.id})" style="flex: 1;">🗑️ Retirar</button>`;
