@@ -1862,12 +1862,11 @@ const app = {
       return app.publicaciones.cargar();
     },
 
-    // Las dos búsquedas de la clínica sobre dentistas —sus perfiles ("Dentistas") y sus
-    // publicaciones ("Publicaciones de dentistas")— comparten la misma búsqueda
-    // reducida: Ciudad (de una lista), Radio y Especialidad.
+    // La búsqueda de la contraparte —sus perfiles y sus publicaciones ("todas")— usa la
+    // misma búsqueda reducida en los dos roles: Ciudad (de una lista), Radio y
+    // Especialidad. La clínica busca dentistas; el dentista, clínicas.
     vistaReducida() {
-      return estadoApp.tipoUsuario === "clinica" &&
-        (estadoApp.vistaActual === "perfiles" || estadoApp.vistaActual === "publicaciones");
+      return estadoApp.vistaActual === "perfiles" || estadoApp.vistaActual === "publicaciones";
     },
 
     // La ciudad sale del desplegable en las búsquedas reducidas y del campo de texto
@@ -1923,9 +1922,14 @@ const app = {
     async cargarCiudadesLista() {
       const sel = document.getElementById("filterCiudadLista");
       if (!sel || !this.vistaReducida()) return;
+      // La contraparte según el rol: la clínica busca dentistas/solicitudes; el dentista,
+      // clínicas/ofertas.
+      const esClinica = estadoApp.tipoUsuario === "clinica";
+      const rolContraparte = esClinica ? "dentista" : "clinica";
+      const tipoContraparte = esClinica ? "solicitud" : "oferta";
       const url = estadoApp.vistaActual === "perfiles"
-        ? "/perfiles/ciudades?rol=dentista"
-        : "/publicaciones/ciudades?tipo=solicitud";
+        ? `/perfiles/ciudades?rol=${rolContraparte}`
+        : `/publicaciones/ciudades?tipo=${tipoContraparte}`;
       try {
         const data = await utils.request(url);
         const conDatos = data.ciudades || [];
@@ -1942,7 +1946,9 @@ const app = {
 
         const opcion = (valor, texto) =>
           `<option value="${utils.escapeHtml(valor)}">${utils.escapeHtml(texto)}</option>`;
-        const rotuloGrupo = estadoApp.vistaActual === "perfiles" ? "Con dentistas" : "Con publicaciones";
+        const rotuloGrupo = estadoApp.vistaActual === "perfiles"
+          ? (esClinica ? "Con dentistas" : "Con clínicas")
+          : "Con publicaciones";
 
         const elegida = sel.value;
         sel.innerHTML =
@@ -2021,8 +2027,9 @@ const app = {
         filtersTitle.textContent = "";
       }
 
-      // La clínica busca aquí publicaciones de dentistas: la ciudad se elige de la lista
-      if (estadoApp.tipoUsuario === 'clinica') this.cargarCiudadesLista();
+      // "Publicaciones" (la clínica ve solicitudes de dentistas; el dentista, ofertas de
+      // clínicas): la ciudad se elige de la lista en los dos roles
+      this.cargarCiudadesLista();
 
       app.publicaciones.cargar();
     },
@@ -2037,16 +2044,11 @@ const app = {
       if (btn) btn.classList.add("active");
 
       const filtersTitle = document.getElementById("filtrosTitle");
-      filtersTitle.textContent = estadoApp.tipoUsuario === 'clinica' ? "Dentistas" : "Perfiles de clínicas";
+      filtersTitle.textContent = estadoApp.tipoUsuario === 'clinica' ? "Dentistas" : "Clínicas";
       filtersTitle.style.display = "block";
 
-      // La clínica elige la ciudad de una lista; el dentista, que busca clínicas, sigue
-      // con el campo de texto y su autocompletado del catálogo.
-      if (estadoApp.tipoUsuario === 'clinica') {
-        this.cargarCiudadesLista();
-      } else {
-        app.ciudades.montar(document.getElementById("filterCiudad"), null, null, () => app.filtros.buscar());
-      }
+      // La ciudad se elige de una lista (búsqueda reducida) en los dos roles
+      this.cargarCiudadesLista();
 
       this.sincronizarUISuplencias();
       app.perfiles.cargar();
@@ -5781,9 +5783,12 @@ const app = {
         document.getElementById("filterCertificacionGroup").style.display = "none";
         const btnPerfilesDentista = document.getElementById("btnPerfiles");
         btnPerfilesDentista.style.display = "inline-block";
-        btnPerfilesDentista.textContent = "👤 Perfiles de clínicas";
+        btnPerfilesDentista.textContent = "🏥 Clínicas";
         btnPerfilesDentista.title = "";
         btnTodas.textContent = "Publicaciones de clínicas";
+        // Autocompletado del catálogo en el campo de texto de ciudad, para las vistas
+        // que no usan el desplegable (p. ej. Suplencias)
+        app.ciudades.montar(document.getElementById("filterCiudad"), null, null, () => app.filtros.buscar());
       }
 
       estadoApp.filtros.soloMias = false;
