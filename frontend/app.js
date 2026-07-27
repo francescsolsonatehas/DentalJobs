@@ -5977,7 +5977,7 @@ const app = {
             </div>
             <div class="badges">
               ${estadoApp.tipoUsuario !== 'clinica' && pub.nombre_contacto ? `<span class="badge">${utils.escapeHtml(pub.nombre_contacto)}</span>` : ""}
-              <span class="badge" style="margin-left: auto;">${utils.formatearFecha(pub.creado_en)}</span>
+              <span class="badge" style="${estadoApp.tipoUsuario === 'clinica' ? '' : 'margin-left: auto;'}">${utils.formatearFecha(pub.creado_en)}</span>
             </div>
             <div class="card-footer" style="display: flex; gap: 0.5rem;">
               <button class="btn-primary" onclick="app.modal.abrirDetalleConManejo(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver Publicación</button>
