@@ -5988,7 +5988,7 @@ const app = {
               <button class="btn-primary" onclick="app.modal.abrirDetalleConManejo(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver Publicación</button>
               ${(() => {
                 if (estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id)) {
-                  return `${(pub.tipo === 'oferta' || pub.tipo === 'suplencia') ? `<button class="btn-outline" onclick="app.publicaciones.copiarEnlacePublico(${pub.id})" style="flex: 1;" title="Copiar el enlace público de esta publicación">🔗 Copiar Enlace</button>` : ''}
+                  return `<button class="btn-outline" onclick="app.publicaciones.copiarEnlacePublico(${pub.id})" style="flex: 1;" title="Copiar el enlace público de esta publicación">🔗 Copiar Enlace</button>
                           ${pub.tipo === 'suplencia' ? `<button class="btn-outline" onclick="app.suplencias.verDisponibles(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;" title="Dentistas disponibles para estos días">🗓️ Dentistas Disponibles</button>` : ''}
                           <button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">📊 Estadísticas</button>
                           <button class="btn-danger" onclick="app.publicaciones.retirarPublicacion(${pub.id})" style="flex: 1;">🗑️ Retirar</button>`;
