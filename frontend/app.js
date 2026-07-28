@@ -5965,7 +5965,6 @@ const app = {
           <div class="card ${tipoClase}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <span style="display: flex; gap: .4rem; align-items: center;">${tipoBadge ? `<span class="card-type ${tipoClase}">${tipoBadge}</span>` : ""}${compatBadge}</span>
-              ${estadoApp.usuario && ((estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'solicitud') || (estadoApp.tipoUsuario === 'dentista' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia'))) ? `<button onclick="app.favoritos.toggle(${pub.id}, this)" data-favorito="${esFavorito}" style="background: none; border: none; cursor: pointer; font-size: 1.3rem; padding: 0;" title="${esFavorito ? 'Quitar de favoritos' : 'Guardar en favoritos'}">${esFavorito ? '⭐' : '☆'}</button>` : ''}
             </div>
             <h3>${utils.escapeHtml(generatedTitle)}</h3>
             <div class="card-details">
@@ -6354,8 +6353,7 @@ const app = {
         return `
           <div class="card ${esClinica ? "type-oferta" : "type-solicitud"}">
             <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-              ${esClinica ? `<span class="card-type type-oferta">🏥 Clínica</span>` : `<span></span>`}
-              <button onclick="app.favoritos.togglePerfil(${p.id}, this)" data-favorito="${esFav}" style="background:none;border:none;cursor:pointer;font-size:1.3rem;padding:0;" title="${esFav ? "Quitar de favoritos" : "Guardar en favoritos"}">${esFav ? "⭐" : "☆"}</button>
+              ${esClinica ? `<span class="card-type type-oferta">🏥 Clínica</span>` : ""}
             </div>
             <h3>${utils.escapeHtml(p.nombre)}</h3>
             <div class="card-details">
