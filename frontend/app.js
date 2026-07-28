@@ -5725,9 +5725,8 @@ const app = {
       document.getElementById("btnPerfil").style.display = "inline-block";
       document.getElementById("btnLogout").style.display = "inline-block";
       document.getElementById("btnExportarCsv").style.display = "inline-block";
-      // "Favoritos" solo lo usa el dentista; en la clínica se retiró de la búsqueda
-      document.getElementById("btnFavoritos").style.display =
-        estadoApp.tipoUsuario === 'clinica' ? "none" : "inline-block";
+      // "Favoritos" se retiró de la búsqueda en los dos roles
+      document.getElementById("btnFavoritos").style.display = "none";
       document.getElementById("btnChat").style.display = "inline-block";
       document.getElementById("btnNotif").style.display = "inline-block";
       app.chat.actualizarContador();
