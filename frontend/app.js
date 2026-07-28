@@ -6369,10 +6369,13 @@ const app = {
             ${p.descripcion ? `<p style="color:#6b7280;font-size:.9rem;margin:.2rem 0 1rem;line-height:1.5;">${utils.escapeHtml(p.descripcion.slice(0, 150))}${p.descripcion.length > 150 ? "…" : ""}</p>` : ""}
             <div class="card-footer" style="display:flex;gap:.5rem;">
               <button class="btn-primary" onclick="app.perfiles.verDetalle(${p.id})" style="flex:1;">Ver perfil</button>
-              ${estadoApp.tipoUsuario === 'clinica'
-                ? `<button class="btn-secondary" onclick="app.perfiles.iniciarChat(${p.id}, '${utils.escapeHtml(p.nombre || "este dentista").replace(/'/g, "\\'")}')" style="flex:1;">💬 Iniciar chat</button>`
-                : `<button class="btn-secondary" onclick="app.perfiles.contactar(${p.id}, '${utils.escapeHtml(p.nombre || "esta clínica").replace(/'/g, "\\'")}', '${p.tipo}')" style="flex:1;">✉️ Enviar Mail</button>
-                   <button class="btn-outline" onclick="app.perfiles.iniciarChat(${p.id}, '${utils.escapeHtml(p.nombre || "esta clínica").replace(/'/g, "\\'")}')" style="flex:1;" title="Empezar a chatear con la clínica">💬 Iniciar chat</button>`}
+              ${(() => {
+                // Enviar Mail (solicitud de contacto, avisa por email) + Iniciar chat, en
+                // ambos roles: la clínica hacia el dentista y el dentista hacia la clínica.
+                const nombreEsc = utils.escapeHtml((p.nombre || (p.tipo === 'clinica' ? 'esta clínica' : 'este dentista')).replace(/'/g, "\\'"));
+                return `<button class="btn-secondary" onclick="app.perfiles.contactar(${p.id}, '${nombreEsc}', '${p.tipo}')" style="flex:1;">✉️ Enviar Mail</button>
+                        <button class="btn-outline" onclick="app.perfiles.iniciarChat(${p.id}, '${nombreEsc}')" style="flex:1;" title="Empezar a chatear">💬 Iniciar chat</button>`;
+              })()}
             </div>
           </div>`;
       }).join("") + `</div>`;
