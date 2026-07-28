@@ -5997,14 +5997,16 @@ const app = {
               })()}
               ${(() => {
                 if (estadoApp.tipoUsuario === 'dentista' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia')) {
+                  const nombreClinica = utils.escapeHtml((pub.usuario_nombre || pub.nombre_contacto || 'esta clínica').replace(/'/g, "\\'"));
+                  const chatBtn = `<button class="btn-outline" onclick="app.perfiles.iniciarChat(${pub.usuario_id}, '${nombreClinica}')" style="flex: 1;" title="Empezar a chatear con la clínica">💬 Iniciar chat</button>`;
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
                   if (yaPostulada) {
-                    const estadoText = yaPostulada.estado === 'aceptada' ? 'Aceptada' : 'Pendiente';
-                    const estadoColor = yaPostulada.estado === 'aceptada' ? '#10b981' : '#f59e0b';
-                    return `<button style="flex: 1; opacity: 0.7; background: ${estadoColor}; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; font-size: 0.9rem;">✓ ${estadoText}</button>
-                            <button class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Retirar</button>`;
+                    return `<button style="flex: 1; opacity: 0.7; background: ${utils.colorEstado(yaPostulada.estado)}; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; font-size: 0.9rem;">Postulada. ${utils.textoEstado(yaPostulada.estado)}</button>
+                            <button class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Retirar Postulación</button>
+                            ${chatBtn}`;
                   } else {
-                    return `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>`;
+                    return `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>
+                            ${chatBtn}`;
                   }
                 }
                 return '';

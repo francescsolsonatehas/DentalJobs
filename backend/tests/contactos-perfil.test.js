@@ -151,14 +151,21 @@ test("chat directo de una clínica con un dentista", async (t) => {
     assert.equal(res.status, 200);
   });
 
-  await t.test("un dentista no puede iniciar un chat directo", async () => {
-    const res = await request(app)
+  await t.test("un dentista también puede iniciar un chat directo con una clínica", async () => {
+    const abrir = await request(app)
       .post(`/perfiles/${otraClinica.usuario.id}/chat-directo`)
       .set("Authorization", `Bearer ${dentista.token}`);
-    assert.equal(res.status, 403);
+    assert.equal(abrir.status, 200);
+
+    // Y puede escribir de inmediato, sin aceptación previa
+    const msg = await request(app)
+      .post(`/chat/con/${otraClinica.usuario.id}`)
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .send({ cuerpo: "Hola, me interesa vuestra oferta" });
+    assert.equal(msg.status, 200);
   });
 
-  await t.test("una clínica no puede iniciar un chat directo con otra clínica", async () => {
+  await t.test("no hay chat directo entre dos del mismo tipo (clínica con clínica)", async () => {
     const res = await request(app)
       .post(`/perfiles/${otraClinica.usuario.id}/chat-directo`)
       .set("Authorization", `Bearer ${clinica.token}`);

@@ -5125,14 +5125,16 @@ app.post("/perfiles/:id/chat-directo", verifyToken, (req, res) => {
   const solicitanteId = req.usuario.id;
   const perfilId = parseInt(req.params.id);
   if (!perfilId || perfilId === solicitanteId) return res.status(400).json({ error: "Perfil inválido" });
-  if (req.usuario.tipo !== "clinica") {
-    return res.status(403).json({ error: "Solo una clínica puede iniciar un chat directo con un dentista" });
-  }
 
   db.get("SELECT id, tipo FROM usuarios WHERE id = ? AND nombre != 'Usuario eliminado'", [perfilId], (err, perfil) => {
     if (err) { console.error(err); return res.status(500).json({ error: "Error al iniciar el chat" }); }
     if (!perfil) return res.status(404).json({ error: "Perfil no encontrado" });
-    if (perfil.tipo !== "dentista") return res.status(400).json({ error: "El chat directo es solo con dentistas" });
+    // El chat directo es entre una clínica y un dentista, en cualquier sentido (la
+    // clínica escribe a un dentista abierto a cambios; el dentista, a una clínica cuya
+    // oferta le interesa). No tiene sentido entre dos del mismo tipo.
+    if (req.usuario.tipo === perfil.tipo) {
+      return res.status(400).json({ error: "El chat directo es entre una clínica y un dentista" });
+    }
 
     // Un contacto entre dos personas es un único hilo, venga de donde venga. Si ya
     // existe (en cualquier sentido) se reutiliza; si estaba pendiente, iniciar el chat
