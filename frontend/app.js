@@ -6371,7 +6371,8 @@ const app = {
               <button class="btn-primary" onclick="app.perfiles.verDetalle(${p.id})" style="flex:1;">Ver perfil</button>
               ${estadoApp.tipoUsuario === 'clinica'
                 ? `<button class="btn-secondary" onclick="app.perfiles.iniciarChat(${p.id}, '${utils.escapeHtml(p.nombre || "este dentista").replace(/'/g, "\\'")}')" style="flex:1;">💬 Iniciar chat</button>`
-                : `<button class="btn-secondary" onclick="app.perfiles.contactar(${p.id}, '${utils.escapeHtml(p.nombre || "este perfil").replace(/'/g, "\\'")}', '${p.tipo}')" style="flex:1;">✉️ Contactar</button>`}
+                : `<button class="btn-secondary" onclick="app.perfiles.contactar(${p.id}, '${utils.escapeHtml(p.nombre || "esta clínica").replace(/'/g, "\\'")}', '${p.tipo}')" style="flex:1;">✉️ Enviar Mail</button>
+                   <button class="btn-outline" onclick="app.perfiles.iniciarChat(${p.id}, '${utils.escapeHtml(p.nombre || "esta clínica").replace(/'/g, "\\'")}')" style="flex:1;" title="Empezar a chatear con la clínica">💬 Iniciar chat</button>`}
             </div>
           </div>`;
       }).join("") + `</div>`;
