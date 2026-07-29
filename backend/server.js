@@ -3301,7 +3301,11 @@ app.get("/stats/candidatos-interesados-lista/:empresa_id", verifyToken, (req, re
      FROM candidaturas c
      INNER JOIN usuarios u ON c.usuario_id = u.id
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
-     WHERE p.usuario_id = ? AND p.tipo = 'oferta' AND p.activo = 1
+     -- Las clínicas publican tanto ofertas fijas como suplencias puntuales, y en
+     -- ambas reciben candidaturas: si aquí solo se contaba 'oferta', las postulaciones
+     -- a una suplencia quedaban fuera de "Postulaciones Recibidas" aunque el banner de
+     -- recordatorios (que sí cuenta las dos) avisara de que había una sin responder.
+     WHERE p.usuario_id = ? AND p.tipo IN ('oferta', 'suplencia') AND p.activo = 1
      ORDER BY p.id, c.creado_en DESC`,
     [req.params.empresa_id],
     (err, candidatos) => {
