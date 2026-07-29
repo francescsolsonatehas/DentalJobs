@@ -44,7 +44,7 @@ test("exportaciones a CSV de las vistas del listado", async (t) => {
     .set("Authorization", `Bearer ${dentista.token}`)
     .send({ publicacion_id: oferta.body.id, mensaje: "Me interesa" });
 
-  await t.test("un dentista exporta las publicaciones de clínicas (ofertas)", async () => {
+  await t.test("un dentista exporta las publicaciones de clínicas (oferta + suplencia juntas, no las solicitudes)", async () => {
     const res = await request(app)
       .get("/exportar/publicaciones.csv")
       .set("Authorization", `Bearer ${dentista.token}`);
@@ -52,8 +52,18 @@ test("exportaciones a CSV de las vistas del listado", async (t) => {
     assert.match(res.headers["content-disposition"], /publicaciones-de-clinicas-.*\.csv/);
     const { cabecera, filas } = parsear(res.text);
     assert.match(cabecera, /Publicado por/);
-    assert.equal(filas.length, 1); // solo la oferta, no la suplencia ni las solicitudes
-    assert.match(filas[0], /Clínica Norte/);
+    assert.equal(filas.length, 2); // oferta + suplencia, no la solicitud del propio dentista
+    assert.ok(filas.some(f => f.includes("Oferta de empleo")));
+    assert.ok(filas.some(f => f.includes("Suplencia")));
+  });
+
+  await t.test("el dentista puede acotar la exportación a un solo tipo con ?tipo=", async () => {
+    const res = await request(app)
+      .get("/exportar/publicaciones.csv?tipo=oferta")
+      .set("Authorization", `Bearer ${dentista.token}`);
+    assert.equal(res.status, 200);
+    const { filas } = parsear(res.text);
+    assert.equal(filas.length, 1);
     assert.match(filas[0], /Oferta de empleo/);
   });
 

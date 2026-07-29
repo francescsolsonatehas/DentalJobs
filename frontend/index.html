@@ -217,6 +217,17 @@
                         <option value="colaboracion">Colaboración</option>
                     </select>
                 </div>
+                <!-- Solo en "Publicaciones de clínicas" del dentista: por defecto se ven las
+                     tres juntas (oferta+suplencia+colaboración); este filtro deja acotar a una -->
+                <div class="filter-group" id="filterTipoPublicacionesClinicaGroup" style="display: none;">
+                    <label for="filterTipoPublicacionesClinica">Tipo</label>
+                    <select id="filterTipoPublicacionesClinica" onchange="app.filtros.buscar()">
+                        <option value="">Todos los tipos</option>
+                        <option value="oferta">Oferta de empleo</option>
+                        <option value="suplencia">Suplencia</option>
+                        <option value="colaboracion">Colaboración</option>
+                    </select>
+                </div>
                 <div class="filter-group">
                     <label for="filterQ">Buscar</label>
                     <input id="filterQ" placeholder="Ej: implantología, invisalign…" oninput="app.publicaciones.cargar()">

@@ -1753,9 +1753,15 @@ const app = {
         tipo = estadoApp.tipoUsuario === 'clinica'
           ? (document.getElementById("filterTipoMisPublicaciones")?.value || null)
           : null;
+      } else if (estadoApp.tipoUsuario === 'clinica') {
+        // Ver todas: empresas ven SOLICITUDES
+        tipo = 'solicitud';
       } else {
-        // Ver todas: empresas ven SOLICITUDES, candidatos ven OFERTAS
-        tipo = estadoApp.tipoUsuario === 'clinica' ? 'solicitud' : 'oferta';
+        // Candidatos ven, juntas, las OFERTAS + SUPLENCIAS + COLABORACIONES de las
+        // clínicas ("Publicaciones de clínicas"), salvo que acoten con el selector de
+        // tipo de esta vista.
+        const tipoElegido = document.getElementById("filterTipoPublicacionesClinica")?.value;
+        tipo = tipoElegido || 'oferta,suplencia,colaboracion';
       }
 
       // Los filtros propios de la vista de suplencias se muestran u ocultan según el
@@ -1828,9 +1834,11 @@ const app = {
           url += `sort=fecha&`;
         } else if (
           (estadoApp.tipoUsuario === 'clinica' && tipo === 'solicitud') ||
-          (estadoApp.tipoUsuario === 'dentista' && tipo === 'oferta')
+          (estadoApp.tipoUsuario === 'dentista' && estadoApp.vistaActual === 'publicaciones')
         ) {
-          // Clínicas viendo dentistas, o dentistas viendo clínicas: por defecto, ordenar por ciudad
+          // Clínicas viendo dentistas, o dentistas viendo "Publicaciones de clínicas"
+          // (oferta+suplencia+colaboración juntas, o una sola si acotan el tipo): por
+          // defecto, agrupadas por ciudad y, dentro de cada una, por especialidad.
           url += `sort=ciudad&`;
         }
       }
@@ -2257,6 +2265,15 @@ const app = {
         if (grupoTextoMP) grupoTextoMP.style.display = "none";
         if (grupoListaMP) grupoListaMP.style.display = "none";
         return;
+      }
+
+      // "Publicaciones de clínicas" del dentista: por defecto ve oferta+suplencia+
+      // colaboración juntas; este filtro deja acotar a una sola.
+      const esPublicacionesDentista = estadoApp.vistaActual === "publicaciones" && estadoApp.tipoUsuario === "dentista";
+      set("filterTipoPublicacionesClinica", esPublicacionesDentista);
+      if (!esPublicacionesDentista) {
+        const elTipoPC = document.getElementById("filterTipoPublicacionesClinica");
+        if (elTipoPC && elTipoPC.value) elTipoPC.value = "";
       }
 
       // "Suplencias" deja Ciudad, Radio y Especialidad (arriba del todo, ya van antes
@@ -7225,7 +7242,10 @@ const app = {
         q: "filterQ", ciudad: idCiudad, especialidad: "filterEspecialidad",
         contrato: "filterContrato", jornada: "filterJornada", equipamiento: "filterEquipamiento",
         certificacion: "filterCertificacion", retribucion: "filterRetribucion",
-        salarioMin: "filterSalarioMin", experienciaMin: "filterExperienciaMin"
+        salarioMin: "filterSalarioMin", experienciaMin: "filterExperienciaMin",
+        // Solo tiene valor en "Publicaciones de clínicas" del dentista, para acotar a
+        // un único tipo la exportación de la vista combinada oferta+suplencia+colaboración
+        tipo: "filterTipoPublicacionesClinica"
       };
       for (const [clave, id] of Object.entries(campos)) {
         const el = document.getElementById(id);

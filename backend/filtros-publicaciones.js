@@ -39,9 +39,17 @@ function construirFiltros(query = {}) {
   // círculo, suficiente para "a X km de".
   const usarRadio = radioKm && latCentro != null && lonCentro != null;
 
+  // `tipo` admite una lista separada por comas ("oferta,suplencia,colaboracion") para
+  // vistas combinadas, como "Publicaciones de clínicas" del dentista.
   if (tipo) {
-    clausulas.push("p.tipo = ?");
-    params.push(tipo);
+    const tipos = String(tipo).split(",").map(t => t.trim()).filter(Boolean);
+    if (tipos.length > 1) {
+      clausulas.push(`p.tipo IN (${tipos.map(() => "?").join(",")})`);
+      params.push(...tipos);
+    } else {
+      clausulas.push("p.tipo = ?");
+      params.push(tipos[0] || tipo);
+    }
   }
 
   if (usuario_id) {

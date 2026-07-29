@@ -170,16 +170,23 @@ const VISTAS = {
   "publicaciones": {
     archivo: (usuario) => (usuario.tipo === "clinica" ? "publicaciones-de-dentistas" : "publicaciones-de-clinicas"),
     async consultar(db, usuario, query) {
-      const tipo = usuario.tipo === "clinica" ? "solicitud" : "oferta";
+      // El dentista ve, por defecto, oferta+suplencia+colaboración juntas (mismo tipo
+      // combinado que el listado de esta vista); si acotó con el filtro de tipo, se
+      // respeta ese único tipo (query.tipo llega ya con el valor elegido).
+      const tipo = usuario.tipo === "clinica" ? "solicitud" : (query.tipo || "oferta,suplencia,colaboracion");
       // Mismo orden que el listado de esta vista: por ciudad y luego por especialidad
       const filas = await consultarPublicaciones(db, { ...query, tipo, usuario_id: undefined }, ORDEN_POR_CIUDAD);
       return {
+        // Desde/Hasta/Urgente (suplencia) y Días de la semana (colaboración) van vacíos
+        // en las filas de oferta: esta vista puede traer los tres tipos mezclados.
         columnas: ["Fecha de publicación", "Tipo", "Publicado por", "Email", "Teléfono", "Ciudad", "Provincia",
                    "Contrato", "Jornada", "Salario", "Retribución", "Experiencia mínima (años)",
+                   "Desde", "Hasta", "Urgente", "Días de la semana",
                    "Especialidades", "Equipamiento", "Descripción"],
         filas: filas.map(f => [
           f.creado_en, tipoPublicacion(f.tipo), f.autor, f.autor_email, f.autor_telefono, f.ciudad, f.provincia,
           f.contrato, f.jornada, salario(f), retribucion(f), f.experiencia_minima,
+          f.fecha_desde, f.fecha_hasta, f.tipo === "suplencia" ? siNo(f.urgente) : "", diasSemana(f),
           f.especialidades, f.equipamiento, f.descripcion
         ])
       };
