@@ -543,7 +543,6 @@ app.delete("/auth/mi-cuenta", verifyToken, (req, res) => {
       ["UPDATE candidaturas SET mensaje = NULL WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM candidaturas WHERE usuario_id = ? AND id NOT IN (SELECT candidatura_id FROM resenyas)", [usuarioId]],
       ["DELETE FROM archivos WHERE usuario_id = ?", [usuarioId]],
-      ["DELETE FROM favoritos WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM tokens_verificacion WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM confirmacion_email WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM plantillas_publicacion WHERE usuario_id = ?", [usuarioId]],
@@ -4359,7 +4358,7 @@ app.delete("/archivos/:id", verifyToken, (req, res) => {
 =========================== */
 
 // Exporta una vista del listado principal (publicaciones, perfiles, mis-publicaciones,
-// favoritos, mis-postulaciones o suplencias). Acepta los mismos filtros que la vista,
+// mis-postulaciones o suplencias). Acepta los mismos filtros que la vista,
 // así el fichero contiene exactamente las filas que el usuario está viendo.
 app.get("/exportar/:vista.csv", verifyToken, async (req, res) => {
   try {
@@ -4932,82 +4931,7 @@ app.get("/recordatorios/pendientes", verifyToken, (req, res) => {
 });
 
 /* ===========================
-   🔹 FAVORITOS
-=========================== */
-
-app.post("/favoritos", verifyToken, (req, res) => {
-  const { publicacion_id } = req.body;
-  const usuario_id = req.usuario.id;
-  const tipoUsuario = req.usuario.tipo;
-
-  if (!publicacion_id) {
-    return res.status(400).json({ error: "publicacion_id requerido" });
-  }
-
-  db.get("SELECT tipo FROM publicaciones WHERE id = ?", [publicacion_id], (err, pub) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Error al añadir a favoritos" });
-    }
-    if (!pub) {
-      return res.status(404).json({ error: "Publicación no encontrada" });
-    }
-    if ((tipoUsuario === 'clinica' && pub.tipo !== 'solicitud') || (tipoUsuario === 'dentista' && !['oferta', 'suplencia'].includes(pub.tipo))) {
-      return res.status(403).json({ error: "No puedes guardar este tipo de publicación en favoritos" });
-    }
-
-    db.run(
-      "INSERT INTO favoritos (usuario_id, publicacion_id) VALUES (?, ?)",
-      [usuario_id, publicacion_id],
-      function(err) {
-        if (err) {
-          if (err.message.includes("UNIQUE")) {
-            return res.status(400).json({ error: "Ya está en tus favoritos" });
-          }
-          console.error(err);
-          return res.status(500).json({ error: "Error al añadir a favoritos" });
-        }
-        res.json({ mensaje: "Añadido a favoritos", favorito_id: this.lastID });
-      }
-    );
-  });
-});
-
-app.get("/favoritos", verifyToken, (req, res) => {
-  db.all(
-    `SELECT f.id as favorito_id, p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email
-     FROM favoritos f
-     INNER JOIN publicaciones p ON f.publicacion_id = p.id
-     LEFT JOIN usuarios u ON p.usuario_id = u.id
-     WHERE f.usuario_id = ?
-     ORDER BY f.creado_en DESC`,
-    [req.usuario.id],
-    (err, favoritos) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener favoritos" });
-      }
-      res.json(favoritos || []);
-    }
-  );
-});
-
-app.delete("/favoritos/:publicacion_id", verifyToken, (req, res) => {
-  db.run(
-    "DELETE FROM favoritos WHERE usuario_id = ? AND publicacion_id = ?",
-    [req.usuario.id, req.params.publicacion_id],
-    (err) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al quitar de favoritos" });
-      }
-      res.json({ mensaje: "Quitado de favoritos" });
-    }
-  );
-});
-
-/* ===========================
-   🔹 PERFILES (fichas de usuarios navegables) Y SUS FAVORITOS
+   🔹 PERFILES (fichas de usuarios navegables)
 =========================== */
 
 // Lista de perfiles (dentistas o clínicas) para navegar, con filtros. Independiente de publicaciones.
@@ -5181,55 +5105,6 @@ app.post("/perfiles/:id/chat-directo", verifyToken, (req, res) => {
         );
       }
     );
-  });
-});
-
-app.post("/favoritos-perfil", verifyToken, (req, res) => {
-  const { perfil_id } = req.body;
-  if (!perfil_id) return res.status(400).json({ error: "perfil_id requerido" });
-  if (parseInt(perfil_id) === req.usuario.id) return res.status(400).json({ error: "No puedes guardarte a ti mismo" });
-
-  db.get("SELECT id FROM usuarios WHERE id = ?", [perfil_id], (err, u) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Error al añadir a favoritos" });
-    }
-    if (!u) return res.status(404).json({ error: "Perfil no encontrado" });
-
-    db.run("INSERT INTO favoritos_perfil (usuario_id, perfil_id) VALUES (?, ?)", [req.usuario.id, perfil_id], function(err2) {
-      if (err2) {
-        if (err2.message.includes("UNIQUE")) return res.status(400).json({ error: "Ya está en tus favoritos" });
-        console.error(err2);
-        return res.status(500).json({ error: "Error al añadir a favoritos" });
-      }
-      res.json({ mensaje: "Perfil añadido a favoritos", favorito_id: this.lastID });
-    });
-  });
-});
-
-app.get("/favoritos-perfil", verifyToken, (req, res) => {
-  db.all(
-    `SELECT f.id as favorito_id, u.id, u.nombre, u.tipo, u.ciudad, u.provincia, u.descripcion, u.anyos_experiencia
-     FROM favoritos_perfil f INNER JOIN usuarios u ON f.perfil_id = u.id
-     WHERE f.usuario_id = ? ORDER BY f.creado_en DESC`,
-    [req.usuario.id],
-    (err, perfiles) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener favoritos de perfil" });
-      }
-      res.json({ perfiles: perfiles || [] });
-    }
-  );
-});
-
-app.delete("/favoritos-perfil/:perfil_id", verifyToken, (req, res) => {
-  db.run("DELETE FROM favoritos_perfil WHERE usuario_id = ? AND perfil_id = ?", [req.usuario.id, req.params.perfil_id], (err) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Error al quitar de favoritos" });
-    }
-    res.json({ mensaje: "Quitado de favoritos" });
   });
 });
 

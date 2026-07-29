@@ -268,47 +268,6 @@ const VISTAS = {
     }
   },
 
-  // Favoritos: la vista mezcla publicaciones y perfiles guardados, así que el CSV
-  // los une en una sola tabla con la columna «Elemento» para distinguirlos.
-  "favoritos": {
-    archivo: () => "favoritos",
-    async consultar(db, usuario) {
-      const publicaciones = await todos(
-        db,
-        `SELECT f.creado_en AS guardado_en, p.*, u.nombre AS autor, ${ESPECIALIDADES_PUBLICACION}
-         FROM favoritos f
-         INNER JOIN publicaciones p ON f.publicacion_id = p.id
-         LEFT JOIN usuarios u ON p.usuario_id = u.id
-         WHERE f.usuario_id = ? ORDER BY f.creado_en DESC`,
-        [usuario.id]
-      );
-
-      const perfiles = await todos(
-        db,
-        `SELECT f.creado_en AS guardado_en, u.nombre, u.tipo, u.ciudad, u.provincia, u.descripcion,
-                ${ESPECIALIDADES_USUARIO}
-         FROM favoritos_perfil f INNER JOIN usuarios u ON f.perfil_id = u.id
-         WHERE f.usuario_id = ? ORDER BY f.creado_en DESC`,
-        [usuario.id]
-      );
-
-      return {
-        columnas: ["Elemento", "Guardado el", "Tipo", "Nombre", "Ciudad", "Provincia",
-                   "Contrato", "Jornada", "Salario", "Especialidades", "Descripción"],
-        filas: [
-          ...publicaciones.map(f => [
-            "Publicación", f.guardado_en, tipoPublicacion(f.tipo), f.autor, f.ciudad, f.provincia,
-            f.contrato, f.jornada, salario(f), f.especialidades, f.descripcion
-          ]),
-          ...perfiles.map(f => [
-            "Perfil", f.guardado_en, rol(f.tipo), f.nombre, f.ciudad, f.provincia,
-            "", "", "", f.especialidades, f.descripcion
-          ])
-        ]
-      };
-    }
-  },
-
   // Mis postulaciones: las que ha enviado quien exporta (a ofertas/suplencias si es
   // dentista, a solicitudes de dentistas si es clínica).
   "mis-postulaciones": {

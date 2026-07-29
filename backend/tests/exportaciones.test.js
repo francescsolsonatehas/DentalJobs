@@ -112,27 +112,6 @@ test("exportaciones a CSV de las vistas del listado", async (t) => {
     assert.match(filas[0], /Ana Dentista/);
   });
 
-  await t.test("favoritos combina publicaciones y perfiles guardados", async () => {
-    await request(app)
-      .post("/favoritos")
-      .set("Authorization", `Bearer ${dentista.token}`)
-      .send({ publicacion_id: oferta.body.id });
-    await request(app)
-      .post("/favoritos-perfil")
-      .set("Authorization", `Bearer ${dentista.token}`)
-      .send({ perfil_id: clinica.usuario.id });
-
-    const res = await request(app)
-      .get("/exportar/favoritos.csv")
-      .set("Authorization", `Bearer ${dentista.token}`);
-    assert.equal(res.status, 200);
-    const { cabecera, filas } = parsear(res.text);
-    assert.match(cabecera, /Elemento/);
-    assert.equal(filas.length, 2);
-    assert.ok(filas.some(f => f.startsWith('"Publicación"')));
-    assert.ok(filas.some(f => f.startsWith('"Perfil"')));
-  });
-
   await t.test("mis-postulaciones exporta las enviadas por el dentista", async () => {
     const res = await request(app)
       .get("/exportar/mis-postulaciones.csv")

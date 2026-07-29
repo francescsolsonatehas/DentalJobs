@@ -1455,8 +1455,8 @@ const app = {
 
       // Los filtros propios de la vista de suplencias se muestran u ocultan según el
       // modo. Se hace en un helper porque hay que repetirlo al cambiar a vistas que no
-      // pasan por aquí (Favoritos, Mis Postulaciones…), donde antes se quedaba el menú
-      // de suplencias colgado.
+      // pasan por aquí (Mis Publicaciones, Mis Postulaciones…), donde antes se quedaba
+      // el menú de suplencias colgado.
       app.filtros.sincronizarUISuplencias();
 
       // Orden por compatibilidad: solo para dentistas (usa su perfil). Si una clínica
@@ -1553,43 +1553,6 @@ const app = {
         const publicaciones = await utils.request(`/publicaciones/contactadas/${estadoApp.usuario.id}`);
         estadoApp.publicaciones = publicaciones;
         app.ui.renderizarPublicaciones();
-      } catch (error) {
-        utils.mostrarAlerta(error.message, "error");
-      }
-    },
-
-    async cargarFavoritos() {
-      if (!estadoApp.usuario) {
-        utils.mostrarAlerta("Debes iniciar sesión", "error");
-        return;
-      }
-
-      try {
-        const publicaciones = await utils.request("/favoritos");
-        let perfilesFav = [];
-        try {
-          const f = await utils.request("/favoritos-perfil");
-          perfilesFav = f.perfiles || [];
-        } catch (e) { /* sin perfiles guardados */ }
-
-        const container = document.getElementById("publicacionesContainer");
-        estadoApp.publicaciones = publicaciones;
-
-        if (publicaciones.length) {
-          await app.ui.renderizarPublicaciones();
-        } else {
-          container.innerHTML = "";
-        }
-
-        if (perfilesFav.length) {
-          const favSet = new Set(perfilesFav.map(p => p.id));
-          const encabezado = publicaciones.length ? `<h3 style="margin:1.5rem 0 1rem;color:#0f4c75;">Perfiles guardados</h3>` : "";
-          container.insertAdjacentHTML('beforeend', encabezado + app.perfiles.tarjetasHtml(perfilesFav, favSet));
-        }
-
-        if (!publicaciones.length && !perfilesFav.length) {
-          container.innerHTML = `<div class="empty-state"><h3>No tienes favoritos</h3><p>Guarda publicaciones o perfiles con la estrella ☆.</p></div>`;
-        }
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -1975,7 +1938,7 @@ const app = {
     // con mi disponibilidad" y el conmutador Lista/Calendario) según
     // estadoApp.filtros.verSuplencias. Al salir de suplencias, además, limpia esos
     // filtros y vuelve a la lista. Se llama tanto desde publicaciones.cargar() como al
-    // cambiar a otras vistas (Favoritos, Mis Postulaciones…) que no pasan por ella.
+    // cambiar a otras vistas (Mis Publicaciones, Mis Postulaciones…) que no pasan por ella.
     sincronizarUISuplencias() {
       const grupoFechaDesde = document.getElementById("filterFechaDesdeGroup");
       const grupoFechaHasta = document.getElementById("filterFechaHastaGroup");
@@ -2107,22 +2070,6 @@ const app = {
 
       this.sincronizarUISuplencias();
       app.publicaciones.cargarContactadas();
-    },
-
-    mostrarFavoritos(btn) {
-      estadoApp.filtros.soloMias = false;
-      estadoApp.filtros.contactadas = false;
-      estadoApp.filtros.verSuplencias = false;
-      estadoApp.vistaActual = "favoritos";
-      app.exportar.actualizarBoton();
-      document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
-      if (btn) btn.classList.add("active");
-
-      const filtersTitle = document.getElementById("filtrosTitle");
-      filtersTitle.textContent = "Favoritos";
-
-      this.sincronizarUISuplencias();
-      app.publicaciones.cargarFavoritos();
     },
 
     mostrarKanban(btn) {
@@ -5725,8 +5672,6 @@ const app = {
       document.getElementById("btnPerfil").style.display = "inline-block";
       document.getElementById("btnLogout").style.display = "inline-block";
       document.getElementById("btnExportarCsv").style.display = "inline-block";
-      // "Favoritos" se retiró de la búsqueda en los dos roles
-      document.getElementById("btnFavoritos").style.display = "none";
       document.getElementById("btnChat").style.display = "inline-block";
       document.getElementById("btnNotif").style.display = "inline-block";
       app.chat.actualizarContador();
@@ -5864,19 +5809,12 @@ const app = {
 
       // Cargar postulaciones del usuario actual para verificar estado
       let misPostulaciones = [];
-      let misFavoritos = new Set();
       if (estadoApp.usuario) {
         try {
           const data = await utils.request("/candidaturas/mis-postulaciones");
           misPostulaciones = data.candidaturas || [];
         } catch (error) {
           console.error("Error al cargar postulaciones:", error);
-        }
-        try {
-          const favoritos = await utils.request("/favoritos");
-          misFavoritos = new Set(favoritos.map(f => f.id));
-        } catch (error) {
-          console.error("Error al cargar favoritos:", error);
         }
       }
 
@@ -5955,7 +5893,6 @@ const app = {
           }
         }
 
-        const esFavorito = misFavoritos.has(pub.id);
         // Badge de compatibilidad: solo llega en el listado ordenado por % (dentista).
         const compatBadge = (pub.compat_porcentaje != null) ? (() => {
           const c = pub.compat_porcentaje >= 80 ? "#16a34a" : pub.compat_porcentaje >= 55 ? "#f59e0b" : "#dc2626";
@@ -6219,57 +6156,6 @@ const app = {
   },
 
   // ============================================
-  // Módulo: Favoritos
-  // ============================================
-
-  favoritos: {
-    async toggle(publicacionId, btn) {
-      const esFavorito = btn.dataset.favorito === "true";
-      try {
-        if (esFavorito) {
-          await utils.request(`/favoritos/${publicacionId}`, { method: "DELETE" });
-          btn.dataset.favorito = "false";
-          btn.textContent = "☆";
-          btn.title = "Guardar en favoritos";
-        } else {
-          await utils.request("/favoritos", {
-            method: "POST",
-            body: JSON.stringify({ publicacion_id: publicacionId })
-          });
-          btn.dataset.favorito = "true";
-          btn.textContent = "⭐";
-          btn.title = "Quitar de favoritos";
-        }
-      } catch (error) {
-        utils.mostrarAlerta(error.message, "error");
-      }
-    },
-
-    // Favorito de un PERFIL (ficha de usuario), distinto de los favoritos de publicaciones
-    async togglePerfil(perfilId, btn) {
-      const esFavorito = btn.dataset.favorito === "true";
-      try {
-        if (esFavorito) {
-          await utils.request(`/favoritos-perfil/${perfilId}`, { method: "DELETE" });
-          btn.dataset.favorito = "false";
-          btn.textContent = "☆";
-          btn.title = "Guardar en favoritos";
-        } else {
-          await utils.request("/favoritos-perfil", {
-            method: "POST",
-            body: JSON.stringify({ perfil_id: perfilId })
-          });
-          btn.dataset.favorito = "true";
-          btn.textContent = "⭐";
-          btn.title = "Quitar de favoritos";
-        }
-      } catch (error) {
-        utils.mostrarAlerta(error.message, "error");
-      }
-    }
-  },
-
-  // ============================================
   // Módulo: Perfiles (fichas navegables de usuarios)
   // ============================================
 
@@ -6313,24 +6199,19 @@ const app = {
           return espA.localeCompare(espB, "es");
         });
 
-        let favSet = new Set();
-        try {
-          const f = await utils.request("/favoritos-perfil");
-          favSet = new Set((f.perfiles || []).map(p => p.id));
-        } catch (e) { /* sin favoritos */ }
-        this.render(perfiles, favSet);
+        this.render(perfiles);
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
     },
 
-    render(perfiles, favSet) {
+    render(perfiles) {
       const container = document.getElementById("publicacionesContainer");
       if (!perfiles.length) {
         container.innerHTML = `<div class="empty-state"><h3>No hay perfiles</h3><p>Prueba a cambiar los filtros.</p></div>`;
         return;
       }
-      container.innerHTML = this.tarjetasHtml(perfiles, favSet);
+      container.innerHTML = this.tarjetasHtml(perfiles);
     },
 
     // Chip de especialidad, con el color del tipo de perfil
@@ -6340,10 +6221,8 @@ const app = {
       return `<span class="badge" style="background:${fondo};color:${color};font-weight:600;">${utils.escapeHtml(nombre)}</span>`;
     },
 
-    // Devuelve el HTML de una rejilla de tarjetas de perfil (reutilizado en la vista de Favoritos)
-    tarjetasHtml(perfiles, favSet) {
+    tarjetasHtml(perfiles) {
       return `<div class="publicaciones">` + perfiles.map(p => {
-        const esFav = favSet.has(p.id);
         const esClinica = p.tipo === "clinica";
         const ciudadLabel = p.ciudad ? (p.provincia ? `${p.ciudad} (${p.provincia})` : p.ciudad) : "Ubicación no indicada";
         const especialidades = p.especialidades || [];
@@ -6787,7 +6666,6 @@ const app = {
       },
       "suplencias": { conFiltros: true, etiqueta: () => "Suplencias" },
       "mis-publicaciones": { conFiltros: false, etiqueta: () => "Mis Publicaciones" },
-      "favoritos": { conFiltros: false, etiqueta: () => "Favoritos" },
       "mis-postulaciones": { conFiltros: false, etiqueta: () => "Mis Postulaciones" }
     },
 

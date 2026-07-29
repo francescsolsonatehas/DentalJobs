@@ -77,22 +77,6 @@ test("suplencias y turnos sueltos", async (t) => {
     assert.equal(entrada.candidatos_count, 1);
   });
 
-  await t.test("un dentista puede guardar una suplencia en favoritos", async () => {
-    const res = await request(app)
-      .post("/favoritos")
-      .set("Authorization", `Bearer ${dentista.token}`)
-      .send({ publicacion_id: suplenciaId });
-    assert.equal(res.status, 200);
-  });
-
-  await t.test("una clínica no puede guardar una suplencia (solo ve solicitudes) en favoritos", async () => {
-    const res = await request(app)
-      .post("/favoritos")
-      .set("Authorization", `Bearer ${clinica.token}`)
-      .send({ publicacion_id: suplenciaId });
-    assert.equal(res.status, 403);
-  });
-
   await t.test("la suplencia tiene página pública con las fechas y el badge de urgencia", async () => {
     const res = await request(app).get(`/oferta/${suplenciaId}`);
     assert.equal(res.status, 200);

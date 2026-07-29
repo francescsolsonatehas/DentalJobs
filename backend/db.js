@@ -287,27 +287,6 @@ db.serialize(() => {
     )
   `);
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS favoritos (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
-      publicacion_id INTEGER NOT NULL REFERENCES publicaciones(id),
-      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(usuario_id, publicacion_id)
-    )
-  `);
-
-  // Favoritos de PERFILES (un usuario guarda la ficha de otro usuario), aparte de los de publicaciones
-  db.run(`
-    CREATE TABLE IF NOT EXISTS favoritos_perfil (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
-      perfil_id INTEGER NOT NULL REFERENCES usuarios(id),
-      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(usuario_id, perfil_id)
-    )
-  `);
-
   // Contactos de PERFIL: "postularse" a la ficha de otro usuario (sin publicación asociada).
   // Al aceptarse, se habilita el chat entre ambos (espejo de candidaturas para publicaciones).
   db.run(`
