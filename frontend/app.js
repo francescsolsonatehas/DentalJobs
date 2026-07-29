@@ -7573,7 +7573,7 @@ const app = {
           (c.recibidos || []).filter(x => x.estado === 'aceptada').forEach(x => añadirAceptado(x.solicitante_id, x.solicitante_nombre, x.actualizado_en));
         } catch (e) { /* sin contactos */ }
 
-        document.getElementById("chatTitle").textContent = "💬 Mensajes";
+        document.getElementById("chatTitle").textContent = "💬 Mensajes de chat";
 
         let pendientesHtml = "";
         if (pendientes.length) {
