@@ -1841,41 +1841,58 @@ const app = {
 
     // En las búsquedas reducidas se dejan solo Ciudad, Radio y Especialidad; el resto de
     // filtros se ocultan y se vacían (si no, seguirían filtrando sin verse). En las demás
-    // vistas se muestran todos (Equipamiento/Certificación dependen del rol).
+    // vistas se muestran todos (Equipamiento/Certificación dependen del rol), salvo
+    // "Suplencias", que tiene su propio subconjunto reducido (ver más abajo).
     configurarFiltrosVista() {
       const reducida = this.vistaReducida();
+      const esSuplencias = estadoApp.vistaActual === "suplencias";
       const grupoDe = (id) => { const el = document.getElementById(id); return el && el.closest(".filter-group"); };
       const set = (id, visible) => { const g = grupoDe(id); if (g) g.style.display = visible ? "" : "none"; };
 
-      // En "Mis Publicaciones" no se busca nada: son las propias, y salen todas. Se
-      // esconde la fila de filtros entera (los botones de vista siguen arriba).
+      // En "Mis Publicaciones" y "Mis Postulaciones" no se busca nada: son las propias
+      // (o las propias postulaciones), y salen todas. Se esconde la fila de filtros
+      // entera (los botones de vista siguen arriba).
       const filaFiltros = document.getElementById("filterRow");
+      const sinBusqueda = estadoApp.vistaActual === "mis-publicaciones" || estadoApp.vistaActual === "mis-postulaciones";
       if (filaFiltros) {
-        filaFiltros.style.display = estadoApp.vistaActual === "mis-publicaciones" ? "none" : "";
+        filaFiltros.style.display = sinBusqueda ? "none" : "";
       }
 
+      // "Suplencias" deja solo fechas, "encaja con mi disponibilidad" y orden (se
+      // gestionan en sincronizarUISuplencias() y aquí abajo); el resto se esconde.
       const ocultos = ["filterQ", "filterContrato", "filterJornada", "filterRetribucion",
-                       "filterSalarioMin", "filterExperienciaMin", "filterOrden"];
-      ocultos.forEach(id => set(id, !reducida));
+                       "filterSalarioMin", "filterExperienciaMin"];
+      ocultos.forEach(id => set(id, !reducida && !esSuplencias));
+      set("filterOrden", !reducida);
 
-      set("filterEquipamiento", !reducida && estadoApp.tipoUsuario === "dentista");
-      set("filterCertificacion", !reducida && estadoApp.tipoUsuario === "clinica");
+      set("filterEquipamiento", !reducida && !esSuplencias && estadoApp.tipoUsuario === "dentista");
+      set("filterCertificacion", !reducida && !esSuplencias && estadoApp.tipoUsuario === "clinica");
+      set("filterRadio", !esSuplencias);
+      set("filterEspecialidad", !esSuplencias);
 
-      // La ciudad se elige de una lista en las reducidas; en el resto se escribe a mano
+      // La ciudad se elige de una lista en las reducidas y se escribe a mano en el resto;
+      // en Suplencias no se busca por ciudad, así que se esconden las dos variantes.
       const grupoTexto = document.getElementById("filterCiudadGroup");
       const grupoLista = document.getElementById("filterCiudadListaGroup");
-      if (grupoTexto) grupoTexto.style.display = reducida ? "none" : "";
-      if (grupoLista) grupoLista.style.display = reducida ? "" : "none";
+      if (grupoTexto) grupoTexto.style.display = (reducida || esSuplencias) ? "none" : "";
+      if (grupoLista) grupoLista.style.display = (reducida && !esSuplencias) ? "" : "none";
 
       if (reducida) {
         // Un filtro oculto con valor filtraría a escondidas. El orden vuelve al de por
         // defecto, que en estas vistas es por ciudad.
-        ocultos.filter(id => id !== "filterOrden").forEach(id => {
+        ocultos.forEach(id => {
           const el = document.getElementById(id);
           if (el && el.value) el.value = "";
         });
         const orden = document.getElementById("filterOrden");
         if (orden && orden.value !== "recientes") orden.value = "recientes";
+      } else if (esSuplencias) {
+        // Los campos escondidos en Suplencias (ciudad, radio, especialidad y el resto de
+        // "ocultos") se vacían para que no filtren a escondidas.
+        [...ocultos, "filterRadio", "filterEspecialidad", "filterCiudad", "filterCiudadLista"].forEach(id => {
+          const el = document.getElementById(id);
+          if (el && el.value) el.value = "";
+        });
       }
     },
 
