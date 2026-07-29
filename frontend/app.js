@@ -6262,7 +6262,7 @@ const app = {
       if (textarea) {
         // Mensaje por defecto según quién contacta (editable)
         textarea.value = estadoApp.tipoUsuario === "clinica"
-          ? `Hola, hemos visto tu perfil en DentalJobs y nos gustaría hablar contigo sobre una posible colaboración.`
+          ? `Hola, hemos visto tu perfil en DentalJobs y nos gustaría hablar contigo sobre una posible contratación.`
           : `Hola, me interesa vuestra clínica y me gustaría poder hablar con vosotros sobre posibles oportunidades.`;
       }
 
@@ -6275,7 +6275,7 @@ const app = {
         const data = await utils.requestOpcional("/contactos-perfil");
         const yaContactado = data && (data.enviados || []).some(c => c.perfil_id === perfilId);
         if (yaContactado && avisoDiv && estadoApp.perfilContactoActual && estadoApp.perfilContactoActual.id === perfilId) {
-          avisoDiv.textContent = "⚠️ Ya habías contactado antes con este perfil. Puedes revisar el mensaje y enviarlo de nuevo: se añadirá a la conversación existente.";
+          avisoDiv.textContent = "⚠️ Ya habías contactado antes con este perfil. Puedes revisar el mensaje y enviarlo de nuevo.";
           avisoDiv.style.display = "block";
         }
       } catch (e) {
