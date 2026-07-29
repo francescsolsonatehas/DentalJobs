@@ -70,7 +70,7 @@ function plantilla(titulo, cuerpo, urlBoton, textoBoton) {
     <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px;">
       <h2 style="color: #0f4c75;">🦷 DentalJobs</h2>
       <h3 style="color: #1f2937;">${titulo}</h3>
-      <p style="color: #4b5563; line-height: 1.6;">${cuerpo}</p>
+      <div style="color: #4b5563; line-height: 1.6;">${cuerpo}</div>
       ${urlBoton ? `
       <p style="text-align: center; margin: 28px 0;">
         <a href="${urlBoton}" style="background: #0f4c75; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">${textoBoton}</a>

@@ -767,6 +767,13 @@ const app = {
     // para reconstruir a qué se refería cuando el enlace no lo dice.
     async ir(enlace, contexto = {}) {
       if (!enlace || typeof enlace !== "string") return;
+      // No es una ruta interna: es un aviso de un mensaje que solo existe en el
+      // correo (p. ej. un reenvío por "Enviar Mail"). Se abre la aplicación de
+      // correo por defecto del usuario en vez de una pantalla de la app.
+      if (enlace.startsWith("mailto:")) {
+        window.location.href = enlace;
+        return;
+      }
       const destino = enlace.replace(/^#/, "");
       const [nombre, argumento] = destino.split("=");
       const esClinica = estadoApp.tipoUsuario === "clinica";

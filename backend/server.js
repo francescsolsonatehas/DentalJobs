@@ -32,7 +32,9 @@ function notificarUsuario(usuarioId, asunto, titulo, cuerpo, textoBoton, opcione
   // callback), para que el drenaje de la cola al limpiar la BD en los tests la
   // capture y no quede una escritura colgando. Se guarda siempre, aunque el
   // usuario tenga los emails desactivados; el callback vacío traga el error si la
-  // escritura llega tarde. `opciones` puede traer { tipo, enlace }.
+  // escritura llega tarde. `opciones` puede traer { tipo, enlace, cuerpoEmail }.
+  // `cuerpo` es SIEMPRE texto plano: la campana lo escapa al pintarlo, así que
+  // aquí no puede llevar HTML (saldría como etiquetas literales en la lista).
   db.run(
     "INSERT INTO notificaciones (usuario_id, tipo, titulo, cuerpo, enlace) VALUES (?, ?, ?, ?, ?)",
     [usuarioId, opciones.tipo || "general", titulo, cuerpo || null, opciones.enlace || null],
@@ -43,9 +45,20 @@ function notificarUsuario(usuarioId, asunto, titulo, cuerpo, textoBoton, opcione
   db.get("SELECT email, recibir_emails FROM usuarios WHERE id = ?", [usuarioId], (err, u) => {
     if (err || !u || !u.recibir_emails) return;
     if ((u.email || "").endsWith("@dentaljobs.invalid")) return; // cuentas eliminadas
-    enviarEmail(u.email, asunto, plantilla(titulo, cuerpo, urlFrontend(), textoBoton || "Abrir DentalJobs"))
+    // textoBoton === false: correo sin botón (p. ej. cuando el propio cuerpo ya
+    // contiene todo lo que hace falta, como el mensaje escrito por el remitente).
+    // cuerpoEmail: variante en HTML del cuerpo, solo para el correo (la campana
+    // se queda con el `cuerpo` en texto plano de arriba).
+    const urlBoton = textoBoton === false ? null : urlFrontend();
+    enviarEmail(u.email, asunto, plantilla(titulo, opciones.cuerpoEmail || cuerpo, urlBoton, textoBoton || "Abrir DentalJobs"))
       .catch(e => console.error("Error al enviar notificación:", e.message));
   });
+}
+
+// El mensaje que escribe quien contacta, embebido en el cuerpo del correo (en vez
+// de detrás de un botón): quien lo recibe lo lee directamente, sin entrar a la app.
+function bloqueMensaje(texto) {
+  return `<div style="background:#f9fafb;border-left:4px solid #0f4c75;padding:.75rem 1rem;border-radius:4px;margin-top:.5rem;white-space:pre-wrap;">${escaparHtml(texto)}</div>`;
 }
 
 // Autenticación de administración: sin panel de roles todavía, se protege
@@ -5145,13 +5158,20 @@ app.post("/contactos-perfil", verifyToken, (req, res) => {
 
                 db.get("SELECT nombre FROM usuarios WHERE id = ?", [solicitanteId], (e, sol) => {
                   if (e || !sol) return;
+                  const mensajeTexto = (mensaje || "").trim();
                   notificarUsuario(
                     perfil_id,
                     "📬 Nuevo mensaje en DentalJobs",
                     "Alguien ha vuelto a escribirte",
-                    `${sol.nombre} te ha enviado un nuevo mensaje. Entra para leerlo.`,
-                    "Ver el mensaje",
-                    { tipo: "contacto", enlace: `#contacto=${existente.id}` }
+                    `${sol.nombre} te ha enviado un nuevo mensaje: "${mensajeTexto}"`,
+                    false,
+                    {
+                      tipo: "contacto",
+                      // Sin acción pendiente en la app (no hay solicitud que aceptar):
+                      // el aviso lleva a revisar el correo, no al chat de la app.
+                      enlace: "mailto:",
+                      cuerpoEmail: `<p>${escaparHtml(sol.nombre)} te ha enviado un nuevo mensaje:</p>` + bloqueMensaje(mensajeTexto)
+                    }
                   );
                 });
               }
@@ -5177,14 +5197,20 @@ app.post("/contactos-perfil", verifyToken, (req, res) => {
 
             db.get("SELECT nombre FROM usuarios WHERE id = ?", [solicitanteId], (e, sol) => {
               if (e || !sol) return;
+              const mensajeTexto = (mensaje || "").trim();
               notificarUsuario(
                 perfil_id,
                 "📬 Nuevo contacto en DentalJobs",
                 "Alguien quiere contactar contigo",
-                `${sol.nombre} está interesado/a en tu perfil. Entra para ver su solicitud y aceptarla si te encaja.`,
+                `${sol.nombre} está interesado/a en tu perfil: "${mensajeTexto}". Entra para ver su solicitud y aceptarla si te encaja.`,
                 "Ver la solicitud",
-                // Lleva a esa solicitud concreta dentro del panel de Mensajes
-                { tipo: "contacto", enlace: `#contacto=${contactoId}` }
+                {
+                  tipo: "contacto",
+                  // Lleva a esa solicitud concreta dentro del panel de Mensajes
+                  enlace: `#contacto=${contactoId}`,
+                  cuerpoEmail: `<p>${escaparHtml(sol.nombre)} está interesado/a en tu perfil. Este es su mensaje:</p>` + bloqueMensaje(mensajeTexto) +
+                    `<p>Entra para ver su solicitud y aceptarla si te encaja.</p>`
+                }
               );
             });
           }
