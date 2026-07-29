@@ -5168,8 +5168,10 @@ app.post("/contactos-perfil", verifyToken, (req, res) => {
                     {
                       tipo: "contacto",
                       // Sin acción pendiente en la app (no hay solicitud que aceptar):
-                      // el aviso lleva a revisar el correo, no al chat de la app.
-                      enlace: "mailto:",
+                      // el aviso recuerda revisar el correo, no lleva al chat de la app
+                      // (ni se puede abrir el correo recibido desde aquí: no existe un
+                      // enlace universal a un mensaje concreto de un cliente de correo).
+                      enlace: "#correo-recibido",
                       cuerpoEmail: `<p>${escaparHtml(sol.nombre)} te ha enviado un nuevo mensaje:</p>` + bloqueMensaje(mensajeTexto)
                     }
                   );

@@ -767,13 +767,6 @@ const app = {
     // para reconstruir a qué se refería cuando el enlace no lo dice.
     async ir(enlace, contexto = {}) {
       if (!enlace || typeof enlace !== "string") return;
-      // No es una ruta interna: es un aviso de un mensaje que solo existe en el
-      // correo (p. ej. un reenvío por "Enviar Mail"). Se abre la aplicación de
-      // correo por defecto del usuario en vez de una pantalla de la app.
-      if (enlace.startsWith("mailto:")) {
-        window.location.href = enlace;
-        return;
-      }
       const destino = enlace.replace(/^#/, "");
       const [nombre, argumento] = destino.split("=");
       const esClinica = estadoApp.tipoUsuario === "clinica";
@@ -796,6 +789,11 @@ const app = {
             return await this.abrirCandidatura(argumento, esClinica);
           case "contacto":
             return await this.abrirContacto(argumento);
+          // Aviso de un reenvío por "Enviar Mail": el mensaje solo existe en el
+          // correo que ya se le mandó (no hay solicitud pendiente que aceptar
+          // en la app), así que aquí no se navega a ningún sitio, solo se recuerda.
+          case "correo-recibido":
+            return utils.mostrarAlerta("📬 Tienes ese mensaje en tu correo.", "info");
           case "postulaciones-recibidas":
             return esClinica
               ? await app.stats.mostrarCandidatosInteresados()
