@@ -5769,50 +5769,11 @@ const app = {
         const statsGrid = document.getElementById("statsGrid");
         const statsContainer = document.getElementById("statsContainer");
 
-        if (estadoApp.tipoUsuario === 'clinica') {
-          // La clínica ya no tiene panel de cifras: sus accesos viven en la barra de
-          // búsqueda ("Mis Postulaciones"). Sin tarjetas se oculta el recuadro entero,
-          // que si no quedaría un panel vacío.
-          statsGrid.innerHTML = "";
-          if (statsContainer) statsContainer.style.display = "none";
-          return;
-        } else {
-          if (statsContainer) statsContainer.style.display = "block";
-          // Dentista: mostrar Clínicas, Clínicas Potenciales, Postulaciones a Clínicas y Postulaciones Recibidas
-          const [totalClinicas, clinicasPotenciales, misPostulaciones, postulacionesRecibidas] = await Promise.all([
-            utils.requestOpcional("/stats/total-clinicas"),
-            utils.requestOpcional(`/stats/clinicas-potenciales/${estadoApp.usuario.id}`),
-            utils.requestOpcional(`/stats/mis-postulaciones/${estadoApp.usuario.id}`),
-            utils.requestOpcional(`/stats/postulaciones-recibidas-dentista/${estadoApp.usuario.id}`)
-          ]);
-
-          statsGrid.innerHTML = `
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarTotalClinicas()">
-              <span>📋</span>
-              <h3>${utils.cifra(totalClinicas)}</h3>
-              <p>Clínicas</p>
-              <div class="stat-tooltip">Total de clínicas en la plataforma. Ver desglose por especialidad, ciudad o ambas</div>
-            </div>
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarClinicasPotenciales()">
-              <span>🔍</span>
-              <h3>${utils.cifra(clinicasPotenciales)}</h3>
-              <p>Clínicas Potenciales</p>
-              <div class="stat-tooltip">Clínicas que coinciden con ciudad y especialidad de mis publicaciones</div>
-            </div>
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarMisPostulaciones()">
-              <span>📬</span>
-              <h3>${utils.cifra(misPostulaciones)}</h3>
-              <p>Postulaciones a Clínicas</p>
-              <div class="stat-tooltip">Postulaciones a publicaciones de clínicas</div>
-            </div>
-            <div class="stat-item stat-clickable" onclick="app.stats.mostrarPostulacionesRecibidas()">
-              <span>📧</span>
-              <h3>${utils.cifra(postulacionesRecibidas)}</h3>
-              <p>Postulaciones Recibidas</p>
-              <div class="stat-tooltip">Clínicas postuladas a nuestras publicaciones</div>
-            </div>
-          `;
-        }
+        // Ni la clínica ni el dentista tienen ya panel de cifras: sus accesos viven en
+        // la barra de búsqueda ("Mis Postulaciones", etc.). Sin tarjetas se oculta el
+        // recuadro entero, que si no quedaría un panel vacío.
+        statsGrid.innerHTML = "";
+        if (statsContainer) statsContainer.style.display = "none";
       } catch (error) {
         console.error(error);
       }
