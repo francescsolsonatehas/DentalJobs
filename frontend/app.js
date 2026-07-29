@@ -6495,8 +6495,8 @@ const app = {
         const encabezado = (texto) => `<h3 style="margin: 1.5rem 0 1rem; color: #0f4c75;">${texto}</h3>`;
         cuerpo = "";
         if (ofertas.length) cuerpo += `${encabezado("Ofertas de Empleo")}<div class="publicaciones">${ofertas.join("")}</div>`;
-        if (suplencias.length) cuerpo += `${encabezado("Suplencia")}<div class="publicaciones">${suplencias.join("")}</div>`;
-        if (colaboraciones.length) cuerpo += `${encabezado("Colaboración")}<div class="publicaciones">${colaboraciones.join("")}</div>`;
+        if (suplencias.length) cuerpo += `${encabezado("Suplencias")}<div class="publicaciones">${suplencias.join("")}</div>`;
+        if (colaboraciones.length) cuerpo += `${encabezado("Colaboraciones")}<div class="publicaciones">${colaboraciones.join("")}</div>`;
       } else {
         cuerpo = `<div class="publicaciones">${html.join("")}</div>`;
       }
