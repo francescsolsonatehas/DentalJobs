@@ -793,7 +793,7 @@ const app = {
           // correo que ya se le mandó (no hay solicitud pendiente que aceptar
           // en la app), así que aquí no se navega a ningún sitio, solo se recuerda.
           case "correo-recibido":
-            return utils.mostrarAlerta("📬 Tienes ese mensaje en tu correo.", "info");
+            return app.modal.mostrarAvisoInfo("Tienes ese mensaje en tu correo.", "📬 Nuevo mensaje");
           case "postulaciones-recibidas":
             return esClinica
               ? await app.stats.mostrarCandidatosInteresados()
@@ -2217,7 +2217,8 @@ const app = {
         "modalOpcionesStats",
         "modalOpcionesClinicas",
         "modalOpcionesClinicasPotenciales",
-        "modalContactarPerfil"
+        "modalContactarPerfil",
+        "modalAvisoInfo"
       ];
       modales.forEach(id => {
         const modal = document.getElementById(id);
@@ -2244,6 +2245,19 @@ const app = {
       // Asegurar que body no tenga estilos bloqueantes
       document.body.style.overflow = "";
       document.body.style.pointerEvents = "auto";
+    },
+
+    // Popup simple para avisos sin acción asociada (solo un mensaje y una X para
+    // cerrarlo), a diferencia de utils.mostrarAlerta que es una barra que desaparece
+    // sola: aquí el usuario decide cuándo se quita.
+    mostrarAvisoInfo(mensaje, titulo = "Aviso") {
+      document.getElementById("avisoInfoTitulo").textContent = titulo;
+      document.getElementById("avisoInfoMensaje").textContent = mensaje;
+      document.getElementById("modalAvisoInfo").classList.add("active");
+    },
+
+    cerrarAvisoInfo() {
+      document.getElementById("modalAvisoInfo").classList.remove("active");
     },
 
     abrirPublicar() {
