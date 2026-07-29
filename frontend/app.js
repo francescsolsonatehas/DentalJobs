@@ -1858,8 +1858,10 @@ const app = {
         filaFiltros.style.display = sinBusqueda ? "none" : "";
       }
 
-      // "Suplencias" deja solo fechas, "encaja con mi disponibilidad" y orden (se
-      // gestionan en sincronizarUISuplencias() y aquí abajo); el resto se esconde.
+      // "Suplencias" deja Ciudad, Radio y Especialidad (arriba del todo, ya van antes
+      // que el resto en el propio formulario) más fechas/disponibilidad/orden; el resto
+      // (Buscar, Contrato, Jornada, Equipamiento/Certificación, Retribución, Salario y
+      // Años de experiencia) se esconde.
       const ocultos = ["filterQ", "filterContrato", "filterJornada", "filterRetribucion",
                        "filterSalarioMin", "filterExperienciaMin"];
       ocultos.forEach(id => set(id, !reducida && !esSuplencias));
@@ -1867,32 +1869,27 @@ const app = {
 
       set("filterEquipamiento", !reducida && !esSuplencias && estadoApp.tipoUsuario === "dentista");
       set("filterCertificacion", !reducida && !esSuplencias && estadoApp.tipoUsuario === "clinica");
-      set("filterRadio", !esSuplencias);
-      set("filterEspecialidad", !esSuplencias);
+      set("filterRadio", true);
+      set("filterEspecialidad", true);
 
-      // La ciudad se elige de una lista en las reducidas y se escribe a mano en el resto;
-      // en Suplencias no se busca por ciudad, así que se esconden las dos variantes.
+      // La ciudad se elige de una lista en las reducidas y se escribe a mano en el resto
+      // (incluida Suplencias).
       const grupoTexto = document.getElementById("filterCiudadGroup");
       const grupoLista = document.getElementById("filterCiudadListaGroup");
-      if (grupoTexto) grupoTexto.style.display = (reducida || esSuplencias) ? "none" : "";
-      if (grupoLista) grupoLista.style.display = (reducida && !esSuplencias) ? "" : "none";
+      if (grupoTexto) grupoTexto.style.display = reducida ? "none" : "";
+      if (grupoLista) grupoLista.style.display = reducida ? "" : "none";
 
-      if (reducida) {
-        // Un filtro oculto con valor filtraría a escondidas. El orden vuelve al de por
-        // defecto, que en estas vistas es por ciudad.
+      if (reducida || esSuplencias) {
+        // Un filtro oculto con valor filtraría a escondidas.
         ocultos.forEach(id => {
           const el = document.getElementById(id);
           if (el && el.value) el.value = "";
         });
+      }
+      if (reducida) {
+        // El orden vuelve al de por defecto, que en estas vistas es por ciudad.
         const orden = document.getElementById("filterOrden");
         if (orden && orden.value !== "recientes") orden.value = "recientes";
-      } else if (esSuplencias) {
-        // Los campos escondidos en Suplencias (ciudad, radio, especialidad y el resto de
-        // "ocultos") se vacían para que no filtren a escondidas.
-        [...ocultos, "filterRadio", "filterEspecialidad", "filterCiudad", "filterCiudadLista"].forEach(id => {
-          const el = document.getElementById(id);
-          if (el && el.value) el.value = "";
-        });
       }
     },
 
