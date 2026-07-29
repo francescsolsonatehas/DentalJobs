@@ -5952,7 +5952,7 @@ const app = {
                   const chatBtn = `<button class="btn-outline" onclick="app.perfiles.iniciarChat(${pub.usuario_id}, '${nombreDent}')" style="flex: 1;" title="Empezar a chatear con el dentista">💬 Iniciar chat</button>`;
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
                   if (yaPostulada) {
-                    return `<button class="btn-success" onclick="app.stats.mostrarEstadoMiPostulacion(${pub.id})" style="flex: 1;" title="Ver el estado de tu postulación">Postulada. Ver estado</button>
+                    return `<button class="btn-success" onclick="app.stats.mostrarEstadoMiPostulacion(${pub.id})" style="flex: 1;" title="Ver el estado de tu postulación">Postulada (${utils.textoEstado(yaPostulada.estado)})</button>
                             <button class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Retirar Postulación</button>
                             ${chatBtn}`;
                   } else {
