@@ -6232,8 +6232,10 @@ const app = {
     },
 
     // Abre el modal de contacto con un mensaje editable pre-rellenado, para que
-    // el usuario vea y ajuste lo que se enviará antes de pulsar "Enviar".
-    contactar(perfilId, perfilNombre, perfilTipo) {
+    // el usuario vea y ajuste lo que se enviará antes de pulsar "Enviar". Si ya
+    // había contactado antes con este perfil, se avisa primero (arriba del todo)
+    // y solo después se deja editar y reenviar el mensaje.
+    async contactar(perfilId, perfilNombre, perfilTipo) {
       if (!estadoApp.usuario) {
         utils.mostrarAlerta("Debes iniciar sesión", "error");
         return;
@@ -6246,6 +6248,9 @@ const app = {
       const errorDiv = document.getElementById("contactarPerfilError");
       if (errorDiv) errorDiv.style.display = "none";
 
+      const avisoDiv = document.getElementById("contactarPerfilAviso");
+      if (avisoDiv) avisoDiv.style.display = "none";
+
       const textarea = document.getElementById("contactarPerfilMensaje");
       if (textarea) {
         // Mensaje por defecto según quién contacta (editable)
@@ -6256,6 +6261,19 @@ const app = {
 
       document.getElementById("modalContactarPerfil").classList.add("active");
       if (textarea) textarea.focus();
+
+      // Comprobación en segundo plano: si ya le habías escrito antes, se avisa
+      // arriba del modal antes de que edite y envíe el mensaje.
+      try {
+        const data = await utils.requestOpcional("/contactos-perfil");
+        const yaContactado = data && (data.enviados || []).some(c => c.perfil_id === perfilId);
+        if (yaContactado && avisoDiv && estadoApp.perfilContactoActual && estadoApp.perfilContactoActual.id === perfilId) {
+          avisoDiv.textContent = "⚠️ Ya habías contactado antes con este perfil. Puedes revisar el mensaje y enviarlo de nuevo: se añadirá a la conversación existente.";
+          avisoDiv.style.display = "block";
+        }
+      } catch (e) {
+        // Si falla la comprobación, no se bloquea el envío: se sigue pudiendo escribir y enviar.
+      }
     },
 
     // Chat directo con un dentista: abre el canal (contacto ya aceptado en el backend)
