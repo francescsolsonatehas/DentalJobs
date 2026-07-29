@@ -702,6 +702,104 @@ const app = {
   },
 
   // ============================================
+  // Módulo: Vista de calendario mensual de colaboraciones
+  // ============================================
+  //
+  // A diferencia de suplenciasCalendario (fechas concretas), aquí una misma
+  // colaboración aparece en TODOS los días del mes que caen en su día de la semana:
+  // el backend (/colaboraciones/calendario) ya hace esa expansión, así que el
+  // renderizado es idéntico al de suplencias salvo por no tener "urgente".
+
+  colaboracionesCalendario: {
+    anyo: null,
+    mes: null, // 1-12
+
+    verCalendario() {
+      if (this.anyo == null) {
+        const hoy = new Date();
+        this.anyo = hoy.getFullYear();
+        this.mes = hoy.getMonth() + 1;
+      }
+      document.getElementById("publicacionesContainer").style.display = "none";
+      document.getElementById("colaboracionesCalendarioContainer").style.display = "block";
+      document.getElementById("btnVistaCalendarioColab").classList.add("active");
+      document.getElementById("btnVistaListaColab").classList.remove("active");
+      this.render();
+    },
+
+    verLista() {
+      document.getElementById("colaboracionesCalendarioContainer").style.display = "none";
+      document.getElementById("publicacionesContainer").style.display = "";
+      document.getElementById("btnVistaListaColab").classList.add("active");
+      document.getElementById("btnVistaCalendarioColab").classList.remove("active");
+      app.publicaciones.cargar();
+    },
+
+    cambiarMes(delta) {
+      let m = (this.mes - 1) + delta;
+      this.anyo += Math.floor(m / 12);
+      this.mes = ((m % 12) + 12) % 12 + 1;
+      this.render();
+    },
+
+    // Clic en un día con colaboraciones: se abre el detalle (o la lista, si hay
+    // varias) de esas colaboraciones concretas, igual que desde una notificación.
+    irADia(ids) {
+      app.rutas.abrirColaboraciones(ids.join(","));
+    },
+
+    async render() {
+      const cont = document.getElementById("colaboracionesCalendarioContainer");
+      if (!cont) return;
+      cont.innerHTML = `<p style="color:#6b7280;padding:1rem;">Cargando calendario…</p>`;
+
+      let dias = {};
+      try {
+        const data = await utils.request(`/colaboraciones/calendario?anyo=${this.anyo}&mes=${this.mes}`);
+        dias = data.dias || {};
+      } catch (e) {
+        cont.innerHTML = `<p style="color:#ef4444;padding:1rem;">No se pudo cargar el calendario.</p>`;
+        return;
+      }
+
+      const hoy = app.calendario.hoyISO();
+      const primero = new Date(this.anyo, this.mes - 1, 1);
+      const offset = (primero.getDay() + 6) % 7; // semana que empieza en lunes
+      const diasEnMes = new Date(this.anyo, this.mes, 0).getDate();
+
+      let celdas = "";
+      for (let i = 0; i < offset; i++) celdas += `<div class="cal-celda cal-vacia"></div>`;
+      for (let d = 1; d <= diasEnMes; d++) {
+        const fecha = `${this.anyo}-${String(this.mes).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+        const items = dias[fecha] || [];
+        const pasado = fecha < hoy;
+        if (items.length > 0 && !pasado) {
+          const ciudades = [...new Set(items.map(x => x.ciudad).filter(Boolean))].join(", ");
+          const ids = items.map(x => x.id);
+          celdas += `<div class="supcal-dia" title="${utils.escapeHtml(ciudades)}" onclick="app.colaboracionesCalendario.irADia([${ids.join(",")}])">
+            <span class="supcal-num">${d}</span>
+            <span class="supcal-badge">${items.length}</span>
+          </div>`;
+        } else {
+          celdas += `<div class="cal-celda supcal-vacio${pasado ? " cal-pasado" : ""}">${d}</div>`;
+        }
+      }
+
+      cont.innerHTML = `
+        <div class="supcal-widget">
+          <div class="cal-cabecera">
+            <button type="button" class="cal-nav" onclick="app.colaboracionesCalendario.cambiarMes(-1)">‹</button>
+            <strong>${app.calendario.NOMBRES_MES[this.mes - 1]} ${this.anyo}</strong>
+            <button type="button" class="cal-nav" onclick="app.colaboracionesCalendario.cambiarMes(1)">›</button>
+          </div>
+          <div class="cal-rejilla cal-semana">${app.calendario.DIAS_SEMANA.map(x => `<div class="cal-celda cal-nombre-dia">${x}</div>`).join("")}</div>
+          <div class="cal-rejilla">${celdas}</div>
+          <p class="cal-resumen">Haz clic en un día para ver qué colaboraciones caen ese día de la semana.</p>
+        </div>`;
+    }
+  },
+
+  // ============================================
   // Módulo: Suplencias (matching de dentistas disponibles)
   // ============================================
 
@@ -1713,8 +1811,9 @@ const app = {
         // Filtro por fecha: solo tiene sentido en suplencias (usa suplencia_dias)
         if (estadoApp.filtros.verSuplencias && fechaDesde) url += `fechaDesde=${fechaDesde}&`;
         if (estadoApp.filtros.verSuplencias && fechaHasta) url += `fechaHasta=${fechaHasta}&`;
-        // "Encajan con mi disponibilidad": cruza suplencia_dias con mi disponibilidad
-        if (estadoApp.filtros.verSuplencias && estadoApp.tipoUsuario === 'dentista' &&
+        // "Encajan con mi disponibilidad": cruza suplencia_dias (o colaboracion_dias)
+        // con mi disponibilidad, por fecha o semanal según la vista
+        if ((estadoApp.filtros.verSuplencias || estadoApp.filtros.verColaboraciones) && estadoApp.tipoUsuario === 'dentista' &&
             document.getElementById("filterMiDisponibilidad")?.checked && estadoApp.usuario) {
           url += `disponibleUsuarioId=${estadoApp.usuario.id}&`;
         }
@@ -2241,10 +2340,10 @@ const app = {
           document.getElementById("filterFechaHasta").value = "";
         }
       }
-      // "Encajan con mi disponibilidad": solo para el dentista en la vista de suplencias
+      // "Encajan con mi disponibilidad": solo para el dentista en suplencias o colaboraciones
       const grupoDisp = document.getElementById("filterMiDisponibilidadGroup");
       if (grupoDisp) {
-        const mostrar = estadoApp.filtros.verSuplencias && estadoApp.tipoUsuario === 'dentista';
+        const mostrar = (estadoApp.filtros.verSuplencias || estadoApp.filtros.verColaboraciones) && estadoApp.tipoUsuario === 'dentista';
         grupoDisp.style.display = mostrar ? "block" : "none";
         if (!mostrar) document.getElementById("filterMiDisponibilidad").checked = false;
       }
@@ -2257,6 +2356,17 @@ const app = {
           document.getElementById("publicacionesContainer").style.display = "";
           document.getElementById("btnVistaLista")?.classList.add("active");
           document.getElementById("btnVistaCalendario")?.classList.remove("active");
+        }
+      }
+      const toggleVistaColab = document.getElementById("colaboracionesVistaToggle");
+      if (toggleVistaColab) {
+        toggleVistaColab.style.display = estadoApp.filtros.verColaboraciones ? "flex" : "none";
+        // Al salir de colaboraciones, garantizar que se ve la lista y no el calendario
+        if (!estadoApp.filtros.verColaboraciones) {
+          document.getElementById("colaboracionesCalendarioContainer").style.display = "none";
+          document.getElementById("publicacionesContainer").style.display = "";
+          document.getElementById("btnVistaListaColab")?.classList.add("active");
+          document.getElementById("btnVistaCalendarioColab")?.classList.remove("active");
         }
       }
 
@@ -2427,6 +2537,12 @@ const app = {
       const filtersTitle = document.getElementById("filtrosTitle");
       filtersTitle.textContent = "🤝 Colaboraciones";
       filtersTitle.style.display = "block";
+
+      // Entrar siempre en modo lista (por si se quedó abierto el calendario)
+      document.getElementById("colaboracionesCalendarioContainer").style.display = "none";
+      document.getElementById("publicacionesContainer").style.display = "";
+      document.getElementById("btnVistaListaColab")?.classList.add("active");
+      document.getElementById("btnVistaCalendarioColab")?.classList.remove("active");
 
       return app.publicaciones.cargar();
     },
@@ -7059,6 +7175,7 @@ const app = {
         etiqueta: () => (estadoApp.tipoUsuario === "clinica" ? "Dentistas" : "Perfiles de clínicas")
       },
       "suplencias": { conFiltros: true, etiqueta: () => "Suplencias" },
+      "colaboraciones": { conFiltros: true, etiqueta: () => "Colaboraciones" },
       "mis-publicaciones": { conFiltros: false, etiqueta: () => "Mis Publicaciones" },
       "mis-postulaciones": { conFiltros: false, etiqueta: () => "Mis Postulaciones" }
     },

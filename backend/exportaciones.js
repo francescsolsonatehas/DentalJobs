@@ -37,7 +37,8 @@ function todos(db, sql, params) {
 const ETIQUETAS_TIPO = {
   oferta: "Oferta de empleo",
   solicitud: "Solicitud de empleo",
-  suplencia: "Suplencia"
+  suplencia: "Suplencia",
+  colaboracion: "Colaboración"
 };
 
 const tipoPublicacion = (tipo) => ETIQUETAS_TIPO[tipo] || tipo || "";
@@ -57,6 +58,18 @@ function retribucion(f) {
   return f.retribucion_porcentaje ? `Porcentaje (${f.retribucion_porcentaje}%)` : "Porcentaje";
 }
 
+// Días de la semana de una colaboración, en texto ("Lunes (mañana), Miércoles (mañana
+// y tarde)"), a partir del "1:manana,3:ambos" que arma DIAS_SEMANA_PUBLICACION.
+const NOMBRES_DIA_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const NOMBRES_TURNO = { manana: "mañana", tarde: "tarde", ambos: "mañana y tarde" };
+function diasSemana(f) {
+  if (!f.dias_semana_raw) return "";
+  return f.dias_semana_raw.split(",").map(par => {
+    const [dia, turno] = par.split(":");
+    return `${NOMBRES_DIA_SEMANA[parseInt(dia, 10) - 1] || dia} (${NOMBRES_TURNO[turno] || turno})`;
+  }).join(", ");
+}
+
 /* ===========================
    🔹 FRAGMENTOS DE CONSULTA
 =========================== */
@@ -67,6 +80,11 @@ const ESPECIALIDADES_PUBLICACION = `(SELECT GROUP_CONCAT(e.nombre, ', ')
 
 const EQUIPAMIENTO_PUBLICACION = `(SELECT GROUP_CONCAT(pq.equipo, ', ')
    FROM publicacion_equipamiento pq WHERE pq.publicacion_id = p.id) AS equipamiento`;
+
+// "1:manana,3:ambos" (día:turno separados por coma); se formatea a texto con
+// diasSemana() más abajo. Solo tiene filas para publicaciones de tipo 'colaboracion'.
+const DIAS_SEMANA_PUBLICACION = `(SELECT GROUP_CONCAT(cd.dia_semana || ':' || cd.turno, ',')
+   FROM colaboracion_dias cd WHERE cd.publicacion_id = p.id) AS dias_semana_raw`;
 
 const ESPECIALIDADES_USUARIO = `(SELECT GROUP_CONCAT(e.nombre, ', ')
    FROM usuario_especialidades ue INNER JOIN especialidades e ON e.id = ue.especialidad_id
@@ -98,8 +116,8 @@ function consultarPublicaciones(db, query, orden = "ORDER BY p.creado_en DESC") 
   const filtros = construirFiltros(filtrosQuery);
   return todos(
     db,
-    `SELECT p.*, u.nombre AS autor, u.email AS autor_email, u.telefono AS autor_telefono,
-            ${ESPECIALIDADES_PUBLICACION}, ${EQUIPAMIENTO_PUBLICACION}
+    `SELECT p.*, u.nombre AS autor, u.email AS autor_email, u.telefono AS autor_telefono, u.tipo AS autor_tipo,
+            ${ESPECIALIDADES_PUBLICACION}, ${EQUIPAMIENTO_PUBLICACION}, ${DIAS_SEMANA_PUBLICACION}
      FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id
      WHERE p.activo = 1${filtros.sql}
      ${orden}`,
@@ -187,14 +205,15 @@ const VISTAS = {
     }
   },
 
-  // Mis publicaciones: las ofertas/suplencias de una clínica o las solicitudes de un dentista
+  // Mis publicaciones: las ofertas/suplencias/colaboraciones de una clínica, o las
+  // solicitudes/colaboraciones de un dentista
   "mis-publicaciones": {
     archivo: () => "mis-publicaciones",
     async consultar(db, usuario, query) {
       const filtros = construirFiltros({ ...query, usuario_id: usuario.id });
       const filas = await todos(
         db,
-        `SELECT p.*, ${ESPECIALIDADES_PUBLICACION}, ${EQUIPAMIENTO_PUBLICACION},
+        `SELECT p.*, ${ESPECIALIDADES_PUBLICACION}, ${EQUIPAMIENTO_PUBLICACION}, ${DIAS_SEMANA_PUBLICACION},
                 (SELECT COUNT(*) FROM candidaturas c WHERE c.publicacion_id = p.id) AS postulaciones
          FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id
          WHERE p.activo = 1${filtros.sql}
@@ -203,12 +222,30 @@ const VISTAS = {
       );
       return {
         columnas: ["Fecha de publicación", "Tipo", "Ciudad", "Provincia", "Contrato", "Jornada", "Salario",
-                   "Retribución", "Experiencia mínima (años)", "Desde", "Hasta", "Urgente",
+                   "Retribución", "Experiencia mínima (años)", "Desde", "Hasta", "Urgente", "Días de la semana",
                    "Especialidades", "Equipamiento", "Vistas", "Postulaciones recibidas", "Descripción"],
         filas: filas.map(f => [
           f.creado_en, tipoPublicacion(f.tipo), f.ciudad, f.provincia, f.contrato, f.jornada, salario(f),
-          retribucion(f), f.experiencia_minima, f.fecha_desde, f.fecha_hasta, siNo(f.urgente),
+          retribucion(f), f.experiencia_minima, f.fecha_desde, f.fecha_hasta, siNo(f.urgente), diasSemana(f),
           f.especialidades, f.equipamiento, f.vistas || 0, f.postulaciones, f.descripcion
+        ])
+      };
+    }
+  },
+
+  // Colaboraciones (las ven y navegan los dos roles, a diferencia de suplencias)
+  "colaboraciones": {
+    archivo: () => "colaboraciones",
+    async consultar(db, usuario, query) {
+      const filas = await consultarPublicaciones(db, { ...query, tipo: "colaboracion", usuario_id: undefined });
+      return {
+        columnas: ["Fecha de publicación", "Publicado por", "Tipo de cuenta", "Email", "Teléfono", "Ciudad", "Provincia",
+                   "Días de la semana", "Retribución", "Salario",
+                   "Especialidades", "Equipamiento", "Descripción"],
+        filas: filas.map(f => [
+          f.creado_en, f.autor, rol(f.autor_tipo), f.autor_email, f.autor_telefono, f.ciudad, f.provincia,
+          diasSemana(f), retribucion(f), salario(f),
+          f.especialidades, f.equipamiento, f.descripcion
         ])
       };
     }

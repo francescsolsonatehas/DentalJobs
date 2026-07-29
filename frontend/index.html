@@ -320,6 +320,15 @@
         <!-- Vista de calendario mensual de suplencias -->
         <div id="suplenciasCalendarioContainer" style="display: none;"></div>
 
+        <!-- Conmutador Lista / Calendario (solo en la vista de colaboraciones) -->
+        <div id="colaboracionesVistaToggle" style="display: none; gap: 0.5rem; margin-bottom: 1rem;">
+            <button id="btnVistaListaColab" class="btn-outline btn-small active" onclick="app.colaboracionesCalendario.verLista()">📋 Lista</button>
+            <button id="btnVistaCalendarioColab" class="btn-outline btn-small" onclick="app.colaboracionesCalendario.verCalendario()">📅 Calendario</button>
+        </div>
+
+        <!-- Vista de calendario mensual de colaboraciones (recurrente por día de la semana) -->
+        <div id="colaboracionesCalendarioContainer" style="display: none;"></div>
+
         <!-- Grid de publicaciones -->
         <div id="publicacionesContainer"></div>
 

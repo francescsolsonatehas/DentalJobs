@@ -2463,6 +2463,51 @@ app.get("/suplencias/calendario", (req, res) => {
   );
 });
 
+// Colaboraciones activas agrupadas por día para un mes concreto, para la vista de
+// calendario. A diferencia de /suplencias/calendario (fechas concretas), aquí una
+// colaboración con un día de la semana aparece en TODOS los días de ese mes que caen
+// en ese día (patrón recurrente, no una fecha fija). Devuelve { dias: { 'YYYY-MM-DD':
+// [ {id, ciudad, turno} ] } }.
+app.get("/colaboraciones/calendario", (req, res) => {
+  const anyo = parseInt(req.query.anyo);
+  const mes = parseInt(req.query.mes); // 1-12
+  if (!anyo || !mes || mes < 1 || mes > 12) {
+    return res.status(400).json({ error: "Indica un año y un mes válidos" });
+  }
+
+  db.all(
+    `SELECT cd.dia_semana, cd.turno, p.id, p.ciudad
+     FROM colaboracion_dias cd
+     JOIN publicaciones p ON p.id = cd.publicacion_id
+     WHERE p.activo = 1 AND p.tipo = 'colaboracion'
+     ORDER BY cd.dia_semana, p.id`,
+    (err, filas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener el calendario" });
+      }
+      // Agrupar por día de la semana (1=lunes..6=sábado) antes de recorrer el mes
+      const porDiaSemana = {};
+      (filas || []).forEach(f => {
+        (porDiaSemana[f.dia_semana] = porDiaSemana[f.dia_semana] || []).push({ id: f.id, ciudad: f.ciudad, turno: f.turno });
+      });
+
+      const dias = {};
+      const diasEnMes = new Date(anyo, mes, 0).getDate();
+      for (let d = 1; d <= diasEnMes; d++) {
+        // getDay(): 0=domingo..6=sábado → coincide con nuestro dia_semana (1=lunes..6=
+        // sábado) salvo el domingo, que no existe en colaboración (solo lunes a sábado).
+        const jsDay = new Date(anyo, mes - 1, d).getDay();
+        if (jsDay !== 0 && porDiaSemana[jsDay]) {
+          const fecha = `${anyo}-${String(mes).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+          dias[fecha] = porDiaSemana[jsDay];
+        }
+      }
+      res.json({ dias });
+    }
+  );
+});
+
 // Dentistas disponibles que casan con una suplencia (solo el dueño de la suplencia).
 app.get("/suplencias/:id/dentistas-disponibles", verifyToken, (req, res) => {
   db.get("SELECT usuario_id, tipo FROM publicaciones WHERE id = ?", [req.params.id], (err, pub) => {
