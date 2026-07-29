@@ -197,6 +197,7 @@
                 <button id="btnContactadas" onclick="app.filtros.mostrarContactadas(this)" style="display: none;">Contactadas</button>
                 <button id="btnKanban" onclick="app.filtros.mostrarKanban(this)" style="display: none;">📌 Mis Postulaciones</button>
                 <button id="btnSuplencias" onclick="app.filtros.mostrarSuplencias(this)" style="display: none;">🚨 Suplencias</button>
+                <button id="btnColaboraciones" onclick="app.filtros.mostrarColaboraciones(this)" style="display: none;">🤝 Colaboraciones</button>
                 <button id="btnMisPostulacionesDentistas" onclick="app.filtros.mostrarMisPostulacionesDentistas(this)" style="display: none;">Mis Postulaciones a Dentistas</button>
                 <button id="btnMisPostulacionesDentistasAceptadas" onclick="app.filtros.mostrarMisPostulacionesDentistasAceptadas(this)" style="display: none;">Mis Postulaciones a Dentistas Aceptadas</button>
             </div>
@@ -356,7 +357,8 @@
             <div class="tabs" id="tabsPublicar" style="display: none;">
                 <button class="tab-btn active" id="tabBtnOferta" onclick="app.modal.switchTab('oferta')">Oferta fija</button>
                 <button class="tab-btn" id="tabBtnSuplencia" onclick="app.modal.switchTab('suplencia')" style="display: none;">🚨 Suplencia</button>
-                <button class="tab-btn" id="tabBtnSolicitud" onclick="app.modal.switchTab('solicitud')"></button>
+                <button class="tab-btn" id="tabBtnSolicitud" onclick="app.modal.switchTab('solicitud')" style="display: none;">Solicitud</button>
+                <button class="tab-btn" id="tabBtnColaboracion" onclick="app.modal.switchTab('colaboracion')" style="display: none;">🤝 Colaboración</button>
             </div>
 
             <!-- Tab: Oferta -->
@@ -643,6 +645,116 @@
                     <button type="submit" class="btn-primary" style="width: 100%; background: #ef4444;">Publicar suplencia</button>
                 </form>
             </div>
+
+            <!-- Tab: Colaboración (clínica o dentista, días de la semana recurrentes) -->
+            <div id="tab-colaboracion" class="tab-content">
+                <div style="background: #eff6ff; border-left: 4px solid #0f4c75; padding: 0.9rem 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                    <p style="margin: 0; font-size: 0.85rem; color: #1e3a5f;">Para contratar (o para ofrecerte como) un especialista según días fijos de la semana, no fechas concretas. La pueden publicar tanto clínicas como dentistas.</p>
+                </div>
+                <form onsubmit="event.preventDefault(); app.publicaciones.crear('colaboracion');">
+                    <!-- Sub-bloque clínica: ubicación (sede), equipamiento y preguntas de criba -->
+                    <div id="colaboracionClinicaBloque">
+                        <div class="form-group" id="colaboracionSedeGroup" style="display: none;">
+                            <label for="colaboracionSede">Ubicación *</label>
+                            <select id="colaboracionSede" onchange="app.sedes.aplicarAPublicacion('colaboracion')">
+                                <option value="">Elige una ubicación…</option>
+                            </select>
+                            <small id="colaboracionSinSedes" style="display: none; color: #b45309; margin-top: 0.3rem;">Define la ciudad de tu clínica en "Mi perfil" → Mis datos, o crea un centro, antes de publicar.</small>
+                            <div id="colaboracionSedePreview" style="margin-top: 0.6rem;"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="colaboracionCiudad">Ciudad</label>
+                            <input id="colaboracionCiudad" type="text" readonly style="background: #f3f4f6;">
+                            <small id="colaboracionCiudadHint" style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Se toma de la ubicación elegida.</small>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Especialidades</label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.5rem;">
+                          <input type="checkbox" id="colaboracionMarcarTodas" onchange="app.publicaciones.marcarTodasEspecialidades('colaboracion')">
+                          <strong>Marcar todas</strong>
+                        </label>
+                        <div id="colaboracionEspecialidadesContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                          <!-- Se llenarán dinámicamente -->
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Días de la semana *</label>
+                        <p style="font-size: 0.82rem; color: #6b7280; margin: 0.2rem 0 0.6rem;">Marca mañana, tarde o ambos en cada día que necesitas cubrir (de lunes a sábado).</p>
+                        <div id="colaboracionDiasSemana"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de retribución</label>
+                        <div style="display: flex; gap: 1.5rem; margin-bottom: 0.5rem;">
+                            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-weight: normal;">
+                                <input type="radio" name="colaboracionRetribucionTipo" value="fijo" checked onchange="app.publicaciones.toggleRetribucion('colaboracion')">
+                                Importe fijo
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-weight: normal;">
+                                <input type="radio" name="colaboracionRetribucionTipo" value="porcentaje" onchange="app.publicaciones.toggleRetribucion('colaboracion')">
+                                % de facturación
+                            </label>
+                        </div>
+                        <div id="colaboracionSalarioFijoGroup">
+                            <input id="colaboracionSalario" type="text" placeholder="Ej: 250€/día">
+                        </div>
+                        <div id="colaboracionRetribucionPorcentajeGroup" style="display: none;">
+                            <input id="colaboracionRetribucionPorcentaje" type="number" min="0" max="100" placeholder="Ej: 35 (% de facturación)">
+                        </div>
+                    </div>
+                    <div class="form-group" id="colaboracionEquipamientoGroup" style="display: none;">
+                        <label>Equipamiento de la clínica</label>
+                        <div id="colaboracionEquipamientoContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                          <!-- Se llenarán dinámicamente -->
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="colaboracionDescripcion">Descripción *</label>
+                        <textarea id="colaboracionDescripcion" required placeholder="Qué buscas, horario, equipo disponible..."></textarea>
+                    </div>
+                    <div class="form-group" id="colaboracionPreguntasGroup" style="display: none;">
+                        <label>Preguntas de criba <span style="color: var(--gray-600); font-weight: normal;">(opcional, máx. 3)</span></label>
+                        <small style="color: var(--gray-600); display: block; margin-bottom: 0.5rem;">El candidato deberá responderlas al postularse.</small>
+                        <input class="colaboracionPregunta" type="text" maxlength="200" placeholder="Ej: ¿Puedes incorporarte de inmediato?" style="margin-bottom: 0.4rem;">
+                        <input class="colaboracionPregunta" type="text" maxlength="200" placeholder="Ej: ¿Tienes experiencia con nuestro software de gestión?" style="margin-bottom: 0.4rem;">
+                        <input class="colaboracionPregunta" type="text" maxlength="200" placeholder="Ej: ¿Cuándo podrías incorporarte?">
+                    </div>
+
+                    <!-- Sub-bloque clínica: contacto de solo lectura (del perfil/sede) -->
+                    <div id="colaboracionClinicaContacto">
+                        <div class="form-group">
+                            <label for="colaboracionNombreContacto">Empresa (de tu perfil)</label>
+                            <input id="colaboracionNombreContacto" type="text" readonly style="background: #f3f4f6;">
+                        </div>
+                        <div class="form-group">
+                            <label for="colaboracionEmailContacto">Email de contacto (de tu perfil)</label>
+                            <input id="colaboracionEmailContacto" type="email" readonly style="background: #f3f4f6;">
+                        </div>
+                        <div class="form-group">
+                            <label for="colaboracionTelefonoContacto">Teléfono (de la sede)</label>
+                            <input id="colaboracionTelefonoContacto" type="tel" readonly style="background: #f3f4f6;">
+                        </div>
+                    </div>
+
+                    <!-- Sub-bloque dentista: contacto editable, igual que en Solicitud -->
+                    <div id="colaboracionDentistaContacto" style="display: none;">
+                        <div class="form-group">
+                            <label for="colaboracionNombreContactoDentista">Nombre *</label>
+                            <input id="colaboracionNombreContactoDentista" type="text">
+                        </div>
+                        <div class="form-group">
+                            <label for="colaboracionEmailContactoDentista">Email *</label>
+                            <input id="colaboracionEmailContactoDentista" type="email">
+                        </div>
+                        <div class="form-group">
+                            <label for="colaboracionTelefonoContactoDentista">Teléfono</label>
+                            <input id="colaboracionTelefonoContactoDentista" type="tel" placeholder="+34 xxx xxx xxx">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary" style="width: 100%;">Publicar colaboración</button>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -833,6 +945,13 @@
                         <option value="100">Hasta 100 km</option>
                     </select>
                 </div>
+
+                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 1.5rem 0;">
+
+                <h4 style="color: #0f4c75; margin: 0 0 0.5rem 0;">🤝 Mi disponibilidad semanal para colaboraciones</h4>
+                <p style="color: #6b7280; font-size: 0.9rem; margin: 0 0 1rem;">Marca mañana, tarde o ambos en los días de la semana en los que podrías colaborar con una clínica de forma recurrente. Sirve para las "Colaboraciones" (días fijos, no fechas concretas).</p>
+                <div id="disponibilidadSemanalDias"></div>
+
                 <button class="btn-primary" style="margin-top: 1rem;" onclick="app.disponibilidad.guardar()">Guardar disponibilidad</button>
             </div>
 

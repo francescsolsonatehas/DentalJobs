@@ -23,7 +23,7 @@ const { construirFiltros } = require("./filtros-publicaciones");
 const { generarCsv } = require("./exportaciones");
 const { geocodificarCiudad, distanciaKm } = require("./municipios-coords");
 const { crearZip } = require("./zip");
-const { expandirRango, sanearDias } = require("./fechas");
+const { expandirRango, sanearDias, sanearDiasSemana } = require("./fechas");
 const crypto = require("crypto");
 
 // Notifica por email a un usuario, si tiene los avisos activados
@@ -257,6 +257,72 @@ function avisarInstantaneoSuplencia(pubId, callback) {
     aAvisar.forEach(d => stmt.run(d.id, pubId));
     stmt.finalize(() => terminar());
   });
+}
+
+// Un turno de disponibilidad (dd) cubre un turno pedido (cd) si es el mismo turno o
+// si el dentista está disponible "ambos" (mañana y tarde cubre pedir solo mañana,
+// solo tarde, o ambos). Pedir "ambos" exige que el dentista también tenga "ambos".
+const TURNO_CUBIERTO_SQL = "(dd.turno = 'ambos' OR dd.turno = cd.turno)";
+
+// Dentistas que casan con una colaboración: disponibilidad semanal (día+turno) que
+// cubre alguno de los días que pide la colaboración, dentro de su radio de
+// desplazamiento (o misma ciudad) y con especialidad compatible. Solo tiene sentido
+// cuando quien publicó es una clínica (no hay candidatos-dentista que ofrecer cuando
+// la colaboración la publica otro dentista: ahí quien se postula es una clínica).
+function dentistasDisponiblesParaColaboracion(pubId, callback) {
+  db.all(
+    `SELECT DISTINCT u.id, u.nombre, u.ciudad, u.provincia, u.anyos_experiencia,
+       ${GEO_MATCH_COLS}
+     FROM usuarios u
+     JOIN publicaciones p ON p.id = ? AND p.tipo = 'colaboracion' AND p.activo = 1
+     JOIN usuarios pub_owner ON pub_owner.id = p.usuario_id AND pub_owner.tipo = 'clinica'
+     WHERE u.tipo = 'dentista'
+       AND EXISTS (
+         SELECT 1 FROM disponibilidad_semanal_dentista dd
+         JOIN colaboracion_dias cd ON cd.dia_semana = dd.dia_semana AND ${TURNO_CUBIERTO_SQL}
+         WHERE dd.usuario_id = u.id AND cd.publicacion_id = p.id
+       )
+       AND ${GEO_MATCH_SQL}
+       AND (
+         NOT EXISTS (SELECT 1 FROM publicacion_especialidades pe WHERE pe.publicacion_id = p.id)
+         OR EXISTS (
+           SELECT 1 FROM publicacion_especialidades pe
+           JOIN usuario_especialidades ue ON ue.especialidad_id = pe.especialidad_id
+           WHERE pe.publicacion_id = p.id AND ue.usuario_id = u.id
+         )
+       )
+     ORDER BY u.nombre`,
+    [pubId],
+    (err, dentistas) => {
+      if (err) return callback(err);
+      dentistas = (dentistas || []).filter(dentroDeRadioMatching);
+      if (dentistas.length === 0) return callback(null, []);
+      // Adjuntar a cada dentista los días de la semana (con turno) en los que coincide
+      db.all(
+        `SELECT dd.usuario_id, cd.dia_semana, cd.turno
+         FROM disponibilidad_semanal_dentista dd
+         JOIN colaboracion_dias cd ON cd.dia_semana = dd.dia_semana AND ${TURNO_CUBIERTO_SQL}
+         WHERE cd.publicacion_id = ?
+         ORDER BY cd.dia_semana`,
+        [pubId],
+        (err2, pares) => {
+          if (err2) return callback(err2);
+          const porDentista = {};
+          (pares || []).forEach(p => {
+            (porDentista[p.usuario_id] = porDentista[p.usuario_id] || []).push({ dia: p.dia_semana, turno: p.turno });
+          });
+          dentistas.forEach(d => {
+            d.dias_coincidentes = porDentista[d.id] || [];
+            const dist = distanciaKm(d.u_lat, d.u_lon, d.pub_lat, d.pub_lon);
+            d.km = Number.isFinite(dist) ? Math.round(dist) : null;
+            delete d.u_lat; delete d.u_lon; delete d.pub_lat; delete d.pub_lon;
+            delete d.radio_km; delete d.ciudad_coincide;
+          });
+          callback(null, dentistas);
+        }
+      );
+    }
+  );
 }
 
 // Respuestas de un usuario al cuestionario de compatibilidad, en la forma que
@@ -1608,6 +1674,68 @@ app.post("/admin/matching-suplencias", verificarAdmin, (req, res) => {
   );
 });
 
+// Digest diario de matching de colaboraciones: mismo patrón que el de suplencias,
+// pero casando disponibilidad_semanal_dentista (día+turno recurrente) con
+// colaboracion_dias en vez de fechas concretas. Solo colaboraciones publicadas por
+// una clínica (el dentista es siempre el candidato, nunca el publicante aquí).
+app.post("/admin/matching-colaboraciones", verificarAdmin, (req, res) => {
+  db.all(
+    `SELECT DISTINCT u.id AS usuario_id, p.id AS publicacion_id,
+       ${GEO_MATCH_COLS}
+     FROM usuarios u
+     JOIN disponibilidad_semanal_dentista dd ON dd.usuario_id = u.id
+     JOIN colaboracion_dias cd ON cd.dia_semana = dd.dia_semana AND ${TURNO_CUBIERTO_SQL}
+     JOIN publicaciones p ON p.id = cd.publicacion_id AND p.tipo = 'colaboracion' AND p.activo = 1
+     JOIN usuarios pub_owner ON pub_owner.id = p.usuario_id AND pub_owner.tipo = 'clinica'
+     WHERE u.tipo = 'dentista'
+       AND ${GEO_MATCH_SQL}
+       AND (
+         NOT EXISTS (SELECT 1 FROM publicacion_especialidades pe WHERE pe.publicacion_id = p.id)
+         OR EXISTS (
+           SELECT 1 FROM publicacion_especialidades pe
+           JOIN usuario_especialidades ue ON ue.especialidad_id = pe.especialidad_id
+           WHERE pe.publicacion_id = p.id AND ue.usuario_id = u.id
+         )
+       )
+       AND NOT EXISTS (SELECT 1 FROM notificaciones_colaboracion nc WHERE nc.usuario_id = u.id AND nc.publicacion_id = p.id)
+     ORDER BY u.id, p.id`,
+    (err, pares) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al calcular el matching de colaboraciones" });
+      }
+      pares = (pares || []).filter(dentroDeRadioMatching);
+
+      const porDentista = {};
+      pares.forEach(f => { (porDentista[f.usuario_id] = porDentista[f.usuario_id] || []).push(f); });
+
+      Object.entries(porDentista).forEach(([uid, cols]) => {
+        const n = cols.length;
+        notificarUsuario(
+          uid,
+          `🤝 ${n} colaboraci${n === 1 ? "ón" : "ones"} para ti en DentalJobs`,
+          "Colaboraciones que encajan con tu disponibilidad semanal",
+          `Hay ${n} colaboraci${n === 1 ? "ón" : "ones"} en tu zona en días de la semana que tienes marcados como disponibles. Entra para verlas y postularte.`,
+          "Ver colaboraciones",
+          {
+            tipo: "colaboracion",
+            enlace: n === 1
+              ? `#publicacion=${cols[0].publicacion_id}`
+              : `#colaboraciones=${cols.map(c => c.publicacion_id).join(",")}`
+          }
+        );
+      });
+
+      if (pares.length === 0) {
+        return res.json({ dentistasAvisados: 0, avisos: 0 });
+      }
+      const stmt = db.prepare("INSERT OR IGNORE INTO notificaciones_colaboracion (usuario_id, publicacion_id) VALUES (?, ?)");
+      pares.forEach(p => stmt.run(p.usuario_id, p.publicacion_id));
+      stmt.finalize(() => res.json({ dentistasAvisados: Object.keys(porDentista).length, avisos: pares.length }));
+    }
+  );
+});
+
 // Envía a cada clínica y dentista un resumen de sus coincidencias activas
 // (misma ciudad + especialidad). Pensado para dispararse una vez por semana
 // desde un cron externo (GitHub Actions), ya que Render free no trae cron propio.
@@ -1888,8 +2016,8 @@ app.get("/publicaciones", (req, res) => {
   if (sort === 'salario') {
     query += " ORDER BY p.salario_min DESC, p.creado_en DESC";
   } else if (sort === 'tipo') {
-    // "Mis Publicaciones": primero las ofertas de empleo y después las suplencias
-    query += ` ORDER BY CASE p.tipo WHEN 'oferta' THEN 0 WHEN 'suplencia' THEN 1 ELSE 2 END ASC,
+    // "Mis Publicaciones": primero las ofertas de empleo, después las suplencias y las colaboraciones
+    query += ` ORDER BY CASE p.tipo WHEN 'oferta' THEN 0 WHEN 'suplencia' THEN 1 WHEN 'colaboracion' THEN 2 ELSE 3 END ASC,
                         p.creado_en DESC`;
   } else if (sort === 'ciudad') {
     // Por ciudad y, dentro de cada una, por especialidad (igual que el listado de
@@ -2183,6 +2311,17 @@ app.get("/publicaciones/:id", (req, res) => {
       if (!pub) {
         return res.status(404).json({ error: "Publicación no encontrada" });
       }
+      if (pub.tipo === 'colaboracion') {
+        // Para las colaboraciones se adjuntan los días de la semana (con turno) que cubren
+        return db.all(
+          "SELECT dia_semana, turno FROM colaboracion_dias WHERE publicacion_id = ? ORDER BY dia_semana",
+          [pub.id],
+          (err2, dias) => {
+            pub.diasSemana = (err2 || !dias) ? [] : dias.map(d => ({ dia: d.dia_semana, turno: d.turno }));
+            res.json(pub);
+          }
+        );
+      }
       if (pub.tipo !== 'suplencia') {
         return res.json(pub);
       }
@@ -2207,7 +2346,7 @@ app.get("/publicaciones/usuario/:usuario_id/candidatos", verifyToken, (req, res)
     `SELECT p.id as publicacion_id, COUNT(c.id) as candidatos_count
      FROM publicaciones p
      LEFT JOIN candidaturas c ON p.id = c.publicacion_id
-     WHERE p.usuario_id = ? AND p.tipo IN ('oferta', 'suplencia') AND p.activo = 1
+     WHERE p.usuario_id = ? AND p.tipo IN ('oferta', 'suplencia', 'colaboracion') AND p.activo = 1
      GROUP BY p.id`,
     [usuario_id],
     (err, ofertas) => {
@@ -2348,6 +2487,71 @@ app.get("/suplencias/:id/dentistas-disponibles", verifyToken, (req, res) => {
 });
 
 /* ===========================
+   🔹 DISPONIBILIDAD SEMANAL DEL DENTISTA (calendario recurrente para colaboraciones)
+=========================== */
+
+// Días de la semana (con turno) en los que el dentista se declara disponible para
+// colaboraciones. Distinto de /disponibilidad (por fecha concreta, solo suplencias).
+app.get("/disponibilidad-semanal", verifyToken, (req, res) => {
+  db.all(
+    "SELECT dia_semana, turno FROM disponibilidad_semanal_dentista WHERE usuario_id = ? ORDER BY dia_semana",
+    [req.usuario.id],
+    (err, filas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener la disponibilidad semanal" });
+      }
+      res.json({ dias: (filas || []).map(f => ({ dia: f.dia_semana, turno: f.turno })) });
+    }
+  );
+});
+
+// Reemplaza el conjunto de días/turnos disponibles del dentista por el que llega en dias[].
+app.put("/disponibilidad-semanal", verifyToken, (req, res) => {
+  if (req.usuario.tipo !== "dentista") {
+    return res.status(403).json({ error: "Solo los dentistas tienen disponibilidad" });
+  }
+  const dias = sanearDiasSemana(req.body.dias);
+
+  db.run("DELETE FROM disponibilidad_semanal_dentista WHERE usuario_id = ?", [req.usuario.id], (err) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al guardar la disponibilidad semanal" });
+    }
+    const responder = () => res.json({ success: true, dias });
+    if (dias.length === 0) {
+      return responder();
+    }
+    const stmt = db.prepare("INSERT OR IGNORE INTO disponibilidad_semanal_dentista (usuario_id, dia_semana, turno) VALUES (?, ?, ?)");
+    dias.forEach(d => stmt.run(req.usuario.id, d.dia, d.turno));
+    stmt.finalize(() => responder());
+  });
+});
+
+// Dentistas disponibles que casan con una colaboración (solo el dueño de la colaboración).
+app.get("/colaboraciones/:id/dentistas-disponibles", verifyToken, (req, res) => {
+  db.get("SELECT usuario_id, tipo FROM publicaciones WHERE id = ?", [req.params.id], (err, pub) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al obtener dentistas disponibles" });
+    }
+    if (!pub || pub.tipo !== "colaboracion") {
+      return res.status(404).json({ error: "Colaboración no encontrada" });
+    }
+    if (pub.usuario_id !== req.usuario.id) {
+      return res.status(403).json({ error: "Solo el dueño de la colaboración puede ver los dentistas disponibles" });
+    }
+    dentistasDisponiblesParaColaboracion(req.params.id, (e, dentistas) => {
+      if (e) {
+        console.error(e);
+        return res.status(500).json({ error: "Error al obtener dentistas disponibles" });
+      }
+      res.json({ dentistas: dentistas || [] });
+    });
+  });
+});
+
+/* ===========================
    🔹 NOTIFICACIONES IN-APP (campana)
 =========================== */
 
@@ -2438,7 +2642,7 @@ app.get("/onboarding", verifyToken, (req, res) => {
       `SELECT
          (SELECT descripcion FROM usuarios WHERE id = ?) AS descripcion,
          (SELECT COUNT(*) FROM sedes WHERE usuario_id = ?) AS sedes,
-         (SELECT COUNT(*) FROM publicaciones WHERE usuario_id = ? AND tipo IN ('oferta','suplencia')) AS publicaciones,
+         (SELECT COUNT(*) FROM publicaciones WHERE usuario_id = ? AND tipo IN ('oferta','suplencia','colaboracion')) AS publicaciones,
          (SELECT COUNT(DISTINCT clave) FROM preferencias WHERE usuario_id = ?) AS preferencias`,
       [uid, uid, uid, uid],
       (err, r) => {
@@ -2480,20 +2684,29 @@ function sanearPreguntas(preguntas) {
 }
 
 app.post("/publicaciones", verifyToken, (req, res) => {
-  const { tipo, descripcion, ciudad, provincia, especialidades, contrato, jornada, salario, salarioDesde, salarioHasta, experiencia, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, dias, urgente, retribucionTipo, retribucionPorcentaje, equipamiento, preguntas } = req.body;
-  // Las preguntas de criba solo aplican a ofertas/suplencias (las publica la clínica)
-  const preguntasCriba = (tipo === "oferta" || tipo === "suplencia") ? sanearPreguntas(preguntas) : [];
+  const { tipo, descripcion, ciudad, provincia, especialidades, contrato, jornada, salario, salarioDesde, salarioHasta, experiencia, nombre_contacto, email_contacto, telefono_contacto, sede_id, fecha_desde, fecha_hasta, dias, diasSemana, urgente, retribucionTipo, retribucionPorcentaje, equipamiento, preguntas } = req.body;
 
-  // La ciudad de las solicitudes se hereda del perfil del dentista (no editable), así que aquí no es obligatoria
-  if (!tipo || (tipo !== 'solicitud' && !ciudad)) {
-    return res.status(400).json({ error: "Faltan datos obligatorios" });
-  }
-
-  // Validar tipo de usuario vs tipo de publicación (las clínicas pueden crear ofertas fijas o suplencias puntuales)
+  // Validar tipo de usuario vs tipo de publicación. Las clínicas pueden crear ofertas
+  // fijas, suplencias puntuales o colaboraciones; los dentistas, solicitudes o
+  // colaboraciones (una colaboración la puede publicar cualquiera de los dos roles).
   const tipoUsuario = req.usuario.tipo;
-  const tiposPermitidos = tipoUsuario === 'clinica' ? ['oferta', 'suplencia'] : ['solicitud'];
+  const tiposPermitidos = tipoUsuario === 'clinica' ? ['oferta', 'suplencia', 'colaboracion'] : ['solicitud', 'colaboracion'];
   if (!tiposPermitidos.includes(tipo)) {
     return res.status(403).json({ error: "No puedes crear este tipo de publicación" });
+  }
+
+  // Cuando la colaboración la publica un dentista, se comporta como una solicitud:
+  // la ciudad se hereda de su perfil, no del formulario.
+  const comoSolicitud = tipo === 'solicitud' || (tipo === 'colaboracion' && tipoUsuario === 'dentista');
+  // Las preguntas de criba y el equipamiento son cosas de quien tiene sede/equipo: la
+  // clínica (en oferta, suplencia o colaboración publicada por ella). Un dentista, sea
+  // en solicitud o en colaboración, no tiene ni sedes ni equipamiento que ofrecer.
+  const esClinicaPublicando = tipo === "oferta" || tipo === "suplencia" || (tipo === "colaboracion" && tipoUsuario === "clinica");
+  const preguntasCriba = esClinicaPublicando ? sanearPreguntas(preguntas) : [];
+
+  // La ciudad de las solicitudes (y colaboraciones de dentista) se hereda del perfil, así que aquí no es obligatoria
+  if (!tipo || (!comoSolicitud && !ciudad)) {
+    return res.status(400).json({ error: "Faltan datos obligatorios" });
   }
 
   // Días de la suplencia: se aceptan días concretos (dias[]) o, como respaldo/legacy,
@@ -2508,6 +2721,13 @@ app.post("/publicaciones", verifyToken, (req, res) => {
   const suplenciaDesde = diasSuplencia.length ? diasSuplencia[0] : null;
   const suplenciaHasta = diasSuplencia.length ? diasSuplencia[diasSuplencia.length - 1] : null;
 
+  // Días de la semana (recurrentes, con turno) de la colaboración: de 1 (lunes) a 6
+  // (sábado), no fechas concretas.
+  const diasColaboracion = tipo === 'colaboracion' ? sanearDiasSemana(diasSemana) : [];
+  if (tipo === 'colaboracion' && diasColaboracion.length === 0) {
+    return res.status(400).json({ error: "La colaboración necesita al menos un día de la semana" });
+  }
+
   // Salario estructurado (campos numéricos) con retrocompatibilidad con el texto libre
   const desdeNum = salarioDesde !== undefined && salarioDesde !== null && salarioDesde !== '' ? parseInt(salarioDesde) : null;
   const hastaNum = salarioHasta !== undefined && salarioHasta !== null && salarioHasta !== '' ? parseInt(salarioHasta) : null;
@@ -2520,8 +2740,9 @@ app.post("/publicaciones", verifyToken, (req, res) => {
     ? parseInt(retribucionPorcentaje)
     : null;
 
-  // Equipamiento solo aplica a ofertas/suplencias, y solo se aceptan valores del catálogo fijo
-  const equipamientoValido = (tipo === 'oferta' || tipo === 'suplencia') && Array.isArray(equipamiento)
+  // Equipamiento: solo lo aporta quien tiene sede/equipo (ver esClinicaPublicando), y
+  // solo se aceptan valores del catálogo fijo
+  const equipamientoValido = esClinicaPublicando && Array.isArray(equipamiento)
     ? equipamiento.filter(e => EQUIPAMIENTO_CATALOGO.includes(e))
     : [];
 
@@ -2579,6 +2800,15 @@ app.post("/publicaciones", verifyToken, (req, res) => {
           return;
         }
 
+        // Días de la semana de la colaboración. Sin aviso instantáneo (no tiene
+        // checkbox de "urgente"): el surfacing lo cubre el digest diario (M3).
+        if (diasColaboracion.length > 0) {
+          const stmt = db.prepare("INSERT OR IGNORE INTO colaboracion_dias (publicacion_id, dia_semana, turno) VALUES (?, ?, ?)");
+          diasColaboracion.forEach(d => stmt.run(publicacionId, d.dia, d.turno));
+          stmt.finalize(() => res.json({ mensaje: "Publicación creada", id: publicacionId }));
+          return;
+        }
+
         res.json({
           mensaje: "Publicación creada",
           id: publicacionId
@@ -2587,9 +2817,10 @@ app.post("/publicaciones", verifyToken, (req, res) => {
     );
   };
 
-  if (tipo === 'solicitud') {
-    // La ciudad y provincia de una solicitud se heredan del perfil del dentista (no editable en el
-    // formulario). Si el perfil aún no tiene ciudad, se acepta la que llegue en el cuerpo como respaldo.
+  if (comoSolicitud) {
+    // La ciudad y provincia de una solicitud (o de una colaboración publicada por un
+    // dentista) se heredan del perfil (no editable en el formulario). Si el perfil aún
+    // no tiene ciudad, se acepta la que llegue en el cuerpo como respaldo.
     db.get("SELECT ciudad, provincia FROM usuarios WHERE id = ?", [req.usuario.id], (err, u) => {
       if (err) {
         console.error(err);
@@ -2598,7 +2829,7 @@ app.post("/publicaciones", verifyToken, (req, res) => {
       const ciudadFinal = (u && u.ciudad) ? u.ciudad : (ciudad || null);
       const provinciaFinal = (u && u.ciudad) ? (u.provincia || null) : (provincia || null);
       if (!ciudadFinal) {
-        return res.status(400).json({ error: "Define tu ciudad en el perfil antes de publicar una solicitud" });
+        return res.status(400).json({ error: "Define tu ciudad en el perfil antes de publicar" });
       }
       insertarPublicacion(null, ciudadFinal, provinciaFinal, { equipos: [] });
     });
@@ -2988,7 +3219,7 @@ app.post("/publicaciones/:id/especialidades", verifyToken, (req, res) => {
 });
 
 app.put("/publicaciones/:id", verifyToken, (req, res) => {
-  const { descripcion, ciudad, especialidades, contrato, jornada, salario, experiencia, nombre_contacto, email_contacto, telefono_contacto, preguntas, dias, fecha_desde, fecha_hasta } = req.body;
+  const { descripcion, ciudad, especialidades, contrato, jornada, salario, experiencia, nombre_contacto, email_contacto, telefono_contacto, preguntas, dias, fecha_desde, fecha_hasta, diasSemana } = req.body;
   // Solo se actualizan las preguntas si el cliente las envía (undefined = no tocar)
   const preguntasCriba = preguntas !== undefined ? sanearPreguntas(preguntas) : undefined;
   const publicacionId = req.params.id;
@@ -3027,15 +3258,29 @@ app.put("/publicaciones/:id", verifyToken, (req, res) => {
     const setFechas = aplicarDias ? ", fecha_desde = ?, fecha_hasta = ?" : "";
     const paramsFechas = aplicarDias ? [diasEdit[0], diasEdit[diasEdit.length - 1]] : [];
 
-    // Sustituye los días de la suplencia (si procede) y responde. Se completan las
-    // escrituras antes de responder para no dejar ninguna en vuelo.
+    // Días de la semana de la colaboración editados: solo se tocan si es una
+    // colaboración y el cliente los envía.
+    const diasSemanaEdit = Array.isArray(diasSemana) ? sanearDiasSemana(diasSemana) : null;
+    const aplicarDiasSemana = pub.tipo === 'colaboracion' && diasSemanaEdit !== null && diasSemanaEdit.length > 0;
+
+    // Sustituye los días (de suplencia o de colaboración, según toque) y responde. Se
+    // completan las escrituras antes de responder para no dejar ninguna en vuelo.
     const terminar = () => {
-      if (!aplicarDias) return res.json({ mensaje: "Publicación actualizada" });
-      db.run("DELETE FROM suplencia_dias WHERE publicacion_id = ?", [publicacionId], () => {
-        const stmt = db.prepare("INSERT OR IGNORE INTO suplencia_dias (publicacion_id, fecha) VALUES (?, ?)");
-        diasEdit.forEach(dia => stmt.run(publicacionId, dia));
-        stmt.finalize(() => res.json({ mensaje: "Publicación actualizada" }));
-      });
+      if (aplicarDias) {
+        return db.run("DELETE FROM suplencia_dias WHERE publicacion_id = ?", [publicacionId], () => {
+          const stmt = db.prepare("INSERT OR IGNORE INTO suplencia_dias (publicacion_id, fecha) VALUES (?, ?)");
+          diasEdit.forEach(dia => stmt.run(publicacionId, dia));
+          stmt.finalize(() => res.json({ mensaje: "Publicación actualizada" }));
+        });
+      }
+      if (aplicarDiasSemana) {
+        return db.run("DELETE FROM colaboracion_dias WHERE publicacion_id = ?", [publicacionId], () => {
+          const stmt = db.prepare("INSERT OR IGNORE INTO colaboracion_dias (publicacion_id, dia_semana, turno) VALUES (?, ?, ?)");
+          diasSemanaEdit.forEach(d => stmt.run(publicacionId, d.dia, d.turno));
+          stmt.finalize(() => res.json({ mensaje: "Publicación actualizada" }));
+        });
+      }
+      res.json({ mensaje: "Publicación actualizada" });
     };
 
     db.run(
@@ -3301,11 +3546,11 @@ app.get("/stats/candidatos-interesados-lista/:empresa_id", verifyToken, (req, re
      FROM candidaturas c
      INNER JOIN usuarios u ON c.usuario_id = u.id
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
-     -- Las clínicas publican tanto ofertas fijas como suplencias puntuales, y en
-     -- ambas reciben candidaturas: si aquí solo se contaba 'oferta', las postulaciones
-     -- a una suplencia quedaban fuera de "Postulaciones Recibidas" aunque el banner de
-     -- recordatorios (que sí cuenta las dos) avisara de que había una sin responder.
-     WHERE p.usuario_id = ? AND p.tipo IN ('oferta', 'suplencia') AND p.activo = 1
+     -- Las clínicas publican ofertas fijas, suplencias puntuales y colaboraciones, y en
+     -- las tres reciben candidaturas: si aquí solo se contara 'oferta', las postulaciones
+     -- a una suplencia o colaboración quedarían fuera de "Postulaciones Recibidas" aunque
+     -- el banner de recordatorios (que sí las cuenta todas) avisara de que había una sin responder.
+     WHERE p.usuario_id = ? AND p.tipo IN ('oferta', 'suplencia', 'colaboracion') AND p.activo = 1
      ORDER BY p.id, c.creado_en DESC`,
     [req.params.empresa_id],
     (err, candidatos) => {
@@ -3360,7 +3605,7 @@ app.get("/stats/postulaciones-recibidas-dentista/:usuario_id", verifyToken, (req
     `SELECT COUNT(*) as total
      FROM candidaturas c
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
-     WHERE p.usuario_id = ? AND p.tipo = 'solicitud' AND p.activo = 1`,
+     WHERE p.usuario_id = ? AND p.tipo IN ('solicitud', 'colaboracion') AND p.activo = 1`,
     [req.params.usuario_id],
     (err, result) => {
       if (err) {
@@ -3380,7 +3625,7 @@ app.get("/stats/postulaciones-recibidas-dentista-lista/:usuario_id", verifyToken
      FROM candidaturas c
      INNER JOIN usuarios u ON c.usuario_id = u.id
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
-     WHERE p.usuario_id = ? AND p.tipo = 'solicitud' AND p.activo = 1
+     WHERE p.usuario_id = ? AND p.tipo IN ('solicitud', 'colaboracion') AND p.activo = 1
      ORDER BY p.id, c.creado_en DESC`,
     [req.params.usuario_id],
     (err, candidatos) => {
@@ -3401,7 +3646,7 @@ app.get("/stats/postulaciones-recibidas-aceptadas-dentista-lista/:usuario_id", v
      FROM candidaturas c
      INNER JOIN usuarios u ON c.usuario_id = u.id
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
-     WHERE p.usuario_id = ? AND p.tipo = 'solicitud' AND p.activo = 1 AND c.estado = 'aceptada'
+     WHERE p.usuario_id = ? AND p.tipo IN ('solicitud', 'colaboracion') AND p.activo = 1 AND c.estado = 'aceptada'
      ORDER BY p.id, c.creado_en DESC`,
     [req.params.usuario_id],
     (err, candidatos) => {

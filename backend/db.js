@@ -740,6 +740,41 @@ db.serialize(() => {
     )
   `);
 
+  // Días de la semana (recurrentes) que cubre una "Colaboración", con turno. A
+  // diferencia de suplencia_dias (fechas concretas), aquí dia_semana es 1=lunes..6=sábado.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS colaboracion_dias (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      publicacion_id INTEGER NOT NULL REFERENCES publicaciones(id),
+      dia_semana INTEGER NOT NULL,
+      turno TEXT NOT NULL,
+      UNIQUE(publicacion_id, dia_semana)
+    )
+  `);
+
+  // Disponibilidad semanal recurrente del dentista para colaboraciones (distinta de
+  // disponibilidad_dentista, que es por fecha concreta y solo sirve para suplencias).
+  db.run(`
+    CREATE TABLE IF NOT EXISTS disponibilidad_semanal_dentista (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      dia_semana INTEGER NOT NULL,
+      turno TEXT NOT NULL,
+      UNIQUE(usuario_id, dia_semana)
+    )
+  `);
+
+  // Dedup de avisos de matching de colaboraciones, mismo patrón que notificaciones_suplencia.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS notificaciones_colaboracion (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      publicacion_id INTEGER NOT NULL REFERENCES publicaciones(id),
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(usuario_id, publicacion_id)
+    )
+  `);
+
   // Notificaciones in-app (campana): se crean en cada evento por-usuario a la vez
   // que el email, y se muestran aunque el usuario tenga los emails desactivados.
   db.run(`

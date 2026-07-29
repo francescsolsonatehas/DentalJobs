@@ -152,6 +152,23 @@ const utils = {
     return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
   },
 
+  NOMBRES_DIA_SEMANA: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"],
+  NOMBRES_DIA_SEMANA_CORTO: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"],
+  NOMBRES_TURNO: { manana: "mañana", tarde: "tarde", ambos: "mañana y tarde" },
+
+  // "Lunes (mañana)" para un día de la semana de una colaboración: {dia, turno}
+  formatearDiaSemana({ dia, turno } = {}) {
+    const nombre = this.NOMBRES_DIA_SEMANA[dia - 1] || `Día ${dia}`;
+    return `${nombre} (${this.NOMBRES_TURNO[turno] || turno})`;
+  },
+
+  // Compacto para tarjetas: "Lun mañana · Mié ambos"
+  formatearDiasSemanaCompacto(diasSemana) {
+    return (diasSemana || [])
+      .map(({ dia, turno }) => `${this.NOMBRES_DIA_SEMANA_CORTO[dia - 1] || dia} ${this.NOMBRES_TURNO[turno] || turno}`)
+      .join(" · ");
+  },
+
   // Expande un rango 'YYYY-MM-DD' a la lista de días (ambos incluidos). Espejo
   // cliente de backend/fechas.js expandirRango, con tope de seguridad.
   expandirRango(desde, hasta) {
@@ -463,6 +480,87 @@ const app = {
   },
 
   // ============================================
+  // Módulo: Selector de días de la semana + turno (para "Colaboración": lunes a
+  // sábado, cada uno con mañana/tarde/ambos). A diferencia de app.calendario, no hay
+  // mes que navegar: son 6 filas fijas con dos casillas cada una.
+  // ============================================
+
+  diasSemana: {
+    _inst: {},
+    NOMBRES_DIA: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"],
+
+    // `seleccion` es un array [{dia, turno}]; `onChange(dias)` se llama en cada cambio.
+    crear(containerId, { seleccion = [], onChange } = {}) {
+      const mapa = new Map();
+      seleccion.forEach(({ dia, turno }) => {
+        mapa.set(dia, { manana: turno === "manana" || turno === "ambos", tarde: turno === "tarde" || turno === "ambos" });
+      });
+      this._inst[containerId] = { mapa, onChange: onChange || (() => {}) };
+      this.render(containerId);
+    },
+
+    // Del mapa interno {dia: {manana, tarde}} a la forma que espera el backend
+    obtener(containerId) {
+      const inst = this._inst[containerId];
+      if (!inst) return [];
+      const dias = [];
+      for (const [dia, { manana, tarde }] of inst.mapa) {
+        if (!manana && !tarde) continue;
+        dias.push({ dia, turno: manana && tarde ? "ambos" : (manana ? "manana" : "tarde") });
+      }
+      return dias.sort((a, b) => a.dia - b.dia);
+    },
+
+    fijar(containerId, dias) {
+      const inst = this._inst[containerId];
+      if (!inst) return;
+      inst.mapa = new Map();
+      (dias || []).forEach(({ dia, turno }) => {
+        inst.mapa.set(dia, { manana: turno === "manana" || turno === "ambos", tarde: turno === "tarde" || turno === "ambos" });
+      });
+      this.render(containerId);
+    },
+
+    toggle(containerId, dia, parte) {
+      const inst = this._inst[containerId];
+      if (!inst) return;
+      const actual = inst.mapa.get(dia) || { manana: false, tarde: false };
+      actual[parte] = !actual[parte];
+      inst.mapa.set(dia, actual);
+      inst.onChange(this.obtener(containerId));
+      this.render(containerId);
+    },
+
+    render(containerId) {
+      const inst = this._inst[containerId];
+      const cont = document.getElementById(containerId);
+      if (!inst || !cont) return;
+
+      const filas = this.NOMBRES_DIA.map((nombre, i) => {
+        const dia = i + 1; // 1=lunes .. 6=sábado
+        const estado = inst.mapa.get(dia) || { manana: false, tarde: false };
+        return `
+          <div class="dias-semana-fila">
+            <span class="dias-semana-nombre">${nombre}</span>
+            <label class="dias-semana-turno">
+              <input type="checkbox" ${estado.manana ? "checked" : ""} onchange="app.diasSemana.toggle('${containerId}',${dia},'manana')"> Mañana
+            </label>
+            <label class="dias-semana-turno">
+              <input type="checkbox" ${estado.tarde ? "checked" : ""} onchange="app.diasSemana.toggle('${containerId}',${dia},'tarde')"> Tarde
+            </label>
+          </div>`;
+      }).join("");
+
+      const total = this.obtener(containerId).length;
+      cont.innerHTML = `
+        <div class="dias-semana-widget">
+          ${filas}
+          <p class="cal-resumen">${total === 0 ? "Ningún día seleccionado" : `${total} día${total===1?"":"s"} a la semana seleccionado${total===1?"":"s"}`}</p>
+        </div>`;
+    }
+  },
+
+  // ============================================
   // Módulo: Disponibilidad del dentista para suplencias
   // ============================================
 
@@ -477,10 +575,19 @@ const app = {
       } catch (error) {
         app.calendario.crear("disponibilidadCalendario", { seleccion: [] });
       }
+
+      // Disponibilidad semanal (para "Colaboración"), independiente de la anterior
+      try {
+        const data = await utils.request("/disponibilidad-semanal");
+        app.diasSemana.crear("disponibilidadSemanalDias", { seleccion: data.dias || [] });
+      } catch (error) {
+        app.diasSemana.crear("disponibilidadSemanalDias", { seleccion: [] });
+      }
     },
 
     async guardar() {
       const dias = app.calendario.obtener("disponibilidadCalendario");
+      const diasSemana = app.diasSemana.obtener("disponibilidadSemanalDias");
       const sel = document.getElementById("radioDesplazamiento");
       const radio_km = sel ? parseInt(sel.value) : NaN;
       try {
@@ -488,7 +595,11 @@ const app = {
           method: "PUT",
           body: JSON.stringify({ dias, ...(Number.isNaN(radio_km) ? {} : { radio_km }) })
         });
-        utils.mostrarAlerta(dias.length ? `Disponibilidad guardada (${dias.length} día${dias.length === 1 ? "" : "s"})` : "Disponibilidad vaciada", "success");
+        await utils.request("/disponibilidad-semanal", {
+          method: "PUT",
+          body: JSON.stringify({ dias: diasSemana })
+        });
+        utils.mostrarAlerta(dias.length || diasSemana.length ? "Disponibilidad guardada" : "Disponibilidad vaciada", "success");
         app.modal.cerrarPerfil();
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
@@ -626,6 +737,55 @@ const app = {
           const dist = (d.km != null && d.km > 0) ? ` · 📏 a ~${d.km} km` : "";
           const exp = (d.anyos_experiencia !== null && d.anyos_experiencia !== undefined) ? ` · 🎓 ${d.anyos_experiencia} años` : "";
           const chips = (d.dias_coincidentes || []).map(f => `<span class="badge">${utils.escapeHtml(utils.formatearDia(f))}</span>`).join("");
+          return `<div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">
+            <div style="flex:1;">
+              <strong style="color:#0f4c75;display:block;">${utils.escapeHtml(d.nombre)}</strong>
+              <p style="margin:0.2rem 0;color:#6b7280;font-size:0.9rem;">📍 ${utils.escapeHtml(ciudad)}${dist}${exp}</p>
+              <div style="margin-top:0.4rem;"><span style="font-size:0.82rem;color:#059669;font-weight:600;">Coincide:</span> <span class="badges" style="gap:0.3rem;">${chips}</span></div>
+            </div>
+            <button class="btn-secondary" onclick="document.getElementById('modalDisponibles').classList.remove('active'); app.perfiles.verDetalle(${d.id})" style="white-space:nowrap;">Ver perfil</button>
+          </div>`;
+        }).join("");
+    }
+  },
+
+  // ============================================
+  // Módulo: Colaboraciones (matching de dentistas disponibles por día de la semana)
+  // ============================================
+
+  colaboraciones: {
+    // Mismo patrón que app.suplencias.verDisponibles, pero casando por día de la
+    // semana + turno (disponibilidad semanal) en vez de fechas concretas. Solo tiene
+    // sentido, y solo lo ve, la clínica dueña de una colaboración publicada por ella.
+    async verDisponibles(pubId, titulo) {
+      const body = document.getElementById("disponiblesBody");
+      document.getElementById("disponiblesTitle").textContent = `Disponibles · ${titulo}`;
+      body.innerHTML = `<p style="color:#6b7280;">Buscando dentistas disponibles…</p>`;
+      document.getElementById("modalDisponibles").classList.add("active");
+
+      let dentistas = [];
+      try {
+        const data = await utils.request(`/colaboraciones/${pubId}/dentistas-disponibles`);
+        dentistas = data.dentistas || [];
+      } catch (error) {
+        body.innerHTML = `<p style="color:#ef4444;">${utils.escapeHtml(error.message)}</p>`;
+        return;
+      }
+
+      if (dentistas.length === 0) {
+        body.innerHTML = `<div style="text-align:center;color:#6b7280;padding:1.5rem;">
+          <p style="font-size:1.05rem;">Aún no hay dentistas disponibles para estos días.</p>
+          <p style="font-size:0.9rem;">Aparecerán aquí cuando un dentista de la zona marque su disponibilidad semanal en alguno de los días de la colaboración.</p>
+        </div>`;
+        return;
+      }
+
+      body.innerHTML = `<p style="color:#6b7280;margin:0 0 1rem;">${dentistas.length} dentista${dentistas.length===1?"":"s"} con disponibilidad en tus días:</p>` +
+        dentistas.map(d => {
+          const ciudad = d.ciudad ? (d.provincia ? `${d.ciudad} (${d.provincia})` : d.ciudad) : "Ubicación no indicada";
+          const dist = (d.km != null && d.km > 0) ? ` · 📏 a ~${d.km} km` : "";
+          const exp = (d.anyos_experiencia !== null && d.anyos_experiencia !== undefined) ? ` · 🎓 ${d.anyos_experiencia} años` : "";
+          const chips = (d.dias_coincidentes || []).map(dc => `<span class="badge">${utils.escapeHtml(utils.formatearDiaSemana(dc))}</span>`).join("");
           return `<div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">
             <div style="flex:1;">
               <strong style="color:#0f4c75;display:block;">${utils.escapeHtml(d.nombre)}</strong>
@@ -808,6 +968,8 @@ const app = {
             return await app.stats.mostrarClinicasPotenciales();
           case "suplencias":
             return await this.abrirSuplencias(argumento);
+          case "colaboraciones":
+            return await this.abrirColaboraciones(argumento);
           case "alerta":
             return await this.abrirAlerta(argumento);
           case "alertas":
@@ -838,7 +1000,8 @@ const app = {
       chat: "Esa conversación ya no está disponible",
       "chat-perfil": "Esa conversación ya no está disponible",
       alerta: "Esa alerta de búsqueda ya no existe",
-      suplencias: "Esas suplencias ya no están disponibles"
+      suplencias: "Esas suplencias ya no están disponibles",
+      colaboraciones: "Esas colaboraciones ya no están disponibles"
     },
 
     // Las suplencias de las que hablaba la notificación, en un modal.
@@ -880,6 +1043,38 @@ const app = {
       document.getElementById("interesadosBody").innerHTML = html;
       document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent =
         `Suplencias que encajan contigo (${suplencias.length})`;
+      document.getElementById("modalInteresados").classList.add("active");
+    },
+
+    // Las colaboraciones de las que hablaba la notificación, mismo patrón que abrirSuplencias.
+    async abrirColaboraciones(ids) {
+      const url = ids ? `/publicaciones?ids=${encodeURIComponent(ids)}` : "/publicaciones?tipo=colaboracion";
+      const colaboraciones = await utils.request(url);
+
+      if (!colaboraciones || colaboraciones.length === 0) {
+        utils.mostrarAlerta("Esas colaboraciones ya no están disponibles", "info");
+        return;
+      }
+      if (colaboraciones.length === 1) {
+        return app.modal.abrirDetalleConManejo(colaboraciones[0]);
+      }
+
+      const html = `<div class="lista-simple">` + colaboraciones.map(c => {
+        return `
+          <div style="border:1px solid #e5e7eb;border-radius:10px;padding:1rem;margin-bottom:.75rem;">
+            <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;">
+              <div style="min-width:0;">
+                <strong style="color:#0f4c75;">📍 ${utils.escapeHtml(c.ciudad || "")}</strong>
+                <p style="margin:.3rem 0 0;color:#4b5563;font-size:.9rem;">${utils.escapeHtml((c.descripcion || "").slice(0, 90))}</p>
+              </div>
+              <button class="btn-primary btn-small" onclick="app.rutas.abrirPublicacion(${c.id})">Ver</button>
+            </div>
+          </div>`;
+      }).join("") + `</div>`;
+
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent =
+        `Colaboraciones que encajan contigo (${colaboraciones.length})`;
       document.getElementById("modalInteresados").classList.add("active");
     },
 
@@ -1450,9 +1645,13 @@ const app = {
       if (estadoApp.filtros.verSuplencias) {
         // Suplencias y turnos sueltos (solo dentistas navegando)
         tipo = 'suplencia';
+      } else if (estadoApp.filtros.verColaboraciones) {
+        // Colaboraciones: las ven los dos roles (publica una u otra parte)
+        tipo = 'colaboracion';
       } else if (estadoApp.filtros.soloMias) {
-        // Mis publicaciones: empresas ven sus OFERTAS y SUPLENCIAS (sin filtro de tipo), candidatos ven sus SOLICITUDES
-        tipo = estadoApp.tipoUsuario === 'clinica' ? null : 'solicitud';
+        // Mis publicaciones: sin filtro de tipo, así salen todas las propias (oferta y
+        // suplencia o solicitud, y en los dos roles también las colaboraciones propias)
+        tipo = null;
       } else {
         // Ver todas: empresas ven SOLICITUDES, candidatos ven OFERTAS
         tipo = estadoApp.tipoUsuario === 'clinica' ? 'solicitud' : 'oferta';
@@ -1625,6 +1824,42 @@ const app = {
           equipamiento: Array.from(document.querySelectorAll('#suplenciaEquipamientoContainer input[type="checkbox"]:checked')).map(cb => cb.value),
           preguntas: Array.from(document.querySelectorAll('.suplenciaPregunta')).map(i => i.value.trim()).filter(v => v)
         };
+      } else if (tipo === "colaboracion") {
+        // La publica una clínica (como suplencia: sede, equipamiento, preguntas de
+        // criba) o un dentista (como solicitud: contacto editable, sin sede).
+        const esClinicaColab = estadoApp.tipoUsuario === 'clinica';
+        const especialidadesCheckboxes = document.querySelectorAll('#colaboracionEspecialidadesContainer input[type="checkbox"]:checked');
+        const especialidades = Array.from(especialidadesCheckboxes).map(cb => parseInt(cb.value));
+
+        formData = {
+          tipo: "colaboracion",
+          descripcion: document.getElementById("colaboracionDescripcion").value,
+          ciudad: document.getElementById("colaboracionCiudad").value,
+          especialidades: especialidades,
+          salario: document.getElementById("colaboracionSalario").value || null,
+          diasSemana: app.diasSemana.obtener("colaboracionDiasSemana"),
+          retribucionTipo: document.querySelector('input[name="colaboracionRetribucionTipo"]:checked')?.value || 'fijo',
+          retribucionPorcentaje: document.getElementById("colaboracionRetribucionPorcentaje").value || null,
+          nombre_contacto: esClinicaColab
+            ? document.getElementById("colaboracionNombreContacto").value
+            : document.getElementById("colaboracionNombreContactoDentista").value,
+          email_contacto: esClinicaColab
+            ? document.getElementById("colaboracionEmailContacto").value
+            : document.getElementById("colaboracionEmailContactoDentista").value,
+          telefono_contacto: (esClinicaColab
+            ? document.getElementById("colaboracionTelefonoContacto").value
+            : document.getElementById("colaboracionTelefonoContactoDentista").value) || null,
+          equipamiento: esClinicaColab
+            ? Array.from(document.querySelectorAll('#colaboracionEquipamientoContainer input[type="checkbox"]:checked')).map(cb => cb.value)
+            : [],
+          preguntas: esClinicaColab
+            ? Array.from(document.querySelectorAll('.colaboracionPregunta')).map(i => i.value.trim()).filter(v => v)
+            : []
+        };
+        if (esClinicaColab) {
+          // "principal" (ciudad del perfil) no lleva sede; un centro sí
+          formData.sede_id = (() => { const v = document.getElementById("colaboracionSede")?.value; return v && v !== "principal" ? v : null; })();
+        }
       } else {
         // Obtener especialidades seleccionadas
         const especialidadesCheckboxes = document.querySelectorAll('#solicitudEspecialidadesContainer input[type="checkbox"]:checked');
@@ -1646,14 +1881,21 @@ const app = {
         };
       }
 
-      const esClinicaPub = (tipo === 'oferta' || tipo === 'suplencia');
+      // Colaboración de clínica se comporta como oferta/suplencia (necesita sede); de
+      // dentista, como solicitud (contacto obligatorio, validado más abajo).
+      const colabDeClinica = tipo === 'colaboracion' && estadoApp.tipoUsuario === 'clinica';
+      const colabDeDentista = tipo === 'colaboracion' && estadoApp.tipoUsuario === 'dentista';
+      const esClinicaPub = (tipo === 'oferta' || tipo === 'suplencia' || colabDeClinica);
       if (esClinicaPub && !document.getElementById(`${tipo}Sede`)?.value) {
         utils.mostrarAlerta("Elige una ubicación para publicar", "error");
         return;
       }
 
-      // Para ofertas/suplencias, ciudad, empresa y contacto se derivan de la sede/perfil en el backend
-      if (!formData.descripcion || (tipo === 'solicitud' && (!formData.nombre_contacto || !formData.email_contacto))) {
+      // Para ofertas/suplencias/colaboraciones de clínica, ciudad, empresa y contacto
+      // se derivan de la sede/perfil en el backend; solicitud y colaboración de
+      // dentista exigen nombre y email en el propio formulario.
+      const exigeContacto = tipo === 'solicitud' || colabDeDentista;
+      if (!formData.descripcion || (exigeContacto && (!formData.nombre_contacto || !formData.email_contacto))) {
         utils.mostrarAlerta("Por favor completa todos los campos obligatorios", "error");
         return;
       }
@@ -1663,9 +1905,15 @@ const app = {
         return;
       }
 
-      // Validar el email que introduce el dentista en una solicitud (en ofertas sale del perfil)
+      if (tipo === "colaboracion" && (!formData.diasSemana || formData.diasSemana.length === 0)) {
+        utils.mostrarAlerta("Marca al menos un día de la semana para la colaboración", "error");
+        return;
+      }
+
+      // Validar el email que introduce el dentista en una solicitud, o quien no tenga
+      // contacto de perfil/sede en una colaboración (en oferta/suplencia sale del perfil)
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (tipo === 'solicitud' && !emailRegex.test(formData.email_contacto)) {
+      if (exigeContacto && !emailRegex.test(formData.email_contacto)) {
         utils.mostrarAlerta("Por favor ingresa un email válido", "error");
         return;
       }
@@ -1689,7 +1937,8 @@ const app = {
         app.onboarding.refrescar();
 
         document.getElementById(`tab-${tipo}`).querySelector("form").reset();
-        if (tipo === "oferta" || tipo === "suplencia") app.publicaciones.toggleRetribucion(tipo);
+        if (tipo === "oferta" || tipo === "suplencia" || tipo === "colaboracion") app.publicaciones.toggleRetribucion(tipo);
+        if (tipo === "colaboracion") app.diasSemana.crear("colaboracionDiasSemana", {});
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -1707,6 +1956,28 @@ const app = {
         const provincia = u.provincia || "";
         inputCiudad.value = provincia ? `${ciudad} (${provincia})` : ciudad;
         if (inputProvincia) inputProvincia.value = provincia;
+        if (hint) {
+          hint.textContent = ciudad
+            ? 'Se toma de tu perfil. Para cambiarla ve a "Mi perfil" → Mis datos.'
+            : '⚠️ No tienes ciudad en tu perfil. Defínela en "Mi perfil" → Mis datos antes de publicar.';
+          hint.style.color = ciudad ? "" : "#b45309";
+        }
+      } catch (error) {
+        console.error("Error al cargar la ciudad del perfil:", error);
+      }
+    },
+
+    // Igual que rellenarCiudadSolicitudDesdePerfil, para cuando quien publica la
+    // colaboración es un dentista (se comporta como una solicitud: sin sede).
+    async rellenarCiudadColaboracionDesdePerfil() {
+      const inputCiudad = document.getElementById("colaboracionCiudad");
+      const hint = document.getElementById("colaboracionCiudadHint");
+      if (!inputCiudad) return;
+      try {
+        const u = await utils.request("/auth/mi-perfil");
+        const ciudad = u.ciudad || "";
+        const provincia = u.provincia || "";
+        inputCiudad.value = provincia ? `${ciudad} (${provincia})` : ciudad;
         if (hint) {
           hint.textContent = ciudad
             ? 'Se toma de tu perfil. Para cambiarla ve a "Mi perfil" → Mis datos.'
@@ -1996,6 +2267,7 @@ const app = {
     mostrarTodas(btn) {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.verSuplencias = false;
+      estadoApp.filtros.verColaboraciones = false;
       estadoApp.vistaActual = "publicaciones";
       app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
@@ -2020,6 +2292,7 @@ const app = {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = false;
+      estadoApp.filtros.verColaboraciones = false;
       estadoApp.vistaActual = "perfiles";
       app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
@@ -2040,6 +2313,7 @@ const app = {
       estadoApp.filtros.soloMias = true;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = false;
+      estadoApp.filtros.verColaboraciones = false;
       estadoApp.vistaActual = "mis-publicaciones";
       app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
@@ -2060,6 +2334,7 @@ const app = {
       estadoApp.filtros.soloMias = true;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = false;
+      estadoApp.filtros.verColaboraciones = false;
       estadoApp.vistaActual = "mis-publicaciones";
       app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
@@ -2079,6 +2354,7 @@ const app = {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = true;
       estadoApp.filtros.verSuplencias = false;
+      estadoApp.filtros.verColaboraciones = false;
       estadoApp.vistaActual = null;
       app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
@@ -2095,6 +2371,7 @@ const app = {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = false;
+      estadoApp.filtros.verColaboraciones = false;
       estadoApp.vistaActual = "mis-postulaciones";
       app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
@@ -2112,6 +2389,7 @@ const app = {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = true;
+      estadoApp.filtros.verColaboraciones = false;
       estadoApp.vistaActual = "suplencias";
       app.exportar.actualizarBoton();
       document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
@@ -2130,6 +2408,26 @@ const app = {
       // Se devuelve la promesa para poder esperar a que el listado esté pintado
       // (quien llega desde una notificación necesita saber cuándo puede llevar la
       // vista hasta él; antes de cargar no hay altura a la que desplazarse).
+      return app.publicaciones.cargar();
+    },
+
+    // Igual que mostrarSuplencias, pero para "Colaboración": la ven los dos roles (a
+    // quien publica se le postula el tipo contrario), sin calendario mensual (es un
+    // patrón semanal, no fechas concretas).
+    mostrarColaboraciones(btn) {
+      estadoApp.filtros.soloMias = false;
+      estadoApp.filtros.contactadas = false;
+      estadoApp.filtros.verSuplencias = false;
+      estadoApp.filtros.verColaboraciones = true;
+      estadoApp.vistaActual = "colaboraciones";
+      app.exportar.actualizarBoton();
+      document.querySelectorAll(".tipo-toggle button").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
+
+      const filtersTitle = document.getElementById("filtrosTitle");
+      filtersTitle.textContent = "🤝 Colaboraciones";
+      filtersTitle.style.display = "block";
+
       return app.publicaciones.cargar();
     },
 
@@ -2266,26 +2564,47 @@ const app = {
         return;
       }
 
-      // Mostrar/ocultar tabs según tipo de usuario
-      if (estadoApp.tipoUsuario === 'clinica') {
-        // Empresa elige entre Oferta fija y Suplencia
-        document.getElementById("tabsPublicar").style.display = "flex";
-        document.getElementById("tabBtnOferta").style.display = "inline-block";
-        document.getElementById("tabBtnSuplencia").style.display = "inline-block";
-        document.getElementById("tabBtnSolicitud").style.display = "none";
-        document.getElementById("tab-oferta").classList.add("active");
-        document.getElementById("tab-suplencia").classList.remove("active");
-        document.getElementById("tab-solicitud").classList.remove("active");
-        document.getElementById("tabBtnOferta").classList.add("active");
-        document.getElementById("tabBtnSuplencia").classList.remove("active");
+      const esClinica = estadoApp.tipoUsuario === 'clinica';
+
+      // Mostrar/ocultar tabs según tipo de usuario. "Colaboración" la ven los dos
+      // roles (a diferencia de las demás, que son exclusivas de uno).
+      document.getElementById("tabsPublicar").style.display = "flex";
+      document.getElementById("tabBtnOferta").style.display = esClinica ? "inline-block" : "none";
+      document.getElementById("tabBtnSuplencia").style.display = esClinica ? "inline-block" : "none";
+      document.getElementById("tabBtnSolicitud").style.display = esClinica ? "none" : "inline-block";
+      document.getElementById("tabBtnColaboracion").style.display = "inline-block";
+
+      document.getElementById("tab-oferta").classList.toggle("active", esClinica);
+      document.getElementById("tab-suplencia").classList.remove("active");
+      document.getElementById("tab-solicitud").classList.toggle("active", !esClinica);
+      document.getElementById("tab-colaboracion").classList.remove("active");
+      document.getElementById("tabBtnOferta").classList.toggle("active", esClinica);
+      document.getElementById("tabBtnSuplencia").classList.remove("active");
+      document.getElementById("tabBtnSolicitud").classList.toggle("active", !esClinica);
+      document.getElementById("tabBtnColaboracion").classList.remove("active");
+
+      // Sub-bloques de "Colaboración" según quién publica: sede/equipamiento/preguntas
+      // de criba (clínica) vs. contacto editable sin sede (dentista, como Solicitud).
+      document.getElementById("colaboracionClinicaBloque").style.display = esClinica ? "block" : "none";
+      document.getElementById("colaboracionClinicaContacto").style.display = esClinica ? "block" : "none";
+      document.getElementById("colaboracionPreguntasGroup").style.display = esClinica ? "block" : "none";
+      document.getElementById("colaboracionDentistaContacto").style.display = esClinica ? "none" : "block";
+      app.publicaciones.cargarEspecialidadesPublicar('colaboracion');
+      app.diasSemana.crear('colaboracionDiasSemana', {});
+      app.publicaciones.toggleRetribucion('colaboracion');
+
+      if (esClinica) {
+        // Empresa elige entre Oferta fija, Suplencia o Colaboración
         app.publicaciones.cargarEspecialidadesPublicar('oferta');
         app.publicaciones.cargarEspecialidadesPublicar('suplencia');
         app.plantillas.cargar('oferta');
         app.plantillas.cargar('suplencia');
         app.sedes.cargarEnSelector('oferta');
         app.sedes.cargarEnSelector('suplencia');
+        app.sedes.cargarEnSelector('colaboracion');
         app.catalogos.renderizarEquipamientoPublicar('oferta');
         app.catalogos.renderizarEquipamientoPublicar('suplencia');
+        app.catalogos.renderizarEquipamientoPublicar('colaboracion');
         app.publicaciones.toggleRetribucion('oferta');
         app.publicaciones.toggleRetribucion('suplencia');
         app.calendario.crear("suplenciaCalendario", {});
@@ -2293,20 +2612,13 @@ const app = {
         document.getElementById("suplenciaRangoHasta").value = "";
         document.getElementById("modalPublicarTitle").textContent = "Publicar nueva oferta";
       } else {
-        // Candidato solo ve tab de Solicitud
-        document.getElementById("tabsPublicar").style.display = "none";
-        document.getElementById("tabBtnOferta").style.display = "none";
-        document.getElementById("tabBtnSuplencia").style.display = "none";
-        document.getElementById("tabBtnSolicitud").style.display = "inline-block";
-        document.getElementById("tab-solicitud").classList.add("active");
-        document.getElementById("tab-oferta").classList.remove("active");
-        document.getElementById("tab-suplencia").classList.remove("active");
-        document.getElementById("tabBtnSolicitud").classList.add("active");
+        // Candidato elige entre Solicitud o Colaboración
         app.publicaciones.cargarEspecialidadesPublicar('solicitud');
         app.plantillas.cargar('solicitud');
         document.getElementById("modalPublicarTitle").textContent = "Publicar nueva solicitud";
-        // La ciudad de la solicitud se hereda del perfil (no editable)
+        // La ciudad de la solicitud (y de la colaboración de un dentista) se hereda del perfil (no editable)
         app.publicaciones.rellenarCiudadSolicitudDesdePerfil();
+        app.publicaciones.rellenarCiudadColaboracionDesdePerfil();
       }
 
       document.getElementById("modalPublicar").classList.add("active");
@@ -2350,7 +2662,7 @@ const app = {
       document.getElementById(`tab-${tab}`).classList.add("active");
       event.target.classList.add("active");
 
-      const titulos = { oferta: "Publicar nueva oferta", suplencia: "🚨 Publicar suplencia / turno suelto", solicitud: "Publicar nueva solicitud" };
+      const titulos = { oferta: "Publicar nueva oferta", suplencia: "🚨 Publicar suplencia / turno suelto", solicitud: "Publicar nueva solicitud", colaboracion: "🤝 Publicar colaboración" };
       document.getElementById("modalPublicarTitle").textContent = titulos[tab] || "Publicar";
     },
 
@@ -2487,6 +2799,15 @@ const app = {
         } catch (error) { /* sin días */ }
       }
 
+      // Días de la semana (con turno) de la colaboración
+      let diasSemanaColab = [];
+      if (publicacion.tipo === 'colaboracion') {
+        try {
+          const det = await utils.request(`/publicaciones/${publicacion.id}`);
+          diasSemanaColab = det.diasSemana || [];
+        } catch (error) { /* sin días */ }
+      }
+
       // Compatibilidad, en los dos sentidos: un dentista mirando una oferta/suplencia
       // ajena («…con esta clínica»), o una clínica mirando la solicitud de un dentista
       // («…con este dentista»). Si el backend no puede dar un porcentaje honesto, la
@@ -2517,7 +2838,7 @@ const app = {
             </tr>
             <tr style="border-bottom: 1px solid #e5e7eb;">
               <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">Tipo:</td>
-              <td style="padding: 0.8rem;">${publicacion.tipo === 'oferta' ? '📋 Oferta' : publicacion.tipo === 'suplencia' ? `🚨 Suplencia${publicacion.urgente ? ' (urgente)' : ''}` : '🔍 Solicitud'}</td>
+              <td style="padding: 0.8rem;">${publicacion.tipo === 'oferta' ? '📋 Oferta' : publicacion.tipo === 'suplencia' ? `🚨 Suplencia${publicacion.urgente ? ' (urgente)' : ''}` : publicacion.tipo === 'colaboracion' ? '🤝 Colaboración' : '🔍 Solicitud'}</td>
             </tr>
             ${publicacion.tipo === 'suplencia' && (diasSuplencia.length || publicacion.fecha_desde) ? `
             <tr style="border-bottom: 1px solid #e5e7eb;">
@@ -2525,6 +2846,14 @@ const app = {
               <td style="padding: 0.8rem;">${diasSuplencia.length
                 ? `<div class="badges" style="gap:.3rem;">${diasSuplencia.map(d => `<span class="badge">${utils.escapeHtml(utils.formatearDia(d))}</span>`).join("")}</div>`
                 : utils.escapeHtml([publicacion.fecha_desde, publicacion.fecha_hasta].filter(Boolean).join(' → '))}</td>
+            </tr>
+            ` : ''}
+            ${publicacion.tipo === 'colaboracion' && diasSemanaColab.length ? `
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: 0.8rem; font-weight: 700; background: #F8FAFF; color: #0F4C75;">🗓️ Días de la semana:</td>
+              <td style="padding: 0.8rem;">
+                <div class="badges" style="gap:.3rem;">${diasSemanaColab.map(d => `<span class="badge">${utils.escapeHtml(utils.formatearDiaSemana(d))}</span>`).join("")}</div>
+              </td>
             </tr>
             ` : ''}
             ${publicacion.usuario_nombre ? `
@@ -2639,7 +2968,7 @@ const app = {
       }
 
       document.getElementById("detalleBody").innerHTML = html;
-      document.getElementById("detalleTitle").textContent = publicacion.tipo === "oferta" ? "Oferta de trabajo" : publicacion.tipo === "suplencia" ? "Suplencia / turno suelto" : "Solicitud de empleo";
+      document.getElementById("detalleTitle").textContent = publicacion.tipo === "oferta" ? "Oferta de trabajo" : publicacion.tipo === "suplencia" ? "Suplencia / turno suelto" : publicacion.tipo === "colaboracion" ? "Colaboración" : "Solicitud de empleo";
 
       // Ocultar la sección interactiva de contacto en la propia publicación y en la
       // vista previa de solo lectura
@@ -2689,13 +3018,27 @@ const app = {
         } catch (e) { diasActuales = []; }
       }
 
+      // Días de la semana actuales de la colaboración, para prerrellenar su selector
+      let diasSemanaActuales = [];
+      if (pub.tipo === 'colaboracion') {
+        try {
+          const det = await utils.request(`/publicaciones/${pub.id}`);
+          diasSemanaActuales = det.diasSemana || [];
+        } catch (e) { diasSemanaActuales = []; }
+      }
+
+      // Las preguntas de criba solo las tiene quien publica con sede/equipo (oferta,
+      // suplencia, o una colaboración publicada por una clínica); editando siempre eres
+      // el dueño, así que basta con tu propio rol para saberlo.
+      const tieneCriba = pub.tipo !== 'solicitud' && !(pub.tipo === 'colaboracion' && estadoApp.tipoUsuario === 'dentista');
+
       let html = `
         <form id="formEdicion" onsubmit="event.preventDefault(); app.modal.guardarEdicion();">
           <div class="form-group">
             <label for="editDescripcion">Descripción *</label>
             <textarea id="editDescripcion" required>${utils.escapeHtml(pub.descripcion)}</textarea>
           </div>
-          ${pub.tipo !== 'solicitud' ? `
+          ${tieneCriba ? `
           <div class="form-group">
             <label>Preguntas de criba <span style="color:#6b7280;font-weight:normal;">(opcional, máx. 3)</span></label>
             <small style="color:#6b7280;display:block;margin-bottom:0.5rem;">El candidato deberá responderlas al postularse.</small>
@@ -2755,6 +3098,11 @@ const app = {
             </div>
             <div id="editSuplenciaCalendario"></div>
           </div>` : ''}
+          ${pub.tipo === 'colaboracion' ? `
+          <div class="form-group">
+            <label>Días de la semana *</label>
+            <div id="editColaboracionDiasSemana"></div>
+          </div>` : ''}
           <div class="form-group">
             <label for="editSalario">Salario</label>
             <input id="editSalario" type="text" value="${utils.escapeHtml(pub.salario || '')}">
@@ -2787,6 +3135,9 @@ const app = {
 
       if (pub.tipo === 'suplencia') {
         app.calendario.crear("editSuplenciaCalendario", { seleccion: diasActuales });
+      }
+      if (pub.tipo === 'colaboracion') {
+        app.diasSemana.crear("editColaboracionDiasSemana", { seleccion: diasSemanaActuales });
       }
     },
 
@@ -2835,6 +3186,16 @@ const app = {
             return;
           }
           data.dias = dias;
+        }
+
+        // Días de la semana de la colaboración
+        if (pub.tipo === 'colaboracion') {
+          const diasSemana = app.diasSemana.obtener("editColaboracionDiasSemana");
+          if (diasSemana.length === 0) {
+            utils.mostrarAlerta("Marca al menos un día de la semana para la colaboración", "error");
+            return;
+          }
+          data.diasSemana = diasSemana;
         }
 
         await utils.request(`/publicaciones/${pub.id}`, {
@@ -5734,6 +6095,7 @@ const app = {
         // de las postulaciones propias (aquí, a solicitudes de dentistas).
         document.getElementById("btnKanban").style.display = "inline-block";
         document.getElementById("btnSuplencias").style.display = "none";
+        document.getElementById("btnColaboraciones").style.display = "inline-block";
         document.getElementById("filterEquipamientoGroup").style.display = "none";
         document.getElementById("filterCertificacionGroup").style.display = "block";
         const btnPerfilesClinica = document.getElementById("btnPerfiles");
@@ -5756,6 +6118,7 @@ const app = {
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
         document.getElementById("btnKanban").style.display = "inline-block";
         document.getElementById("btnSuplencias").style.display = "inline-block";
+        document.getElementById("btnColaboraciones").style.display = "inline-block";
         document.getElementById("filterEquipamientoGroup").style.display = "block";
         document.getElementById("filterCertificacionGroup").style.display = "none";
         const btnPerfilesDentista = document.getElementById("btnPerfiles");
@@ -5853,11 +6216,14 @@ const app = {
         // se cae al nombre de la clínica. Quien mira desde fuera sigue viendo la clínica.
         const esMia = estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id);
         const nombreClinica = (esMia && pub.sede_nombre) ? pub.sede_nombre : (pub.usuario_nombre || 'Clínica');
-        const generatedTitle = pub.tipo === 'solicitud'
+        const colabDeClinicaCard = pub.tipo === 'colaboracion' && pub.usuario_tipo === 'clinica';
+        const generatedTitle = pub.tipo === 'solicitud' || (pub.tipo === 'colaboracion' && !colabDeClinicaCard)
           ? `${ciudadLabel} - ${pub.usuario_nombre || 'Dentista'}`
           : pub.tipo === 'suplencia'
             ? `Suplencia en ${ciudadLabel} - ${nombreClinica}`
-            : `${ciudadLabel} - ${nombreClinica}`;
+            : colabDeClinicaCard
+              ? `Colaboración en ${ciudadLabel} - ${nombreClinica}`
+              : `${ciudadLabel} - ${nombreClinica}`;
         let tipoBadge, tipoClase;
         if (pub.tipo === "oferta") {
           tipoBadge = "";
@@ -5865,6 +6231,9 @@ const app = {
         } else if (pub.tipo === "suplencia") {
           tipoBadge = pub.urgente ? "🚨 Urgente" : "🚨 Suplencia";
           tipoClase = "type-suplencia";
+        } else if (pub.tipo === "colaboracion") {
+          tipoBadge = "🤝 Colaboración";
+          tipoClase = "type-colaboracion";
         } else {
           // tipo: 'solicitud' (dentistas)
           tipoBadge = "";
@@ -5872,8 +6241,10 @@ const app = {
         }
 
         let interesadosHTML = "";
-        // Solo mostrar interesados para solicitudes (dentistas buscando trabajo), no para ofertas (usamos candidaturas)
-        if (estadoApp.filtros.soloMias && estadoApp.usuario && pub.usuario_id === estadoApp.usuario.id && pub.tipo === 'solicitud') {
+        // Solo mostrar interesados para solicitudes y colaboraciones de dentista (dentistas
+        // buscando trabajo/colaboración), no para ofertas/suplencias/colaboraciones de
+        // clínica (esas usan candidatosPorOferta más abajo)
+        if (estadoApp.filtros.soloMias && estadoApp.usuario && pub.usuario_id === estadoApp.usuario.id && (pub.tipo === 'solicitud' || (pub.tipo === 'colaboracion' && !colabDeClinicaCard))) {
           try {
             const data = await utils.request(`/publicaciones/${pub.id}/candidatos`);
             const interesados = (data.candidatos || []).length;
@@ -5918,13 +6289,14 @@ const app = {
                 if (estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id)) {
                   return `<button class="btn-outline" onclick="app.publicaciones.copiarEnlacePublico(${pub.id})" style="flex: 1;" title="Copiar el enlace público de esta publicación">🔗 Copiar Enlace</button>
                           ${pub.tipo === 'suplencia' ? `<button class="btn-outline" onclick="app.suplencias.verDisponibles(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;" title="Dentistas disponibles para estos días">🗓️ Dentistas Disponibles</button>` : ''}
+                          ${colabDeClinicaCard ? `<button class="btn-outline" onclick="app.colaboraciones.verDisponibles(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;" title="Dentistas disponibles para estos días">🗓️ Dentistas Disponibles</button>` : ''}
                           <button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">📊 Estadísticas</button>
                           <button class="btn-danger" onclick="app.publicaciones.retirarPublicacion(${pub.id})" style="flex: 1;">🗑️ Retirar</button>`;
                 }
                 return '';
               })()}
               ${(() => {
-                if (estadoApp.tipoUsuario === 'dentista' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia')) {
+                if (estadoApp.tipoUsuario === 'dentista' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia' || colabDeClinicaCard)) {
                   const nombreClinica = utils.escapeHtml((pub.usuario_nombre || pub.nombre_contacto || 'esta clínica').replace(/'/g, "\\'"));
                   const chatBtn = `<button class="btn-outline" onclick="app.perfiles.iniciarChat(${pub.usuario_id}, '${nombreClinica}')" style="flex: 1;" title="Empezar a chatear con la clínica">💬 Iniciar chat</button>`;
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
@@ -5940,7 +6312,7 @@ const app = {
                 return '';
               })()}
               ${(() => {
-                if (estadoApp.tipoUsuario === 'clinica' && pub.tipo === 'solicitud') {
+                if (estadoApp.tipoUsuario === 'clinica' && (pub.tipo === 'solicitud' || (pub.tipo === 'colaboracion' && !colabDeClinicaCard))) {
                   const nombreDent = utils.escapeHtml((pub.usuario_nombre || pub.nombre_contacto || 'este dentista').replace(/'/g, "\\'"));
                   const chatBtn = `<button class="btn-outline" onclick="app.perfiles.iniciarChat(${pub.usuario_id}, '${nombreDent}')" style="flex: 1;" title="Empezar a chatear con el dentista">💬 Iniciar chat</button>`;
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
@@ -5955,7 +6327,7 @@ const app = {
                 }
                 return '';
               })()}
-              ${estadoApp.tipoUsuario === 'clinica' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia') && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${utils.escapeHtml((pub.sede_nombre || pub.ciudad || generatedTitle).replace(/'/g, "\\'"))}')" style="flex: 1;">👥 Dentistas Postulados (${candidatosPorOferta[pub.id]})</button>` : ''}
+              ${estadoApp.tipoUsuario === 'clinica' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia' || colabDeClinicaCard) && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${utils.escapeHtml((pub.sede_nombre || pub.ciudad || generatedTitle).replace(/'/g, "\\'"))}')" style="flex: 1;">👥 Dentistas Postulados (${candidatosPorOferta[pub.id]})</button>` : ''}
               ${interesadosHTML}
             </div>
           </div>
@@ -5968,18 +6340,22 @@ const app = {
            </div>`
         : "";
 
-      // En "Mis Publicaciones" de una clínica, separar visualmente Ofertas de Empleo y Suplencia
+      // En "Mis Publicaciones" de una clínica, separar visualmente Ofertas de Empleo, Suplencia y Colaboración
       let cuerpo;
       if (estadoApp.filtros.soloMias && estadoApp.tipoUsuario === 'clinica') {
         const ofertas = [];
         const suplencias = [];
+        const colaboraciones = [];
         estadoApp.publicaciones.forEach((pub, i) => {
-          (pub.tipo === 'suplencia' ? suplencias : ofertas).push(html[i]);
+          if (pub.tipo === 'suplencia') suplencias.push(html[i]);
+          else if (pub.tipo === 'colaboracion') colaboraciones.push(html[i]);
+          else ofertas.push(html[i]);
         });
         const encabezado = (texto) => `<h3 style="margin: 1.5rem 0 1rem; color: #0f4c75;">${texto}</h3>`;
         cuerpo = "";
         if (ofertas.length) cuerpo += `${encabezado("Ofertas de Empleo")}<div class="publicaciones">${ofertas.join("")}</div>`;
         if (suplencias.length) cuerpo += `${encabezado("Suplencia")}<div class="publicaciones">${suplencias.join("")}</div>`;
+        if (colaboraciones.length) cuerpo += `${encabezado("Colaboración")}<div class="publicaciones">${colaboraciones.join("")}</div>`;
       } else {
         cuerpo = `<div class="publicaciones">${html.join("")}</div>`;
       }

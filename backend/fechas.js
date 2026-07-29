@@ -37,4 +37,23 @@ function sanearDias(dias, max = 92) {
   return [...set].sort().slice(0, max);
 }
 
-module.exports = { expandirRango, sanearDias };
+const TURNOS_VALIDOS = ["manana", "tarde", "ambos"];
+
+// Normaliza días de la semana con turno para "Colaboración": deduplica por día (uno
+// no puede tener dos turnos a la vez), descarta lo que no tenga día 1-6 (lunes a
+// sábado) o turno válido, ordena por día y limita a `max` (hay como mucho 6 días).
+function sanearDiasSemana(lista, max = 6) {
+  if (!Array.isArray(lista)) return [];
+  const porDia = new Map();
+  for (const item of lista) {
+    if (!item || typeof item !== "object") continue;
+    const dia = parseInt(item.dia, 10);
+    const turno = String(item.turno || "");
+    if (!Number.isInteger(dia) || dia < 1 || dia > 6) continue;
+    if (!TURNOS_VALIDOS.includes(turno)) continue;
+    porDia.set(dia, { dia, turno });
+  }
+  return [...porDia.values()].sort((a, b) => a.dia - b.dia).slice(0, max);
+}
+
+module.exports = { expandirRango, sanearDias, sanearDiasSemana, TURNOS_VALIDOS };

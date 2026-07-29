@@ -711,6 +711,10 @@ input:focus, select:focus {
   border-top-color: #ef4444;
 }
 
+.card.type-colaboracion {
+  border-top-color: #7c3aed;
+}
+
 .card:hover {
   transform: translateY(-6px);
   box-shadow: 0 12px 30px rgba(0,0,0,0.12);
@@ -747,6 +751,11 @@ input:focus, select:focus {
 .type-suplencia {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
+}
+
+.type-colaboracion {
+  background: rgba(124, 58, 237, 0.1);
+  color: #7c3aed;
 }
 
 .card h3 {
@@ -2657,6 +2666,40 @@ select:focus {
   font-size: 0.82rem;
   color: #6b7280;
   text-align: center;
+}
+
+/* ============================================
+   Selector de días de la semana + turno (Colaboración)
+   ============================================ */
+.dias-semana-widget {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.75rem;
+  background: #fff;
+  max-width: 420px;
+}
+.dias-semana-fila {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.45rem 0.2rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+.dias-semana-fila:last-of-type { border-bottom: none; }
+.dias-semana-nombre {
+  flex: 0 0 5.5rem;
+  font-weight: 600;
+  color: #0f4c75;
+  font-size: 0.88rem;
+}
+.dias-semana-turno {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: #374151;
+  cursor: pointer;
+  font-weight: normal;
 }
 
 /* ============================================

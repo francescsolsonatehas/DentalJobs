@@ -9,7 +9,7 @@ function construirFiltros(query = {}) {
     tipo, especialidad, ciudad, usuario_id, contrato, jornada,
     salarioMin, salarioMax, experienciaMin, q, equipamiento, retribucion, certificacion,
     radioKm, latCentro, lonCentro, fecha, fechaDesde, fechaHasta, disponibleUsuarioId,
-    ids
+    diaSemana, ids
   } = query;
 
   const clausulas = [];
@@ -121,11 +121,26 @@ function construirFiltros(query = {}) {
     params.push(fechaDesde ? String(fechaDesde).slice(0, 10) : "0000-01-01", fechaHasta ? String(fechaHasta).slice(0, 10) : "9999-12-31");
   }
 
-  // "Solo las que encajan con mi disponibilidad": suplencias con algún día que
-  // el dentista (disponibleUsuarioId) tiene marcado como disponible.
+  // Colaboraciones que piden un día de la semana concreto (1=lunes..6=sábado).
+  if (diaSemana) {
+    clausulas.push("EXISTS (SELECT 1 FROM colaboracion_dias cd WHERE cd.publicacion_id = p.id AND cd.dia_semana = ?)");
+    params.push(parseInt(diaSemana));
+  }
+
+  // "Solo las que encajan con mi disponibilidad": suplencias con algún día que el
+  // dentista (disponibleUsuarioId) tiene marcado como disponible en su calendario, o
+  // colaboraciones con algún día de la semana que tiene marcado en su disponibilidad
+  // semanal recurrente (con turno compatible: "ambos" cubre pedir mañana, tarde o ambos).
   if (disponibleUsuarioId) {
-    clausulas.push("EXISTS (SELECT 1 FROM suplencia_dias sd JOIN disponibilidad_dentista dd ON dd.fecha = sd.fecha WHERE sd.publicacion_id = p.id AND dd.usuario_id = ?)");
-    params.push(disponibleUsuarioId);
+    clausulas.push(`(
+      EXISTS (SELECT 1 FROM suplencia_dias sd JOIN disponibilidad_dentista dd ON dd.fecha = sd.fecha WHERE sd.publicacion_id = p.id AND dd.usuario_id = ?)
+      OR EXISTS (
+        SELECT 1 FROM colaboracion_dias cd
+        JOIN disponibilidad_semanal_dentista dsd ON dsd.dia_semana = cd.dia_semana AND (dsd.turno = 'ambos' OR dsd.turno = cd.turno)
+        WHERE cd.publicacion_id = p.id AND dsd.usuario_id = ?
+      )
+    )`);
+    params.push(disponibleUsuarioId, disponibleUsuarioId);
   }
 
   if (experienciaMin) {
