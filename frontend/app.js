@@ -5709,11 +5709,11 @@ const app = {
         btnMias.style.display = "none";
         document.getElementById("btnPublicaciones").style.display = "inline-block";
         btnContactadas.style.display = "none";
-        // "Mis Postulaciones" se retiró: la clínica ve el estado de cada postulación
-        // desde la propia publicación ("Postulada. Ver estado").
         document.getElementById("btnMisPostulacionesDentistas").style.display = "none";
         document.getElementById("btnMisPostulacionesDentistasAceptadas").style.display = "none";
-        document.getElementById("btnKanban").style.display = "none";
+        // "Mis Postulaciones" (el Kanban): igual que en el rol dentista, el seguimiento
+        // de las postulaciones propias (aquí, a solicitudes de dentistas).
+        document.getElementById("btnKanban").style.display = "inline-block";
         document.getElementById("btnSuplencias").style.display = "none";
         document.getElementById("filterEquipamientoGroup").style.display = "none";
         document.getElementById("filterCertificacionGroup").style.display = "block";
