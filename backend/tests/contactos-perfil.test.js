@@ -28,12 +28,14 @@ test("contactos de perfil y su chat", async (t) => {
     contactoId = res.body.id;
   });
 
-  await t.test("no se puede contactar dos veces al mismo perfil", async () => {
+  await t.test("contactar dos veces al mismo perfil no bloquea: avisa y reenvía sobre el mismo hilo", async () => {
     const res = await request(app)
       .post("/contactos-perfil")
       .set("Authorization", `Bearer ${clinica.token}`)
-      .send({ perfil_id: dentista.usuario.id });
-    assert.equal(res.status, 400);
+      .send({ perfil_id: dentista.usuario.id, mensaje: "¿Sigues disponible?" });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.yaContactado, true);
+    assert.equal(res.body.id, contactoId);
   });
 
   await t.test("el dentista ve el contacto entre los recibidos", async () => {

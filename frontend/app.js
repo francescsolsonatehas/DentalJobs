@@ -6294,13 +6294,20 @@ const app = {
       }
 
       try {
-        await utils.request("/contactos-perfil", {
+        const data = await utils.request("/contactos-perfil", {
           method: "POST",
           body: JSON.stringify({ perfil_id: perfil.id, mensaje })
         });
         errorDiv.style.display = "none";
         this.cerrarContactarModal();
-        utils.mostrarAlerta("✅ Solicitud de contacto enviada. Podréis chatear cuando la acepten.", "success");
+        // yaContactado: ya le habías escrito antes; se avisa, pero se deja enviar
+        // igualmente (el mensaje se suma al mismo hilo, no bloquea como antes).
+        utils.mostrarAlerta(
+          data.yaContactado
+            ? "✅ Mensaje enviado. Ya habías contactado con este perfil antes."
+            : "✅ Solicitud de contacto enviada. Podréis chatear cuando la acepten.",
+          "success"
+        );
       } catch (error) {
         errorDiv.textContent = error.message || "Error al enviar el contacto";
         errorDiv.style.display = "block";

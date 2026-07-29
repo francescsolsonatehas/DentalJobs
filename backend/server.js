@@ -5127,14 +5127,35 @@ app.post("/contactos-perfil", verifyToken, (req, res) => {
     //  - si lo inicié yo, ya está enviado;
     //  - si me contactó la otra persona, debo aceptar su solicitud (no duplicar el hilo).
     db.get(
-      `SELECT solicitante_id, estado FROM contactos_perfil
+      `SELECT id, solicitante_id, estado FROM contactos_perfil
        WHERE (solicitante_id = ? AND perfil_id = ?) OR (solicitante_id = ? AND perfil_id = ?)`,
       [solicitanteId, perfil_id, perfil_id, solicitanteId],
       (errExiste, existente) => {
         if (errExiste) { console.error(errExiste); return res.status(500).json({ error: "Error al contactar" }); }
         if (existente) {
           if (existente.solicitante_id === solicitanteId) {
-            return res.status(400).json({ error: "Ya has contactado a este perfil" });
+            // Ya había contactado antes: no se bloquea, se avisa (yaContactado) y se
+            // reenvía el mensaje sobre el mismo hilo en vez de crear uno duplicado.
+            return db.run(
+              "UPDATE contactos_perfil SET mensaje = ?, actualizado_en = CURRENT_TIMESTAMP WHERE id = ?",
+              [(mensaje || "").trim() || null, existente.id],
+              function(errUpd) {
+                if (errUpd) { console.error(errUpd); return res.status(500).json({ error: "Error al contactar" }); }
+                res.json({ mensaje: "Mensaje reenviado", yaContactado: true, id: existente.id });
+
+                db.get("SELECT nombre FROM usuarios WHERE id = ?", [solicitanteId], (e, sol) => {
+                  if (e || !sol) return;
+                  notificarUsuario(
+                    perfil_id,
+                    "📬 Nuevo mensaje en DentalJobs",
+                    "Alguien ha vuelto a escribirte",
+                    `${sol.nombre} te ha enviado un nuevo mensaje. Entra para leerlo.`,
+                    "Ver el mensaje",
+                    { tipo: "contacto", enlace: `#contacto=${existente.id}` }
+                  );
+                });
+              }
+            );
           }
           if (existente.estado === "aceptada") {
             return res.status(400).json({ error: "Ya estáis en contacto. Ábrelo desde tus mensajes." });
