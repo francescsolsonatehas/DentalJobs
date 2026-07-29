@@ -1747,9 +1747,12 @@ const app = {
         // Colaboraciones: las ven los dos roles (publica una u otra parte)
         tipo = 'colaboracion';
       } else if (estadoApp.filtros.soloMias) {
-        // Mis publicaciones: sin filtro de tipo, así salen todas las propias (oferta y
-        // suplencia o solicitud, y en los dos roles también las colaboraciones propias)
-        tipo = null;
+        // Mis publicaciones: salen todas las propias (oferta, suplencia y colaboración
+        // en la clínica; solicitud en el dentista), salvo que la clínica haya elegido
+        // filtrar por un tipo concreto con el selector de esa vista.
+        tipo = estadoApp.tipoUsuario === 'clinica'
+          ? (document.getElementById("filterTipoMisPublicaciones")?.value || null)
+          : null;
       } else {
         // Ver todas: empresas ven SOLICITUDES, candidatos ven OFERTAS
         tipo = estadoApp.tipoUsuario === 'clinica' ? 'solicitud' : 'oferta';
@@ -2221,16 +2224,39 @@ const app = {
     configurarFiltrosVista() {
       const reducida = this.vistaReducida();
       const esSuplencias = estadoApp.vistaActual === "suplencias";
+      const esMisPublicacionesClinica = estadoApp.vistaActual === "mis-publicaciones" && estadoApp.tipoUsuario === "clinica";
       const grupoDe = (id) => { const el = document.getElementById(id); return el && el.closest(".filter-group"); };
       const set = (id, visible) => { const g = grupoDe(id); if (g) g.style.display = visible ? "" : "none"; };
 
-      // En "Mis Publicaciones" y "Mis Postulaciones" no se busca nada: son las propias
-      // (o las propias postulaciones), y salen todas. Se esconde la fila de filtros
-      // entera (los botones de vista siguen arriba).
+      // En "Mis Publicaciones" (dentista) y "Mis Postulaciones" no se busca nada: son
+      // las propias, y salen todas. Se esconde la fila de filtros entera. La clínica en
+      // "Mis Publicaciones" es la excepción: ahí sí hay un filtro, por tipo entre lo suyo.
       const filaFiltros = document.getElementById("filterRow");
-      const sinBusqueda = estadoApp.vistaActual === "mis-publicaciones" || estadoApp.vistaActual === "mis-postulaciones";
+      const sinBusqueda = (estadoApp.vistaActual === "mis-publicaciones" && !esMisPublicacionesClinica)
+        || estadoApp.vistaActual === "mis-postulaciones";
       if (filaFiltros) {
         filaFiltros.style.display = sinBusqueda ? "none" : "";
+      }
+
+      set("filterTipoMisPublicaciones", esMisPublicacionesClinica);
+      if (!esMisPublicacionesClinica) {
+        const elTipo = document.getElementById("filterTipoMisPublicaciones");
+        if (elTipo && elTipo.value) elTipo.value = "";
+      }
+
+      if (esMisPublicacionesClinica) {
+        // Aquí solo tiene sentido el filtro de tipo: se esconde el resto (Buscar,
+        // Ciudad, Radio, Especialidad, Contrato, Jornada, Equipamiento/Certificación,
+        // Retribución, Salario, Experiencia, fechas/disponibilidad de suplencias, Orden).
+        ["filterQ", "filterRadio", "filterEspecialidad", "filterContrato", "filterJornada",
+         "filterEquipamiento", "filterCertificacion", "filterRetribucion", "filterSalarioMin",
+         "filterExperienciaMin", "filterFechaDesde", "filterFechaHasta", "filterMiDisponibilidad", "filterOrden"]
+          .forEach(id => set(id, false));
+        const grupoTextoMP = document.getElementById("filterCiudadGroup");
+        const grupoListaMP = document.getElementById("filterCiudadListaGroup");
+        if (grupoTextoMP) grupoTextoMP.style.display = "none";
+        if (grupoListaMP) grupoListaMP.style.display = "none";
+        return;
       }
 
       // "Suplencias" deja Ciudad, Radio y Especialidad (arriba del todo, ya van antes
@@ -2682,13 +2708,15 @@ const app = {
 
       const esClinica = estadoApp.tipoUsuario === 'clinica';
 
-      // Mostrar/ocultar tabs según tipo de usuario. "Colaboración" la ven los dos
-      // roles (a diferencia de las demás, que son exclusivas de uno).
+      // Mostrar/ocultar tabs según tipo de usuario. "Colaboración" de momento solo la
+      // publica la clínica: un dentista publicándola (ofreciendo su propia
+      // disponibilidad) no tiene un caso de uso claro todavía, así que no se le ofrece
+      // esa pestaña (sigue pudiendo verlas y postularse desde "🤝 Colaboraciones").
       document.getElementById("tabsPublicar").style.display = "flex";
       document.getElementById("tabBtnOferta").style.display = esClinica ? "inline-block" : "none";
       document.getElementById("tabBtnSuplencia").style.display = esClinica ? "inline-block" : "none";
       document.getElementById("tabBtnSolicitud").style.display = esClinica ? "none" : "inline-block";
-      document.getElementById("tabBtnColaboracion").style.display = "inline-block";
+      document.getElementById("tabBtnColaboracion").style.display = esClinica ? "inline-block" : "none";
 
       document.getElementById("tab-oferta").classList.toggle("active", esClinica);
       document.getElementById("tab-suplencia").classList.remove("active");
@@ -2699,18 +2727,16 @@ const app = {
       document.getElementById("tabBtnSolicitud").classList.toggle("active", !esClinica);
       document.getElementById("tabBtnColaboracion").classList.remove("active");
 
-      // Sub-bloques de "Colaboración" según quién publica: sede/equipamiento/preguntas
-      // de criba (clínica) vs. contacto editable sin sede (dentista, como Solicitud).
-      document.getElementById("colaboracionClinicaBloque").style.display = esClinica ? "block" : "none";
-      document.getElementById("colaboracionClinicaContacto").style.display = esClinica ? "block" : "none";
-      document.getElementById("colaboracionPreguntasGroup").style.display = esClinica ? "block" : "none";
-      document.getElementById("colaboracionDentistaContacto").style.display = esClinica ? "none" : "block";
-      app.publicaciones.cargarEspecialidadesPublicar('colaboracion');
-      app.diasSemana.crear('colaboracionDiasSemana', {});
-      app.publicaciones.toggleRetribucion('colaboracion');
-
       if (esClinica) {
         // Empresa elige entre Oferta fija, Suplencia o Colaboración
+        document.getElementById("colaboracionClinicaBloque").style.display = "block";
+        document.getElementById("colaboracionClinicaContacto").style.display = "block";
+        document.getElementById("colaboracionPreguntasGroup").style.display = "block";
+        document.getElementById("colaboracionDentistaContacto").style.display = "none";
+        app.publicaciones.cargarEspecialidadesPublicar('colaboracion');
+        app.diasSemana.crear('colaboracionDiasSemana', {});
+        app.publicaciones.toggleRetribucion('colaboracion');
+
         app.publicaciones.cargarEspecialidadesPublicar('oferta');
         app.publicaciones.cargarEspecialidadesPublicar('suplencia');
         app.plantillas.cargar('oferta');
@@ -2728,13 +2754,12 @@ const app = {
         document.getElementById("suplenciaRangoHasta").value = "";
         document.getElementById("modalPublicarTitle").textContent = "Publicar nueva oferta";
       } else {
-        // Candidato elige entre Solicitud o Colaboración
+        // Candidato: solo Solicitud (Colaboración no se ofrece a este rol)
         app.publicaciones.cargarEspecialidadesPublicar('solicitud');
         app.plantillas.cargar('solicitud');
         document.getElementById("modalPublicarTitle").textContent = "Publicar nueva solicitud";
-        // La ciudad de la solicitud (y de la colaboración de un dentista) se hereda del perfil (no editable)
+        // La ciudad de la solicitud se hereda del perfil (no editable)
         app.publicaciones.rellenarCiudadSolicitudDesdePerfil();
-        app.publicaciones.rellenarCiudadColaboracionDesdePerfil();
       }
 
       document.getElementById("modalPublicar").classList.add("active");

@@ -207,6 +207,16 @@
             </div>
 
             <div class="filter-row" id="filterRow">
+                <!-- Solo en "Mis Publicaciones" de una clínica: filtrar por tipo entre las propias -->
+                <div class="filter-group" id="filterTipoMisPublicacionesGroup" style="display: none;">
+                    <label for="filterTipoMisPublicaciones">Tipo</label>
+                    <select id="filterTipoMisPublicaciones" onchange="app.publicaciones.cargar()">
+                        <option value="">Todos los tipos</option>
+                        <option value="oferta">Oferta de empleo</option>
+                        <option value="suplencia">Suplencia</option>
+                        <option value="colaboracion">Colaboración</option>
+                    </select>
+                </div>
                 <div class="filter-group">
                     <label for="filterQ">Buscar</label>
                     <input id="filterQ" placeholder="Ej: implantología, invisalign…" oninput="app.publicaciones.cargar()">
