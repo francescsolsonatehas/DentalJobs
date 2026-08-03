@@ -6321,6 +6321,11 @@ const app = {
       document.querySelectorAll(".tipo-toggle button").forEach(btn => btn.classList.remove("active"));
       document.getElementById("btnTodas").classList.add("active");
 
+      // Esta es la vista inicial ("Todas"), así que hay que rellenar el desplegable de
+      // ciudad aquí también: fuera de aquí solo se rellena al cambiar de pestaña con
+      // app.filtros.mostrarTodas(), que esta carga inicial no pasa por él.
+      app.filtros.cargarCiudadesLista();
+
       await app.publicaciones.cargar();
       await app.ui.actualizarStats();
 
