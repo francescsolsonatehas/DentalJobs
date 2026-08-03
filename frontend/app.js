@@ -468,9 +468,9 @@ const app = {
       cont.innerHTML = `
         <div class="cal-widget">
           <div class="cal-cabecera">
-            <button type="button" class="cal-nav" onclick="app.calendario.cambiarMes('${containerId}',-1)">‹</button>
+            <button title="Mes anterior" type="button" class="cal-nav" onclick="app.calendario.cambiarMes('${containerId}',-1)">‹</button>
             <strong>${this.NOMBRES_MES[mes]} ${anyo}</strong>
-            <button type="button" class="cal-nav" onclick="app.calendario.cambiarMes('${containerId}',1)">›</button>
+            <button title="Mes siguiente" type="button" class="cal-nav" onclick="app.calendario.cambiarMes('${containerId}',1)">›</button>
           </div>
           <div class="cal-rejilla cal-semana">${this.DIAS_SEMANA.map(x => `<div class="cal-celda cal-nombre-dia">${x}</div>`).join("")}</div>
           <div class="cal-rejilla">${celdas}</div>
@@ -690,9 +690,9 @@ const app = {
       cont.innerHTML = `
         <div class="supcal-widget">
           <div class="cal-cabecera">
-            <button type="button" class="cal-nav" onclick="app.suplenciasCalendario.cambiarMes(-1)">‹</button>
+            <button title="Mes anterior" type="button" class="cal-nav" onclick="app.suplenciasCalendario.cambiarMes(-1)">‹</button>
             <strong>${app.calendario.NOMBRES_MES[this.mes - 1]} ${this.anyo}</strong>
-            <button type="button" class="cal-nav" onclick="app.suplenciasCalendario.cambiarMes(1)">›</button>
+            <button title="Mes siguiente" type="button" class="cal-nav" onclick="app.suplenciasCalendario.cambiarMes(1)">›</button>
           </div>
           <div class="cal-rejilla cal-semana">${app.calendario.DIAS_SEMANA.map(x => `<div class="cal-celda cal-nombre-dia">${x}</div>`).join("")}</div>
           <div class="cal-rejilla">${celdas}</div>
@@ -788,9 +788,9 @@ const app = {
       cont.innerHTML = `
         <div class="supcal-widget">
           <div class="cal-cabecera">
-            <button type="button" class="cal-nav" onclick="app.colaboracionesCalendario.cambiarMes(-1)">‹</button>
+            <button title="Mes anterior" type="button" class="cal-nav" onclick="app.colaboracionesCalendario.cambiarMes(-1)">‹</button>
             <strong>${app.calendario.NOMBRES_MES[this.mes - 1]} ${this.anyo}</strong>
-            <button type="button" class="cal-nav" onclick="app.colaboracionesCalendario.cambiarMes(1)">›</button>
+            <button title="Mes siguiente" type="button" class="cal-nav" onclick="app.colaboracionesCalendario.cambiarMes(1)">›</button>
           </div>
           <div class="cal-rejilla cal-semana">${app.calendario.DIAS_SEMANA.map(x => `<div class="cal-celda cal-nombre-dia">${x}</div>`).join("")}</div>
           <div class="cal-rejilla">${celdas}</div>
@@ -841,7 +841,7 @@ const app = {
               <p style="margin:0.2rem 0;color:#6b7280;font-size:0.9rem;">📍 ${utils.escapeHtml(ciudad)}${dist}${exp}</p>
               <div style="margin-top:0.4rem;"><span style="font-size:0.82rem;color:#059669;font-weight:600;">Coincide:</span> <span class="badges" style="gap:0.3rem;">${chips}</span></div>
             </div>
-            <button class="btn-secondary" onclick="document.getElementById('modalDisponibles').classList.remove('active'); app.perfiles.verDetalle(${d.id})" style="white-space:nowrap;">Ver perfil</button>
+            <button title="Ver el perfil de este dentista" class="btn-secondary" onclick="document.getElementById('modalDisponibles').classList.remove('active'); app.perfiles.verDetalle(${d.id})" style="white-space:nowrap;">Ver perfil</button>
           </div>`;
         }).join("");
     }
@@ -890,7 +890,7 @@ const app = {
               <p style="margin:0.2rem 0;color:#6b7280;font-size:0.9rem;">📍 ${utils.escapeHtml(ciudad)}${dist}${exp}</p>
               <div style="margin-top:0.4rem;"><span style="font-size:0.82rem;color:#059669;font-weight:600;">Coincide:</span> <span class="badges" style="gap:0.3rem;">${chips}</span></div>
             </div>
-            <button class="btn-secondary" onclick="document.getElementById('modalDisponibles').classList.remove('active'); app.perfiles.verDetalle(${d.id})" style="white-space:nowrap;">Ver perfil</button>
+            <button title="Ver el perfil de este dentista" class="btn-secondary" onclick="document.getElementById('modalDisponibles').classList.remove('active'); app.perfiles.verDetalle(${d.id})" style="white-space:nowrap;">Ver perfil</button>
           </div>`;
         }).join("");
     }
@@ -1159,7 +1159,7 @@ const app = {
                 ${fechas ? `<p style="margin:.3rem 0 0;color:#6b7280;font-size:.85rem;">🗓️ ${fechas}</p>` : ""}
                 <p style="margin:.3rem 0 0;color:#4b5563;font-size:.9rem;">${utils.escapeHtml((s.descripcion || "").slice(0, 90))}</p>
               </div>
-              <button class="btn-primary btn-small" onclick="app.rutas.abrirPublicacion(${s.id})">Ver</button>
+              <button title="Ver esta suplencia" class="btn-primary btn-small" onclick="app.rutas.abrirPublicacion(${s.id})">Ver</button>
             </div>
           </div>`;
       }).join("") + `</div>`;
@@ -1191,7 +1191,7 @@ const app = {
                 <strong style="color:#0f4c75;">📍 ${utils.escapeHtml(c.ciudad || "")}</strong>
                 <p style="margin:.3rem 0 0;color:#4b5563;font-size:.9rem;">${utils.escapeHtml((c.descripcion || "").slice(0, 90))}</p>
               </div>
-              <button class="btn-primary btn-small" onclick="app.rutas.abrirPublicacion(${c.id})">Ver</button>
+              <button title="Ver esta colaboración" class="btn-primary btn-small" onclick="app.rutas.abrirPublicacion(${c.id})">Ver</button>
             </div>
           </div>`;
       }).join("") + `</div>`;
@@ -1410,7 +1410,7 @@ const app = {
             <strong style="font-size:0.92rem; ${p.hecho ? "text-decoration:line-through; color:#9ca3af;" : "color:#0f4c75;"}">${utils.escapeHtml(p.titulo)}${p.opcional ? ` <span style="font-weight:normal; color:#9ca3af; font-size:0.78rem;">(opcional)</span>` : ""}</strong>
             <p style="margin:0.15rem 0 0; color:#6b7280; font-size:0.82rem; line-height:1.4;">${utils.escapeHtml(p.descripcion)}</p>
           </div>
-          ${p.hecho ? "" : `<button class="btn-primary btn-small" onclick="app.onboarding.ejecutar('${p.accion}')" style="white-space:nowrap;">Hacer</button>`}
+          ${p.hecho ? "" : `<button title="Completar este paso" class="btn-primary btn-small" onclick="app.onboarding.ejecutar('${p.accion}')" style="white-space:nowrap;">Hacer</button>`}
         </div>`).join("");
 
       card.innerHTML = `
@@ -1419,7 +1419,7 @@ const app = {
             <strong style="color:#0f4c75; font-size:1.05rem;">🚀 Primeros pasos</strong>
             <div style="display:flex; align-items:center; gap:0.8rem;">
               <span style="color:#0f4c75; font-size:0.85rem; font-weight:600;">${hechos}/${total}</span>
-              <button onclick="app.onboarding.ocultar()" style="background:none; border:none; color:#6b7280; cursor:pointer; font-size:0.82rem;">Ocultar</button>
+              <button title="Ocultar los primeros pasos" onclick="app.onboarding.ocultar()" style="background:none; border:none; color:#6b7280; cursor:pointer; font-size:0.82rem;">Ocultar</button>
             </div>
           </div>
           <div style="height:8px; background:#dbeafe; border-radius:999px; overflow:hidden; margin:0.6rem 0 0.2rem;">
@@ -3125,13 +3125,13 @@ const app = {
         // Vista previa de solo lectura (la usa "Copiar Enlace"): sin editar, solo cerrar
         html = `<div id="detalleVistaPrevia">${html}</div>
                 <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-                  <button class="btn-text" onclick="app.modal.cerrarDetalle()">Cerrar</button>
+                  <button title="Cerrar" class="btn-text" onclick="app.modal.cerrarDetalle()">Cerrar</button>
                 </div>`;
       } else if (esPropio) {
         html = `<div id="detalleVistaPrevia">${html}</div>
                 <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-                  <button class="btn-primary" onclick="app.modal.activarEdicionConManejo()">Editar</button>
-                  <button class="btn-text" onclick="app.modal.cerrarDetalle()">Cerrar</button>
+                  <button title="Editar esta publicación" class="btn-primary" onclick="app.modal.activarEdicionConManejo()">Editar</button>
+                  <button title="Cerrar" class="btn-text" onclick="app.modal.cerrarDetalle()">Cerrar</button>
                 </div>`;
       } else if (estadoApp.usuario && publicacion.usuario_id) {
         const nombreOtro = (publicacion.usuario_nombre || publicacion.nombre_contacto || 'Usuario').replace(/'/g, "\\'");
@@ -3147,7 +3147,7 @@ const app = {
 
         if (candidaturaAceptada) {
           html += `<div style="margin-top: 1.5rem;">
-                    <button class="btn-primary" onclick="app.chat.abrirConDestinatario(${publicacion.id}, ${publicacion.usuario_id}, '${nombreOtro}')">💬 Enviar mensaje</button>
+                    <button title="Enviar un mensaje de chat" class="btn-primary" onclick="app.chat.abrirConDestinatario(${publicacion.id}, ${publicacion.usuario_id}, '${nombreOtro}')">💬 Enviar mensaje</button>
                   </div>`;
         }
       }
@@ -3279,7 +3279,7 @@ const app = {
                 <label style="font-size: 0.8rem;">hasta</label>
                 <input id="editRangoHasta" type="date">
               </div>
-              <button type="button" class="btn-outline btn-small" onclick="app.publicaciones.anadirRangoCalendario('editSuplenciaCalendario','editRangoDesde','editRangoHasta')" style="margin-bottom: 0.15rem;">+ Añadir</button>
+              <button title="Añadir el rango de fechas seleccionado al calendario" type="button" class="btn-outline btn-small" onclick="app.publicaciones.anadirRangoCalendario('editSuplenciaCalendario','editRangoDesde','editRangoHasta')" style="margin-bottom: 0.15rem;">+ Añadir</button>
             </div>
             <div id="editSuplenciaCalendario"></div>
           </div>` : ''}
@@ -3309,8 +3309,8 @@ const app = {
             <input id="editTelefonoContacto" type="text" value="${utils.escapeHtml(pub.telefono_contacto || '')}">
           </div>
           <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-            <button type="submit" class="btn-primary">Guardar</button>
-            <button type="button" class="btn-text" onclick="app.modal.cerrarTodosModales()">Cancelar</button>
+            <button title="Guardar los cambios de la publicación" type="submit" class="btn-primary">Guardar</button>
+            <button title="Cancelar y cerrar sin guardar" type="button" class="btn-text" onclick="app.modal.cerrarTodosModales()">Cancelar</button>
           </div>
         </form>
       `;
@@ -3534,7 +3534,7 @@ const app = {
           document.getElementById("modalInteresados").querySelector(".modal-content").innerHTML = `
             <div class="modal-header">
               <h2>${label} Interesados</h2>
-              <button class="close-btn" onclick="app.modal.cerrarInteresados()">✕</button>
+              <button title="Cerrar" class="close-btn" onclick="app.modal.cerrarInteresados()">✕</button>
             </div>
             ${html}
           `;
@@ -3918,7 +3918,7 @@ const app = {
                 <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${utils.escapeHtml(c.email)}</p>
                 ${c.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${utils.escapeHtml(c.ciudad)}</p>` : ''}
               </div>
-              <button class="btn-primary" onclick="app.stats.mostrarPerfilClinica(${JSON.stringify(clinicaConEspecialidad).replace(/"/g, '&quot;')})" style="white-space: nowrap; margin-left: 1rem;">Ver detalles</button>
+              <button title="Ver el detalle de esta clínica" class="btn-primary" onclick="app.stats.mostrarPerfilClinica(${JSON.stringify(clinicaConEspecialidad).replace(/"/g, '&quot;')})" style="white-space: nowrap; margin-left: 1rem;">Ver detalles</button>
             </div>
           `;
         });
@@ -3974,7 +3974,7 @@ const app = {
             <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>📍 Ciudad:</strong> ${utils.escapeHtml(d.ciudad)}</p>
             ${d.direccion ? `<p style="margin: 0.3rem 0; font-size: 0.9rem; color: #6b7280;"><strong>🏠 Dirección:</strong> ${utils.escapeHtml(d.direccion)}</p>` : ''}
             <div style="margin-top: 0.75rem;">
-              <button onclick="app.stats.abrirSolicitudDeDentista(${d.usuario_id})" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
+              <button title="Ver el detalle de este dentista" onclick="app.stats.abrirSolicitudDeDentista(${d.usuario_id})" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
             </div>
           </div>
         `;
@@ -4264,9 +4264,9 @@ const app = {
             </div>` : ''}
             ${(() => {
               const botones = [];
-              if (!opciones.soloEstado) botones.push(`<button class="btn-primary" onclick="app.stats.abrirPublicacionDePostulacion(${post.publicacion_id})" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Ver Publicación</button>`);
-              if (post.estado === 'aceptada') botones.push(`<button onclick="app.resenyas.abrirFormulario(${post.id}, '${utils.escapeHtml((post.empresa_nombre || 'la otra parte').replace(/'/g, "\\'"))}')" style="flex: 1; background: #f59e0b; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">⭐ Valorar</button>`);
-              if (!opciones.soloEstado) botones.push(`<button onclick="app.candidaturas.retirarPostulacion(${post.id})" style="flex: 1; background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">🗑️ Retirar</button>`);
+              if (!opciones.soloEstado) botones.push(`<button title="Ver la publicación de esta postulación" class="btn-primary" onclick="app.stats.abrirPublicacionDePostulacion(${post.publicacion_id})" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">Ver Publicación</button>`);
+              if (post.estado === 'aceptada') botones.push(`<button title="Dejar una valoración" onclick="app.resenyas.abrirFormulario(${post.id}, '${utils.escapeHtml((post.empresa_nombre || 'la otra parte').replace(/'/g, "\\'"))}')" style="flex: 1; background: #f59e0b; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">⭐ Valorar</button>`);
+              if (!opciones.soloEstado) botones.push(`<button title="Retirar esta postulación" onclick="app.candidaturas.retirarPostulacion(${post.id})" style="flex: 1; background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;">🗑️ Retirar</button>`);
               return botones.length ? `<div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">${botones.join("")}</div>` : "";
             })()}
           </div>
@@ -4797,9 +4797,9 @@ const app = {
                 <span style="background: ${estadoColor}; color: white; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.75rem; text-transform: capitalize; white-space: nowrap; margin-left: 1rem;">${utils.textoEstado(p.estado)}</span>
               </div>
               <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
-                <button onclick="event.stopPropagation(); app.stats.mostrarDetallePostulacion('${p.id}', '${utils.escapeHtml(p.nombre.replace(/'/g, "\\'"))}', '${utils.escapeHtml(p.email.replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.ciudad || '').replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.direccion || '').replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.codigo_postal || '').replace(/'/g, "\\'"))}', '${p.estado}', '${utils.escapeHtml((p.mensaje || '').replace(/'/g, "\\'").replace(/"/g, '\\"'))}')" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
+                <button title="Ver el detalle de esta postulación" onclick="event.stopPropagation(); app.stats.mostrarDetallePostulacion('${p.id}', '${utils.escapeHtml(p.nombre.replace(/'/g, "\\'"))}', '${utils.escapeHtml(p.email.replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.ciudad || '').replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.direccion || '').replace(/'/g, "\\'"))}', '${utils.escapeHtml((p.codigo_postal || '').replace(/'/g, "\\'"))}', '${p.estado}', '${utils.escapeHtml((p.mensaje || '').replace(/'/g, "\\'").replace(/"/g, '\\"'))}')" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
                 ${utils.selectorEstado(p.id, p.estado, `event.stopPropagation(); app.stats.cambiarEstadoCandidatura(${p.id}, this.value)`)}
-                ${p.estado === 'aceptada' ? `<button onclick="event.stopPropagation(); app.resenyas.abrirFormulario(${p.id}, '${utils.escapeHtml(p.nombre.replace(/'/g, "\\'"))}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
+                ${p.estado === 'aceptada' ? `<button title="Dejar una valoración" onclick="event.stopPropagation(); app.resenyas.abrirFormulario(${p.id}, '${utils.escapeHtml(p.nombre.replace(/'/g, "\\'"))}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
               </div>
             </div>
           `;
@@ -4914,7 +4914,7 @@ const app = {
                 <p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📧 ${utils.escapeHtml(d.email)}</p>
                 ${d.ciudad ? `<p style="margin: 0.2rem 0; font-size: 0.9rem; color: #6b7280;">📍 ${utils.escapeHtml(d.ciudad)}</p>` : ''}
               </div>
-              <button class="btn-primary" onclick="app.stats.mostrarPerfilDentistaCompleto(${JSON.stringify(d).replace(/"/g, '&quot;')})" style="white-space: nowrap; margin-left: 1rem;">Ver detalles</button>
+              <button title="Ver el perfil completo de este dentista" class="btn-primary" onclick="app.stats.mostrarPerfilDentistaCompleto(${JSON.stringify(d).replace(/"/g, '&quot;')})" style="white-space: nowrap; margin-left: 1rem;">Ver detalles</button>
             </div>
           `;
         });
@@ -4952,9 +4952,9 @@ const app = {
           ${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; padding: 0.75rem; background: #f0f9ff; border-radius: 4px; border-left: 2px solid #0ea5e9; color: #0c4a6e;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}
           ${utils.respuestasCribaHtml(c.respuestas)}
           <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
-            <button onclick="${abrir}" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
+            <button title="Ver el detalle de este dentista" onclick="${abrir}" style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">👁️ Ver Detalles</button>
             ${utils.selectorEstado(c.id, c.estado, `app.stats.cambiarEstadoCandidatura(${c.id}, this.value)`)}
-            ${c.estado === 'aceptada' ? `<button onclick="app.resenyas.abrirFormulario(${c.id}, '${utils.escapeHtml(c.nombre.replace(/'/g, "\\'"))}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
+            ${c.estado === 'aceptada' ? `<button title="Dejar una valoración" onclick="app.resenyas.abrirFormulario(${c.id}, '${utils.escapeHtml(c.nombre.replace(/'/g, "\\'"))}')" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">⭐ Valorar</button>` : ''}
           </div>
         </div>
       `;
@@ -5299,7 +5299,7 @@ const app = {
             <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">Subido el ${utils.formatearFecha(cv.creado_en)} · ${utils.formatearTamanyo(cv.tamanyo)}</p>
             <div style="display: flex; gap: 0.8rem;">
               <a href="${API}/archivos/${cv.id}/download" class="btn-primary btn-small" style="text-decoration: none; display: inline-block;">Descargar</a>
-              <button class="btn-outline btn-small" onclick="app.archivos.eliminar(${cv.id})">Eliminar</button>
+              <button title="Eliminar este archivo" class="btn-outline btn-small" onclick="app.archivos.eliminar(${cv.id})">Eliminar</button>
             </div>
           </div>
         `;
@@ -5310,7 +5310,7 @@ const app = {
             <span>Arrastra y suelta o haz clic para seleccionar</span>
             <input type="file" id="cvInput" accept=".pdf" style="display: none;" onchange="app.archivos.subirCV()">
           </div>
-          <button class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('cvInput').click()">Seleccionar archivo</button>
+          <button title="Seleccionar el archivo de tu CV" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('cvInput').click()">Seleccionar archivo</button>
         `;
       }
 
@@ -5341,7 +5341,7 @@ const app = {
             </div>
             <div style="display: flex; gap: 0.5rem;">
               <a href="${API}/archivos/${p.id}/download" class="btn-primary btn-small" style="text-decoration: none; display: inline-block;">Descargar</a>
-              <button class="btn-outline btn-small" onclick="app.archivos.eliminar(${p.id})">Eliminar</button>
+              <button title="Eliminar este archivo" class="btn-outline btn-small" onclick="app.archivos.eliminar(${p.id})">Eliminar</button>
             </div>
           </div>
         `).join("");
@@ -5534,7 +5534,7 @@ const app = {
               ${u.email_verificado
                 ? `<small style="color: #10b981; font-weight: 600; margin-top: 0.3rem; display: block;">✓ Email verificado</small>`
                 : `<small style="color: #f59e0b; margin-top: 0.3rem; display: block;">⚠️ Email sin verificar
-                     <button type="button" class="btn-text btn-small" onclick="app.auth.reenviarVerificacion()">Reenviar correo</button>
+                     <button title="Reenviar el correo de verificación" type="button" class="btn-text btn-small" onclick="app.auth.reenviarVerificacion()">Reenviar correo</button>
                    </small>`}
             </div>
 
@@ -5607,8 +5607,8 @@ const app = {
             </div>
 
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-              <button type="button" class="btn-outline" style="flex: 1;" onclick="app.perfil.cancelarEdicion()">❌ Deshacer cambios</button>
-              <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
+              <button title="Deshacer los cambios y salir del modo edición" type="button" class="btn-outline" style="flex: 1;" onclick="app.perfil.cancelarEdicion()">❌ Deshacer cambios</button>
+              <button title="Guardar los cambios de tu perfil" type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
             </div>
           </form>
           <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
@@ -5616,7 +5616,7 @@ const app = {
           <div class="zona-peligro">
             <h4>⚠️ Zona de peligro</h4>
             <p>Eliminar tu cuenta borra tus datos personales, archivos y publicaciones de forma irreversible. Los mensajes y reseñas que compartiste con otros usuarios quedarán anonimizados.</p>
-            <button type="button" class="btn-outline btn-small" style="border-color: #dc2626; color: #dc2626;" onclick="app.perfil.eliminarCuenta()">Eliminar mi cuenta</button>
+            <button title="Eliminar tu cuenta de forma permanente" type="button" class="btn-outline btn-small" style="border-color: #dc2626; color: #dc2626;" onclick="app.perfil.eliminarCuenta()">Eliminar mi cuenta</button>
           </div>
         `;
 
@@ -5648,7 +5648,7 @@ const app = {
               ${u.email_verificado
                 ? `<small style="color: #10b981; font-weight: 600; margin-top: 0.3rem; display: block;">✓ Email verificado</small>`
                 : `<small style="color: #f59e0b; margin-top: 0.3rem; display: block;">⚠️ Email sin verificar
-                     <button type="button" class="btn-text btn-small" onclick="app.auth.reenviarVerificacion()">Reenviar correo</button>
+                     <button title="Reenviar el correo de verificación" type="button" class="btn-text btn-small" onclick="app.auth.reenviarVerificacion()">Reenviar correo</button>
                    </small>`}
             </div>
 
@@ -5730,14 +5730,14 @@ const app = {
             </div>
 
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-              <button type="button" class="btn-outline" style="flex: 1;" onclick="app.perfil.cancelarEdicion()">❌ Deshacer cambios</button>
-              <button type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
+              <button title="Deshacer los cambios y salir del modo edición" type="button" class="btn-outline" style="flex: 1;" onclick="app.perfil.cancelarEdicion()">❌ Deshacer cambios</button>
+              <button title="Guardar los cambios de tu perfil" type="submit" class="btn-primary" style="flex: 1;">💾 Guardar cambios</button>
             </div>
           </form>
           <div class="zona-peligro">
             <h4>⚠️ Zona de peligro</h4>
             <p>Eliminar tu cuenta borra tus datos personales, archivos y publicaciones de forma irreversible. Los mensajes y reseñas que compartiste con otros usuarios quedarán anonimizados.</p>
-            <button type="button" class="btn-outline btn-small" style="border-color: #dc2626; color: #dc2626;" onclick="app.perfil.eliminarCuenta()">Eliminar mi cuenta</button>
+            <button title="Eliminar tu cuenta de forma permanente" type="button" class="btn-outline btn-small" style="border-color: #dc2626; color: #dc2626;" onclick="app.perfil.eliminarCuenta()">Eliminar mi cuenta</button>
           </div>
         `;
 
@@ -5996,7 +5996,7 @@ const app = {
           <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header">
               <h2>Confirmación de Email</h2>
-              <button class="close-btn" onclick="document.getElementById('modalConfirmacionEmail').remove()">✕</button>
+              <button title="Cerrar" class="close-btn" onclick="document.getElementById('modalConfirmacionEmail').remove()">✕</button>
             </div>
             <div style="padding: 1.5rem;">
               <div style="background: #F0F9FF; padding: 1rem; border-radius: 8px; border-left: 4px solid #3b82f6; margin-bottom: 1rem;">
@@ -6010,7 +6010,7 @@ const app = {
               <div style="background: #FEF3C7; padding: 0.75rem; border-radius: 6px; border-left: 3px solid #F59E0B;">
                 <small style="color: #92400E;">💡 Verifica tu carpeta de spam si no ves el email</small>
               </div>
-              <button class="btn-primary" style="width: 100%; margin-top: 1.5rem;" onclick="document.getElementById('modalConfirmacionEmail').remove(); app.perfil.cargar();">
+              <button title="Cerrar este aviso" class="btn-primary" style="width: 100%; margin-top: 1.5rem;" onclick="document.getElementById('modalConfirmacionEmail').remove(); app.perfil.cargar();">
                 Entendido
               </button>
             </div>
@@ -6308,7 +6308,7 @@ const app = {
         const btnPerfilesDentista = document.getElementById("btnPerfiles");
         btnPerfilesDentista.style.display = "inline-block";
         btnPerfilesDentista.textContent = "🏥 Clínicas";
-        btnPerfilesDentista.title = "";
+        btnPerfilesDentista.title = "Ver perfiles de clínicas";
         btnTodas.textContent = "Publicaciones de clínicas";
         // Autocompletado del catálogo en el campo de texto de ciudad, para las vistas
         // que no usan el desplegable (p. ej. Suplencias)
@@ -6433,7 +6433,7 @@ const app = {
             const data = await utils.request(`/publicaciones/${pub.id}/candidatos`);
             const interesados = (data.candidatos || []).length;
               interesadosHTML = `
-              <button class="btn-interesados" onclick="app.modal.abrirCandidatos(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')">
+              <button title="Ver las clínicas interesadas en tu publicación" class="btn-interesados" onclick="app.modal.abrirCandidatos(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')">
                 👥 Clínicas Postuladas (${interesados})
               </button>
             `;
@@ -6468,30 +6468,30 @@ const app = {
               <span class="badge">${utils.formatearFecha(pub.creado_en)}</span>
             </div>
             <div class="card-footer" style="display: flex; gap: 0.5rem;">
-              <button class="btn-primary" onclick="app.modal.abrirDetalleConManejo(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver Publicación</button>
+              <button title="Ver el detalle de esta publicación" class="btn-primary" onclick="app.modal.abrirDetalleConManejo(${JSON.stringify(pub).replace(/"/g, '&quot;')})" style="flex: 1;">Ver Publicación</button>
               ${(() => {
                 if (estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id)) {
                   return `<button class="btn-outline" onclick="app.publicaciones.copiarEnlacePublico(${pub.id})" style="flex: 1;" title="Copiar el enlace público de esta publicación">🔗 Copiar Enlace</button>
                           ${pub.tipo === 'suplencia' ? `<button class="btn-outline" onclick="app.suplencias.verDisponibles(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;" title="Dentistas disponibles para estos días">🗓️ Dentistas Disponibles</button>` : ''}
                           ${colabDeClinicaCard ? `<button class="btn-outline" onclick="app.colaboraciones.verDisponibles(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;" title="Dentistas disponibles para estos días">🗓️ Dentistas Disponibles</button>` : ''}
-                          <button class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">📊 Estadísticas</button>
-                          <button class="btn-danger" onclick="app.publicaciones.retirarPublicacion(${pub.id})" style="flex: 1;">🗑️ Retirar</button>`;
+                          <button title="Ver las estadísticas de esta publicación" class="btn-outline" onclick="app.stats.mostrarEstadisticasPublicacion(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')" style="flex: 1;">📊 Estadísticas</button>
+                          <button title="Retirar esta publicación" class="btn-danger" onclick="app.publicaciones.retirarPublicacion(${pub.id})" style="flex: 1;">🗑️ Retirar</button>`;
                 }
                 return '';
               })()}
               ${(() => {
                 if (estadoApp.tipoUsuario === 'dentista' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia' || colabDeClinicaCard)) {
                   const nombreClinica = utils.escapeHtml((pub.usuario_nombre || pub.nombre_contacto || 'esta clínica').replace(/'/g, "\\'"));
-                  const mailBtn = `<button class="btn-secondary" onclick="app.perfiles.contactar(${pub.usuario_id}, '${nombreClinica}', 'clinica')" style="flex: 1;">✉️ Enviar Mail</button>`;
+                  const mailBtn = `<button title="Enviar un correo con tu mensaje" class="btn-secondary" onclick="app.perfiles.contactar(${pub.usuario_id}, '${nombreClinica}', 'clinica')" style="flex: 1;">✉️ Enviar Mail</button>`;
                   const chatBtn = `<button class="btn-outline" onclick="app.perfiles.iniciarChat(${pub.usuario_id}, '${nombreClinica}')" style="flex: 1;" title="Empezar a chatear con la clínica">💬 Iniciar chat</button>`;
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
                   if (yaPostulada) {
                     return `<button class="btn-success" onclick="app.stats.mostrarEstadoMiPostulacion(${pub.id})" style="flex: 1;" title="Ver el estado de tu postulación">Postulada (${utils.textoEstado(yaPostulada.estado)})</button>
-                            <button class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Retirar Postulación</button>
+                            <button title="Retirar tu postulación" class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Retirar Postulación</button>
                             ${mailBtn}
                             ${chatBtn}`;
                   } else {
-                    return `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>
+                    return `<button title="Postularte a esta oferta" class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>
                             ${mailBtn}
                             ${chatBtn}`;
                   }
@@ -6501,23 +6501,23 @@ const app = {
               ${(() => {
                 if (estadoApp.tipoUsuario === 'clinica' && (pub.tipo === 'solicitud' || (pub.tipo === 'colaboracion' && !colabDeClinicaCard))) {
                   const nombreDent = utils.escapeHtml((pub.usuario_nombre || pub.nombre_contacto || 'este dentista').replace(/'/g, "\\'"));
-                  const mailBtn = `<button class="btn-secondary" onclick="app.perfiles.contactar(${pub.usuario_id}, '${nombreDent}', 'dentista')" style="flex: 1;">✉️ Enviar Mail</button>`;
+                  const mailBtn = `<button title="Enviar un correo con tu mensaje" class="btn-secondary" onclick="app.perfiles.contactar(${pub.usuario_id}, '${nombreDent}', 'dentista')" style="flex: 1;">✉️ Enviar Mail</button>`;
                   const chatBtn = `<button class="btn-outline" onclick="app.perfiles.iniciarChat(${pub.usuario_id}, '${nombreDent}')" style="flex: 1;" title="Empezar a chatear con el dentista">💬 Iniciar chat</button>`;
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
                   if (yaPostulada) {
                     return `<button class="btn-success" onclick="app.stats.mostrarEstadoMiPostulacion(${pub.id})" style="flex: 1;" title="Ver el estado de tu postulación">Postulada (${utils.textoEstado(yaPostulada.estado)})</button>
-                            <button class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Retirar Postulación</button>
+                            <button title="Retirar tu postulación" class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Retirar Postulación</button>
                             ${mailBtn}
                             ${chatBtn}`;
                   } else {
-                    return `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>
+                    return `<button title="Postularte a esta solicitud" class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>
                             ${mailBtn}
                             ${chatBtn}`;
                   }
                 }
                 return '';
               })()}
-              ${estadoApp.tipoUsuario === 'clinica' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia' || colabDeClinicaCard) && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${utils.escapeHtml((pub.sede_nombre || pub.ciudad || generatedTitle).replace(/'/g, "\\'"))}')" style="flex: 1;">👥 Dentistas Postulados (${candidatosPorOferta[pub.id]})</button>` : ''}
+              ${estadoApp.tipoUsuario === 'clinica' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia' || colabDeClinicaCard) && estadoApp.usuario && parseInt(pub.usuario_id) === parseInt(estadoApp.usuario.id) && candidatosPorOferta[pub.id] > 0 ? `<button title="Ver los dentistas que se han postulado" class="btn-outline" onclick="app.modal.abrirCandidatos(${pub.id}, '${utils.escapeHtml((pub.sede_nombre || pub.ciudad || generatedTitle).replace(/'/g, "\\'"))}')" style="flex: 1;">👥 Dentistas Postulados (${candidatosPorOferta[pub.id]})</button>` : ''}
               ${interesadosHTML}
             </div>
           </div>
@@ -6526,7 +6526,7 @@ const app = {
 
       const botonCargarMas = estadoApp.hayMasPublicaciones
         ? `<div style="text-align: center; margin-top: 2rem;">
-             <button class="btn-outline" onclick="app.publicaciones.cargar(${estadoApp.paginaActual + 1})">Cargar más</button>
+             <button title="Cargar más publicaciones" class="btn-outline" onclick="app.publicaciones.cargar(${estadoApp.paginaActual + 1})">Cargar más</button>
            </div>`
         : "";
 
@@ -6666,9 +6666,9 @@ const app = {
               <span title="Coincidencias ahora mismo" style="background: ${n > 0 ? "#10b981" : "#9ca3af"}; color: white; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">${n} ahora</span>
             </div>
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem;">
-              <button onclick="event.stopPropagation(); app.alertas.aplicar(${a.id})" style="background: #3b82f6; color: white; border: none; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🔎 Ver coincidencias</button>
-              <button onclick="event.stopPropagation(); app.alertas.toggleActiva(${a.id}, ${activa ? 0 : 1})" style="background: white; color: #374151; border: 1px solid #d1d5db; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">${activa ? "⏸️ Pausar" : "▶️ Activar"}</button>
-              <button onclick="event.stopPropagation(); app.alertas.eliminar(${a.id})" style="background: white; color: #ef4444; border: 1px solid #fecaca; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🗑️ Eliminar</button>
+              <button title="Ver las coincidencias de esta alerta" onclick="event.stopPropagation(); app.alertas.aplicar(${a.id})" style="background: #3b82f6; color: white; border: none; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🔎 Ver coincidencias</button>
+              <button title="Pausar o activar esta alerta" onclick="event.stopPropagation(); app.alertas.toggleActiva(${a.id}, ${activa ? 0 : 1})" style="background: white; color: #374151; border: 1px solid #d1d5db; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">${activa ? "⏸️ Pausar" : "▶️ Activar"}</button>
+              <button title="Eliminar esta alerta" onclick="event.stopPropagation(); app.alertas.eliminar(${a.id})" style="background: white; color: #ef4444; border: 1px solid #fecaca; padding: 0.45rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🗑️ Eliminar</button>
             </div>
           </div>`;
       }).join("");
@@ -6803,12 +6803,12 @@ const app = {
               : `<p style="color:#9ca3af;font-size:.85rem;margin:.2rem 0 1rem;">${esClinica ? "Especialidades no indicadas" : "Sin especialidades indicadas"}</p>`}
             ${p.descripcion ? `<p style="color:#6b7280;font-size:.9rem;margin:.2rem 0 1rem;line-height:1.5;">${utils.escapeHtml(p.descripcion.slice(0, 150))}${p.descripcion.length > 150 ? "…" : ""}</p>` : ""}
             <div class="card-footer" style="display:flex;gap:.5rem;">
-              <button class="btn-primary" onclick="app.perfiles.verDetalle(${p.id})" style="flex:1;">Ver perfil</button>
+              <button title="Ver este perfil" class="btn-primary" onclick="app.perfiles.verDetalle(${p.id})" style="flex:1;">Ver perfil</button>
               ${(() => {
                 // Enviar Mail (solicitud de contacto, avisa por email) + Iniciar chat, en
                 // ambos roles: la clínica hacia el dentista y el dentista hacia la clínica.
                 const nombreEsc = utils.escapeHtml((p.nombre || (p.tipo === 'clinica' ? 'esta clínica' : 'este dentista')).replace(/'/g, "\\'"));
-                return `<button class="btn-secondary" onclick="app.perfiles.contactar(${p.id}, '${nombreEsc}', '${p.tipo}')" style="flex:1;">✉️ Enviar Mail</button>
+                return `<button title="Enviar un correo con tu mensaje" class="btn-secondary" onclick="app.perfiles.contactar(${p.id}, '${nombreEsc}', '${p.tipo}')" style="flex:1;">✉️ Enviar Mail</button>
                         <button class="btn-outline" onclick="app.perfiles.iniciarChat(${p.id}, '${nombreEsc}')" style="flex:1;" title="Empezar a chatear">💬 Iniciar chat</button>`;
               })()}
             </div>
@@ -7003,7 +7003,7 @@ const app = {
           <span class="visor-nombre">${utils.escapeHtml(nombre || "Archivo")}</span>
           <span class="visor-acciones">
             <a class="btn-primary btn-small" href="${blobUrl}" download="${utils.escapeHtml(nombre || "archivo")}">⬇️ Descargar</a>
-            <button type="button" class="btn-outline btn-small" data-cerrar>✕ Cerrar</button>
+            <button title="Cerrar" type="button" class="btn-outline btn-small" data-cerrar>✕ Cerrar</button>
           </span>
         </div>
         <div class="visor-contenido">${visor}</div>`;
@@ -7036,7 +7036,7 @@ const app = {
         } else {
           // Atajo opcional: todo de una vez. Debajo siguen los archivos uno a uno.
           html += `<div style="margin-bottom:1rem;">
-            <button class="btn-primary" onclick="app.perfiles.descargarBookCompleto(${id}, '${utils.escapeHtml((nombre || 'dentista').replace(/'/g, "\\'"))}', this)">⬇️ Descargar todo el Book (${book.length})</button>
+            <button title="Descargar todos los archivos del Book" class="btn-primary" onclick="app.perfiles.descargarBookCompleto(${id}, '${utils.escapeHtml((nombre || 'dentista').replace(/'/g, "\\'"))}', this)">⬇️ Descargar todo el Book (${book.length})</button>
           </div>`;
 
           // Cada fichero se abre en un visor (imagen o PDF a tamaño grande), con sus
@@ -7385,7 +7385,7 @@ const app = {
       const nombreEsc = utils.escapeHtml((c.empresa_nombre || `esta ${destinatario}`).replace(/'/g, "\\'"));
       const tipoContacto = estadoApp.tipoUsuario === 'dentista' ? 'clinica' : 'dentista';
       const contactoBtns = c.empresa_usuario_id ? `
-            <button class="btn-small btn-secondary" onclick="app.perfiles.contactar(${c.empresa_usuario_id}, '${nombreEsc}', '${tipoContacto}')">✉️ Enviar Mail</button>
+            <button title="Enviar un correo con tu mensaje" class="btn-small btn-secondary" onclick="app.perfiles.contactar(${c.empresa_usuario_id}, '${nombreEsc}', '${tipoContacto}')">✉️ Enviar Mail</button>
             <button class="btn-small btn-outline" onclick="app.perfiles.iniciarChat(${c.empresa_usuario_id}, '${nombreEsc}')" title="Empezar a chatear">💬 Iniciar chat</button>` : '';
       return `
         <div class="kanban-tarjeta" style="border-left: 3px solid ${color};">
@@ -7395,10 +7395,10 @@ const app = {
           ${c.contrato || c.jornada ? `<p class="kanban-tarjeta-detalle">📋 ${utils.escapeHtml([c.contrato, c.jornada].filter(Boolean).join(' · '))}</p>` : ''}
           <p class="kanban-tarjeta-fecha">Postulada el ${utils.formatearFecha(c.creado_en)}</p>
           <div class="kanban-tarjeta-acciones">
-            <button class="btn-small btn-outline" onclick="app.stats.abrirPublicacionDePostulacion(${c.publicacion_id})">Ver Publicación</button>
+            <button title="Ver la publicación de esta postulación" class="btn-small btn-outline" onclick="app.stats.abrirPublicacionDePostulacion(${c.publicacion_id})">Ver Publicación</button>
             ${contactoBtns}
-            ${c.estado === 'aceptada' ? `<button class="btn-small" style="background: #f59e0b; color: white; border: none; border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;" onclick="app.resenyas.abrirFormulario(${c.id}, '${(c.empresa_nombre || `la ${destinatario}`).replace(/'/g, "\\'")}')">⭐ Valorar</button>` : ''}
-            <button class="btn-small" style="background: #ef4444; color: white; border: none; border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;" onclick="app.candidaturas.retirarPostulacion(${c.id})">🗑️ Retirar</button>
+            ${c.estado === 'aceptada' ? `<button title="Dejar una valoración" class="btn-small" style="background: #f59e0b; color: white; border: none; border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;" onclick="app.resenyas.abrirFormulario(${c.id}, '${(c.empresa_nombre || `la ${destinatario}`).replace(/'/g, "\\'")}')">⭐ Valorar</button>` : ''}
+            <button title="Retirar esta postulación" class="btn-small" style="background: #ef4444; color: white; border: none; border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;" onclick="app.candidaturas.retirarPostulacion(${c.id})">🗑️ Retirar</button>
           </div>
         </div>
       `;
@@ -7457,7 +7457,7 @@ const app = {
             <p style="margin: 0.2rem 0; font-size: 0.85rem; color: #6b7280;">${utils.escapeHtml(this.formatearRango(e.fecha_inicio, e.fecha_fin, e.actual))}</p>
             ${e.descripcion ? `<p style="margin: 0.3rem 0 0 0; font-size: 0.9rem; color: #374151; white-space: pre-wrap;">${utils.escapeHtml(e.descripcion)}</p>` : ''}
           </div>
-          <button class="btn-text btn-small" onclick="app.trayectoria.eliminarExperiencia(${e.id})" style="white-space: nowrap;">Eliminar</button>
+          <button title="Eliminar esta experiencia" class="btn-text btn-small" onclick="app.trayectoria.eliminarExperiencia(${e.id})" style="white-space: nowrap;">Eliminar</button>
         </div>
       `).join('');
     },
@@ -7475,7 +7475,7 @@ const app = {
             <strong style="color: #0f4c75;">${utils.escapeHtml(f.titulo)}</strong>
             <p style="margin: 0.2rem 0; font-size: 0.85rem; color: #6b7280;">${[f.centro, f.anyo].filter(Boolean).map(x => utils.escapeHtml(x)).join(' · ')}</p>
           </div>
-          <button class="btn-text btn-small" onclick="app.trayectoria.eliminarFormacion(${f.id})" style="white-space: nowrap;">Eliminar</button>
+          <button title="Eliminar esta formación" class="btn-text btn-small" onclick="app.trayectoria.eliminarFormacion(${f.id})" style="white-space: nowrap;">Eliminar</button>
         </div>
       `).join('');
     },
@@ -7490,7 +7490,7 @@ const app = {
       contenedor.innerHTML = `<div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">` + lista.map(i => `
         <span style="background: #eef2ff; color: #3730a3; padding: 0.4rem 0.8rem; border-radius: 999px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.5rem;">
           ${utils.escapeHtml(i.idioma)} · ${utils.escapeHtml(i.nivel)}
-          <button onclick="app.trayectoria.eliminarIdioma(${i.id})" style="background: none; border: none; cursor: pointer; color: #6366f1; font-weight: bold; padding: 0;">✕</button>
+          <button title="Eliminar este idioma" onclick="app.trayectoria.eliminarIdioma(${i.id})" style="background: none; border: none; cursor: pointer; color: #6366f1; font-weight: bold; padding: 0;">✕</button>
         </span>
       `).join('') + `</div>`;
     },
@@ -7637,7 +7637,7 @@ const app = {
             ${linea ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.9rem; color: #6b7280;">📍 ${linea}</p>` : ''}
             ${s.telefono ? `<p style="margin: 0.2rem 0 0 0; font-size: 0.9rem; color: #6b7280;">📞 ${utils.escapeHtml(s.telefono)}</p>` : ''}
           </div>
-          <button class="btn-outline btn-small" onclick="app.sedes.eliminar(${s.id})">Eliminar</button>
+          <button title="Eliminar esta sede" class="btn-outline btn-small" onclick="app.sedes.eliminar(${s.id})">Eliminar</button>
         </div>
       `;
       }).join('');
@@ -7972,7 +7972,7 @@ const app = {
         <p style="margin: 0.3rem 0; font-size: 1.05rem;">
           <span style="color: #f59e0b; letter-spacing: 2px;">${this.estrellasHtml(resumen.media)}</span>
           <strong>${resumen.media}</strong> · ${resumen.total} valoraci${resumen.total === 1 ? 'ón' : 'ones'}
-          <button class="btn-text btn-small" onclick="app.resenyas.verDeUsuario(${usuarioId}, '${nombreEscapado}')">Ver reseñas</button>
+          <button title="Ver todas las reseñas" class="btn-text btn-small" onclick="app.resenyas.verDeUsuario(${usuarioId}, '${nombreEscapado}')">Ver reseñas</button>
         </p>
       `;
     },
@@ -8112,8 +8112,8 @@ const app = {
                 <span style="color:#6b7280;font-size:.85rem;"> (${p.solicitante_tipo === 'dentista' ? 'Dentista' : 'Clínica'})</span>
                 ${p.mensaje ? `<p style="margin:.3rem 0;font-size:.9rem;color:#4b5563;">${utils.escapeHtml(p.mensaje)}</p>` : ''}
                 <div style="display:flex;gap:.5rem;margin-top:.4rem;">
-                  <button class="btn-primary btn-small" onclick="app.chat.responderContacto(${p.id}, 'aceptada')">Aceptar</button>
-                  <button class="btn-outline btn-small" onclick="app.chat.responderContacto(${p.id}, 'rechazada')">Rechazar</button>
+                  <button title="Aceptar la solicitud de contacto" class="btn-primary btn-small" onclick="app.chat.responderContacto(${p.id}, 'aceptada')">Aceptar</button>
+                  <button title="Rechazar la solicitud de contacto" class="btn-outline btn-small" onclick="app.chat.responderContacto(${p.id}, 'rechazada')">Rechazar</button>
                 </div>
               </div>`).join("") + `</div>`;
         }
@@ -8170,7 +8170,7 @@ const app = {
              ondragleave="app.chat.arrastrarFuera(event)"
              ondrop="app.chat.soltarArchivos(event)">
           <div id="chatDropOverlay" class="chat-drop-overlay">📎 Suelta los archivos para adjuntarlos</div>
-          <button class="btn-text btn-small" onclick="app.chat.volverALista()" style="margin-bottom: 0.5rem;">← Todas las conversaciones</button>
+          <button title="Volver a la lista de conversaciones" class="btn-text btn-small" onclick="app.chat.volverALista()" style="margin-bottom: 0.5rem;">← Todas las conversaciones</button>
           <div id="chatEscribiendo" class="chat-escribiendo" style="visibility: hidden;">escribiendo…</div>
           <div id="chatMensajes" class="chat-mensajes"><p style="color: #9ca3af; text-align: center;">Cargando…</p></div>
           <div id="chatAtajos" class="chat-atajos"></div>
@@ -8179,7 +8179,7 @@ const app = {
             <input id="chatFile" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*" style="display: none;" onchange="app.chat.adjuntarFichero()">
             <button type="button" class="chat-adjuntar-btn" title="Adjuntar archivos (máx ${this.MAX_ADJUNTO_MB} MB)" onclick="document.getElementById('chatFile').click()">📎</button>
             <input id="chatInput" type="text" placeholder="Escribe un mensaje…" autocomplete="off" oninput="app.chat.notificarEscribiendo()">
-            <button type="submit" class="btn-primary">Enviar</button>
+            <button title="Enviar el mensaje" type="submit" class="btn-primary">Enviar</button>
           </form>
           <p class="chat-adjunto-limite">Arrastra aquí tus archivos o pulsa 📎 · hasta ${this.MAX_ADJUNTO_MB} MB cada uno.</p>
         </div>
@@ -8383,8 +8383,8 @@ const app = {
         const book = archivos.filter(a => a.tipo === 'portfolio');
         this.atajosArchivos = { cv, portfolio: book };
         let html = '';
-        if (cv) html += `<button type="button" class="chat-atajo" onclick="app.chat.adjuntarPerfil('cv')">📄 Adjuntar mi CV</button>`;
-        if (book.length) html += `<button type="button" class="chat-atajo" onclick="app.chat.adjuntarPerfil('portfolio')">📕 Adjuntar mi Book${book.length > 1 ? ` (${book.length})` : ''}</button>`;
+        if (cv) html += `<button title="Adjuntar tu CV a este mensaje" type="button" class="chat-atajo" onclick="app.chat.adjuntarPerfil('cv')">📄 Adjuntar mi CV</button>`;
+        if (book.length) html += `<button title="Adjuntar tu Book a este mensaje" type="button" class="chat-atajo" onclick="app.chat.adjuntarPerfil('portfolio')">📕 Adjuntar mi Book${book.length > 1 ? ` (${book.length})` : ''}</button>`;
         cont.innerHTML = html;
       } catch (error) {
         console.error("Error al cargar atajos de archivos:", error);
@@ -8873,7 +8873,7 @@ const app = {
         }
         const html = candidaturas.map(c => {
           const estadoColor = utils.colorEstado(c.estado);
-          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.titulo)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Empresa:</strong> ${utils.escapeHtml(c.empresa_nombre)}</p><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad || 'No especificada')}</p><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Contrato:</strong> ${utils.escapeHtml(c.contrato)} | <strong>Jornada:</strong> ${utils.escapeHtml(c.jornada)}</p></div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize;">${utils.textoEstado(c.estado)}</span><button class="btn-text btn-small" onclick="app.candidaturas.retirarPostulacion(${c.id})" style="margin-top: 0.5rem; display: block;">Retirar</button></div></div></div>`;
+          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.titulo)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Empresa:</strong> ${utils.escapeHtml(c.empresa_nombre)}</p><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad || 'No especificada')}</p><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Contrato:</strong> ${utils.escapeHtml(c.contrato)} | <strong>Jornada:</strong> ${utils.escapeHtml(c.jornada)}</p></div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize;">${utils.textoEstado(c.estado)}</span><button title="Retirar esta postulación" class="btn-text btn-small" onclick="app.candidaturas.retirarPostulacion(${c.id})" style="margin-top: 0.5rem; display: block;">Retirar</button></div></div></div>`;
         });
         container.innerHTML = `<div>${html.join('')}</div>`;
       } catch (error) {
