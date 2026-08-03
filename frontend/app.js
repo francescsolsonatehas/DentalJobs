@@ -1832,14 +1832,15 @@ const app = {
         } else if (estadoApp.filtros.verSuplencias) {
           // Suplencias: urgentes primero y luego por fecha de inicio más próxima
           url += `sort=fecha&`;
-        } else if (
-          (estadoApp.tipoUsuario === 'clinica' && tipo === 'solicitud') ||
-          (estadoApp.tipoUsuario === 'dentista' && estadoApp.vistaActual === 'publicaciones')
-        ) {
-          // Clínicas viendo dentistas, o dentistas viendo "Publicaciones de clínicas"
-          // (oferta+suplencia+colaboración juntas, o una sola si acotan el tipo): por
-          // defecto, agrupadas por ciudad y, dentro de cada una, por especialidad.
+        } else if (estadoApp.tipoUsuario === 'clinica' && tipo === 'solicitud') {
+          // Clínicas viendo dentistas: por defecto, agrupados por ciudad y, dentro de
+          // cada una, por especialidad.
           url += `sort=ciudad&`;
+        } else if (estadoApp.tipoUsuario === 'dentista' && estadoApp.vistaActual === 'publicaciones') {
+          // Dentistas viendo "Publicaciones de clínicas" (oferta+suplencia+colaboración
+          // juntas, o una sola si acotan el tipo): primero ofertas, luego suplencias y
+          // luego colaboraciones; dentro de cada tipo, las más recientes primero.
+          url += `sort=tipo&`;
         }
       }
 
