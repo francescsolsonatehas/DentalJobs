@@ -4788,7 +4788,7 @@ app.get("/candidaturas/mis-postulaciones", verifyToken, (req, res) => {
 
   db.all(
     `SELECT c.*, p.tipo as publicacion_tipo, p.descripcion, p.ciudad, p.contrato, p.jornada, p.salario,
-            u.nombre as empresa_nombre, u.email as empresa_email
+            u.id as empresa_usuario_id, u.nombre as empresa_nombre, u.email as empresa_email
      FROM candidaturas c
      JOIN publicaciones p ON c.publicacion_id = p.id
      JOIN usuarios u ON p.usuario_id = u.id

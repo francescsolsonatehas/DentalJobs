@@ -6457,14 +6457,17 @@ const app = {
               ${(() => {
                 if (estadoApp.tipoUsuario === 'dentista' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia' || colabDeClinicaCard)) {
                   const nombreClinica = utils.escapeHtml((pub.usuario_nombre || pub.nombre_contacto || 'esta clínica').replace(/'/g, "\\'"));
+                  const mailBtn = `<button class="btn-secondary" onclick="app.perfiles.contactar(${pub.usuario_id}, '${nombreClinica}', 'clinica')" style="flex: 1;">✉️ Enviar Mail</button>`;
                   const chatBtn = `<button class="btn-outline" onclick="app.perfiles.iniciarChat(${pub.usuario_id}, '${nombreClinica}')" style="flex: 1;" title="Empezar a chatear con la clínica">💬 Iniciar chat</button>`;
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
                   if (yaPostulada) {
                     return `<button class="btn-success" onclick="app.stats.mostrarEstadoMiPostulacion(${pub.id})" style="flex: 1;" title="Ver el estado de tu postulación">Postulada (${utils.textoEstado(yaPostulada.estado)})</button>
                             <button class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Retirar Postulación</button>
+                            ${mailBtn}
                             ${chatBtn}`;
                   } else {
                     return `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>
+                            ${mailBtn}
                             ${chatBtn}`;
                   }
                 }
@@ -6473,14 +6476,17 @@ const app = {
               ${(() => {
                 if (estadoApp.tipoUsuario === 'clinica' && (pub.tipo === 'solicitud' || (pub.tipo === 'colaboracion' && !colabDeClinicaCard))) {
                   const nombreDent = utils.escapeHtml((pub.usuario_nombre || pub.nombre_contacto || 'este dentista').replace(/'/g, "\\'"));
+                  const mailBtn = `<button class="btn-secondary" onclick="app.perfiles.contactar(${pub.usuario_id}, '${nombreDent}', 'dentista')" style="flex: 1;">✉️ Enviar Mail</button>`;
                   const chatBtn = `<button class="btn-outline" onclick="app.perfiles.iniciarChat(${pub.usuario_id}, '${nombreDent}')" style="flex: 1;" title="Empezar a chatear con el dentista">💬 Iniciar chat</button>`;
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
                   if (yaPostulada) {
                     return `<button class="btn-success" onclick="app.stats.mostrarEstadoMiPostulacion(${pub.id})" style="flex: 1;" title="Ver el estado de tu postulación">Postulada (${utils.textoEstado(yaPostulada.estado)})</button>
                             <button class="btn-danger" onclick="app.candidaturas.retirarPostulacion(${yaPostulada.id})" style="flex: 1;">Retirar Postulación</button>
+                            ${mailBtn}
                             ${chatBtn}`;
                   } else {
                     return `<button class="btn-secondary" onclick="estadoApp.publicacionActual = estadoApp.publicaciones.find(p => p.id === ${pub.id}); app.modal.abrirPostularseModal();" style="flex: 1;">Postularme</button>
+                            ${mailBtn}
                             ${chatBtn}`;
                   }
                 }
@@ -7351,6 +7357,11 @@ const app = {
 
     tarjetaHtml(c, color) {
       const destinatario = c.publicacion_tipo === 'oferta' ? 'clínica' : 'dentista';
+      const nombreEsc = utils.escapeHtml((c.empresa_nombre || `esta ${destinatario}`).replace(/'/g, "\\'"));
+      const tipoContacto = estadoApp.tipoUsuario === 'dentista' ? 'clinica' : 'dentista';
+      const contactoBtns = c.empresa_usuario_id ? `
+            <button class="btn-small btn-secondary" onclick="app.perfiles.contactar(${c.empresa_usuario_id}, '${nombreEsc}', '${tipoContacto}')">✉️ Enviar Mail</button>
+            <button class="btn-small btn-outline" onclick="app.perfiles.iniciarChat(${c.empresa_usuario_id}, '${nombreEsc}')" title="Empezar a chatear">💬 Iniciar chat</button>` : '';
       return `
         <div class="kanban-tarjeta" style="border-left: 3px solid ${color};">
           <strong>${utils.escapeHtml(c.empresa_nombre || 'Publicación')}</strong>
@@ -7359,6 +7370,8 @@ const app = {
           ${c.contrato || c.jornada ? `<p class="kanban-tarjeta-detalle">📋 ${utils.escapeHtml([c.contrato, c.jornada].filter(Boolean).join(' · '))}</p>` : ''}
           <p class="kanban-tarjeta-fecha">Postulada el ${utils.formatearFecha(c.creado_en)}</p>
           <div class="kanban-tarjeta-acciones">
+            <button class="btn-small btn-outline" onclick="app.stats.abrirPublicacionDePostulacion(${c.publicacion_id})">Ver Publicación</button>
+            ${contactoBtns}
             ${c.estado === 'aceptada' ? `<button class="btn-small" style="background: #f59e0b; color: white; border: none; border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;" onclick="app.resenyas.abrirFormulario(${c.id}, '${(c.empresa_nombre || `la ${destinatario}`).replace(/'/g, "\\'")}')">⭐ Valorar</button>` : ''}
             <button class="btn-small" style="background: #ef4444; color: white; border: none; border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;" onclick="app.candidaturas.retirarPostulacion(${c.id})">🗑️ Retirar</button>
           </div>
