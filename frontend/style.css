@@ -2496,8 +2496,14 @@ select:focus {
 
 .kanban-tarjeta-acciones {
   display: flex;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.4rem;
   margin-top: 0.6rem;
+}
+
+.kanban-tarjeta-acciones button {
+  flex: 0 1 auto;
+  white-space: nowrap;
 }
 
 /* ============================================
