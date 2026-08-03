@@ -1937,6 +1937,24 @@ select:focus {
   line-height: 1;
 }
 
+.notif-marcar-no-leida {
+  background: none;
+  border: 1px solid #cbd5e1;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 0.15rem 0.35rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.notif-marcar-no-leida:hover {
+  color: #0ea5e9;
+  border-color: #0ea5e9;
+  background: #eff6ff;
+}
+
 .notif-cuerpo {
   margin: 0.25rem 0 0;
   color: #4b5563;

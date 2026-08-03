@@ -2642,6 +2642,20 @@ app.put("/notificaciones/leer", verifyToken, (req, res) => {
   }
 });
 
+// Vuelve a marcar como no leída una notificación ya leída (siempre una en concreto,
+// a diferencia de "leer" que también admite marcar todas de golpe).
+app.put("/notificaciones/no-leer", verifyToken, (req, res) => {
+  const { id } = req.body || {};
+  if (!id) return res.status(400).json({ error: "Falta el id de la notificación" });
+  db.run("UPDATE notificaciones SET leido = 0 WHERE id = ? AND usuario_id = ?", [id, req.usuario.id], (err) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Error al marcar como no leída" });
+    }
+    res.json({ success: true });
+  });
+});
+
 /* ===========================
    🔹 ONBOARDING (primeros pasos para activarse)
 =========================== */

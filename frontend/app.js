@@ -977,10 +977,18 @@ const app = {
         // apertura del panel, aunque ya se haya marcado en el servidor
         const sinLeer = !n.leido || this._resaltadas?.has(n.id);
         const clases = `notif-item${sinLeer ? " notif-no-leida" : ""}`;
+        // Solo lo ya leído de verdad en el servidor se puede devolver a no leído; lo
+        // resaltado por _resaltadas ya se envió como leído al abrir el panel.
+        const marcarNoLeidaBtn = n.leido
+          ? `<button type="button" class="notif-marcar-no-leida" onclick="event.stopPropagation(); app.notificaciones.marcarNoLeida(${n.id});" title="Marcar como no leída">○</button>`
+          : "";
         return `<div class="${clases}"${enlaceAttr}>
-          <div style="display:flex; gap:0.5rem; align-items:baseline;">
-            ${sinLeer ? `<span class="notif-punto">●</span>` : ""}
-            <strong class="notif-titulo">${utils.escapeHtml(n.titulo)}</strong>
+          <div style="display:flex; gap:0.5rem; align-items:baseline; justify-content:space-between;">
+            <div style="display:flex; gap:0.5rem; align-items:baseline;">
+              ${sinLeer ? `<span class="notif-punto">●</span>` : ""}
+              <strong class="notif-titulo">${utils.escapeHtml(n.titulo)}</strong>
+            </div>
+            ${marcarNoLeidaBtn}
           </div>
           ${n.cuerpo ? `<p class="notif-cuerpo">${utils.escapeHtml(n.cuerpo)}</p>` : ""}
           <p class="notif-fecha">${utils.formatearFecha(n.creado_en)}</p>
@@ -1005,6 +1013,24 @@ const app = {
       this._lista = this._lista.map(n => ({ ...n, leido: 1 }));
       const badge = document.getElementById("notifBadge");
       if (badge) badge.style.display = "none";
+      this.render();
+    },
+
+    async marcarNoLeida(id) {
+      try {
+        await utils.request("/notificaciones/no-leer", { method: "PUT", body: JSON.stringify({ id }) });
+      } catch (e) { return; }
+      this._lista = this._lista.map(n => n.id === id ? { ...n, leido: 0 } : n);
+      const badge = document.getElementById("notifBadge");
+      const noLeidas = this._lista.filter(n => !n.leido).length;
+      if (badge) {
+        if (noLeidas > 0) {
+          badge.textContent = noLeidas > 99 ? "99+" : noLeidas;
+          badge.style.display = "inline-block";
+        } else {
+          badge.style.display = "none";
+        }
+      }
       this.render();
     }
   },
