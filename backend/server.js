@@ -3593,8 +3593,7 @@ app.get("/stats/candidatos-interesados-lista/:empresa_id", verifyToken, (req, re
      INNER JOIN publicaciones p ON c.publicacion_id = p.id
      -- Las clínicas publican ofertas fijas, suplencias puntuales y colaboraciones, y en
      -- las tres reciben candidaturas: si aquí solo se contara 'oferta', las postulaciones
-     -- a una suplencia o colaboración quedarían fuera de "Postulaciones Recibidas" aunque
-     -- el banner de recordatorios (que sí las cuenta todas) avisara de que había una sin responder.
+     -- a una suplencia o colaboración quedarían fuera de "Postulaciones Recibidas".
      WHERE p.usuario_id = ? AND p.tipo IN ('oferta', 'suplencia', 'colaboracion') AND p.activo = 1
      ORDER BY p.id, c.creado_en DESC`,
     [req.params.empresa_id],
@@ -5211,32 +5210,6 @@ app.get("/resenyas/usuario/:id", (req, res) => {
 =========================== */
 
 // Postulaciones pendientes de responder en publicaciones del usuario desde hace >= N días (por defecto 3)
-app.get("/recordatorios/pendientes", verifyToken, (req, res) => {
-  const diasParam = parseInt(req.query.dias);
-  const dias = Number.isNaN(diasParam) ? 3 : Math.max(diasParam, 0);
-
-  db.all(
-    `SELECT c.id as candidatura_id, c.creado_en, c.mensaje,
-            CAST(julianday('now') - julianday(c.creado_en) AS INTEGER) as dias_esperando,
-            u.id as candidato_id, u.nombre as candidato_nombre,
-            p.id as publicacion_id, p.ciudad, p.tipo as publicacion_tipo
-     FROM candidaturas c
-     INNER JOIN publicaciones p ON c.publicacion_id = p.id
-     INNER JOIN usuarios u ON c.usuario_id = u.id
-     WHERE p.usuario_id = ? AND p.activo = 1 AND c.estado IN ('pendiente', 'vista')
-       AND c.creado_en <= datetime('now', ?)
-     ORDER BY c.creado_en ASC`,
-    [req.usuario.id, `-${dias} days`],
-    (err, pendientes) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener recordatorios" });
-      }
-      res.json({ pendientes: pendientes || [] });
-    }
-  );
-});
-
 /* ===========================
    🔹 PERFILES (fichas de usuarios navegables)
 =========================== */
