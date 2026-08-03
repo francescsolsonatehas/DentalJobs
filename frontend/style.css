@@ -2751,3 +2751,32 @@ select:focus {
   background: #f8fafc;
   font-size: 0.85rem;
 }
+
+/* ============ TOOLTIPS (explicación de botones al pasar el ratón) ============
+   No se usa el atributo title nativo: su aparición depende del navegador (retraso
+   largo, no funciona en táctil, y las animaciones :hover con transform pueden
+   hacerlo parpadear). Este tooltip lo controla app.js con un único elemento
+   reutilizado, posicionado en fixed para no quedar recortado por modales con
+   overflow. */
+.app-tooltip {
+  position: fixed;
+  z-index: 9999;
+  background: #1f2937;
+  color: #fff;
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.35;
+  max-width: 260px;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.app-tooltip.visible {
+  opacity: 1;
+  transform: translateY(0);
+}

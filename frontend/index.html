@@ -12,19 +12,19 @@
         <nav>
             <div class="logo">🦷 DentalJobs</div>
             <div class="nav-buttons" id="navButtonsLogueado">
-                <button title="Publicar una oferta, suplencia, solicitud o colaboración" class="btn-primary btn-small" id="btnPublicar" onclick="app.modal.abrirPublicar()" style="display: none;">Publicar</button>
-                <button title="Abrir tus conversaciones de chat" class="btn-outline btn-small" id="btnChat" onclick="app.chat.abrir()" style="display: none; position: relative;">
+                <button data-tooltip="Publicar una oferta, suplencia, solicitud o colaboración" class="btn-primary btn-small" id="btnPublicar" onclick="app.modal.abrirPublicar()" style="display: none;">Publicar</button>
+                <button data-tooltip="Abrir tus conversaciones de chat" class="btn-outline btn-small" id="btnChat" onclick="app.chat.abrir()" style="display: none; position: relative;">
                     💬 <span id="chatBadge" style="display: none; background: #ef4444; color: white; border-radius: 50%; padding: 0.1rem 0.4rem; font-size: 0.7rem; position: absolute; top: -4px; right: -4px;">0</span>
                 </button>
-                <button class="btn-outline btn-small" id="btnNotif" onclick="app.notificaciones.togglePanel()" style="display: none; position: relative;" title="Notificaciones">
+                <button class="btn-outline btn-small" id="btnNotif" onclick="app.notificaciones.togglePanel()" style="display: none; position: relative;" data-tooltip="Notificaciones">
                     🔔 <span id="notifBadge" style="display: none; background: #ef4444; color: white; border-radius: 50%; padding: 0.1rem 0.4rem; font-size: 0.7rem; position: absolute; top: -4px; right: -4px;">0</span>
                 </button>
-                <button title="Ver y editar tu perfil" class="btn-outline btn-small" id="btnPerfil" onclick="app.modal.abrirPerfil()" style="display: none;">Mi perfil</button>
-                <button title="Cerrar sesión" class="btn-text btn-small" id="btnLogout" onclick="app.auth.logout()" style="display: none;">Logout</button>
+                <button data-tooltip="Ver y editar tu perfil" class="btn-outline btn-small" id="btnPerfil" onclick="app.modal.abrirPerfil()" style="display: none;">Mi perfil</button>
+                <button data-tooltip="Cerrar sesión" class="btn-text btn-small" id="btnLogout" onclick="app.auth.logout()" style="display: none;">Logout</button>
             </div>
             <div class="nav-buttons-landing" id="navButtonsLanding" style="display: none;">
-                <button title="Entrar o registrarte como clínica" class="btn-primary" onclick="app.landing.seleccionarTipo('empresa')">🏥 Clínica</button>
-                <button title="Entrar o registrarte como dentista" class="btn-secondary" onclick="app.landing.seleccionarTipo('candidato')">👨‍⚕️ Dentista</button>
+                <button data-tooltip="Entrar o registrarte como clínica" class="btn-primary" onclick="app.landing.seleccionarTipo('empresa')">🏥 Clínica</button>
+                <button data-tooltip="Entrar o registrarte como dentista" class="btn-secondary" onclick="app.landing.seleccionarTipo('candidato')">👨‍⚕️ Dentista</button>
             </div>
         </nav>
     </header>
@@ -33,7 +33,7 @@
     <div id="notifPanel" style="display: none; position: fixed; top: 62px; right: 12px; width: 340px; max-width: 92vw; max-height: 70vh; overflow-y: auto; background: white; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.15); z-index: 3000;">
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 1rem; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; background: white;">
             <strong style="color: #0f4c75;">Notificaciones</strong>
-            <button title="Marcar todas las notificaciones como leídas" onclick="app.notificaciones.marcarTodasLeidas()" style="background: none; border: none; color: #0f4c75; cursor: pointer; font-size: 0.82rem;">Marcar todas leídas</button>
+            <button data-tooltip="Marcar todas las notificaciones como leídas" onclick="app.notificaciones.marcarTodasLeidas()" style="background: none; border: none; color: #0f4c75; cursor: pointer; font-size: 0.82rem;">Marcar todas leídas</button>
         </div>
         <div id="notifLista"></div>
     </div>
@@ -187,20 +187,20 @@
             <h3 id="filtrosTitle">Todas las solicitudes</h3>
 
             <div class="tipo-toggle">
-                <button title="Ver todas las publicaciones" class="active" id="btnTodas" onclick="app.filtros.mostrarTodas(this)">Clínicas</button>
-                <button title="Ver perfiles" id="btnPerfiles" onclick="app.filtros.mostrarPerfiles(this)" style="display: none;">👤 Perfiles</button>
-                <button title="Ver mis publicaciones" id="btnMias" onclick="app.filtros.mostrarMias(this)" style="display: none;">Mis publicaciones</button>
-                <button title="Ver las publicaciones que has creado" id="btnPublicaciones" onclick="app.filtros.mostrarMisPublicaciones(this)" style="display: none;">Mis Publicaciones</button>
-                <button title="Ver las solicitudes de dentistas que has contactado" id="btnContactadas" onclick="app.filtros.mostrarContactadas(this)" style="display: none;">Contactadas</button>
-                <button title="Ver el estado de tus postulaciones en un tablero Kanban" id="btnKanban" onclick="app.filtros.mostrarKanban(this)" style="display: none;">📌 Mis Postulaciones</button>
-                <button title="Ver suplencias y turnos sueltos disponibles" id="btnSuplencias" onclick="app.filtros.mostrarSuplencias(this)" style="display: none;">🚨 Suplencias</button>
-                <button title="Ver colaboraciones disponibles" id="btnColaboraciones" onclick="app.filtros.mostrarColaboraciones(this)" style="display: none;">🤝 Colaboraciones</button>
-                <button title="Ver las postulaciones que has hecho a dentistas" id="btnMisPostulacionesDentistas" onclick="app.filtros.mostrarMisPostulacionesDentistas(this)" style="display: none;">Mis Postulaciones a Dentistas</button>
-                <button title="Ver tus postulaciones a dentistas ya aceptadas" id="btnMisPostulacionesDentistasAceptadas" onclick="app.filtros.mostrarMisPostulacionesDentistasAceptadas(this)" style="display: none;">Mis Postulaciones a Dentistas Aceptadas</button>
+                <button data-tooltip="Ver todas las publicaciones" class="active" id="btnTodas" onclick="app.filtros.mostrarTodas(this)">Clínicas</button>
+                <button data-tooltip="Ver perfiles" id="btnPerfiles" onclick="app.filtros.mostrarPerfiles(this)" style="display: none;">👤 Perfiles</button>
+                <button data-tooltip="Ver mis publicaciones" id="btnMias" onclick="app.filtros.mostrarMias(this)" style="display: none;">Mis publicaciones</button>
+                <button data-tooltip="Ver las publicaciones que has creado" id="btnPublicaciones" onclick="app.filtros.mostrarMisPublicaciones(this)" style="display: none;">Mis Publicaciones</button>
+                <button data-tooltip="Ver las solicitudes de dentistas que has contactado" id="btnContactadas" onclick="app.filtros.mostrarContactadas(this)" style="display: none;">Contactadas</button>
+                <button data-tooltip="Ver el estado de tus postulaciones en un tablero Kanban" id="btnKanban" onclick="app.filtros.mostrarKanban(this)" style="display: none;">📌 Mis Postulaciones</button>
+                <button data-tooltip="Ver suplencias y turnos sueltos disponibles" id="btnSuplencias" onclick="app.filtros.mostrarSuplencias(this)" style="display: none;">🚨 Suplencias</button>
+                <button data-tooltip="Ver colaboraciones disponibles" id="btnColaboraciones" onclick="app.filtros.mostrarColaboraciones(this)" style="display: none;">🤝 Colaboraciones</button>
+                <button data-tooltip="Ver las postulaciones que has hecho a dentistas" id="btnMisPostulacionesDentistas" onclick="app.filtros.mostrarMisPostulacionesDentistas(this)" style="display: none;">Mis Postulaciones a Dentistas</button>
+                <button data-tooltip="Ver tus postulaciones a dentistas ya aceptadas" id="btnMisPostulacionesDentistasAceptadas" onclick="app.filtros.mostrarMisPostulacionesDentistasAceptadas(this)" style="display: none;">Mis Postulaciones a Dentistas Aceptadas</button>
             </div>
 
             <div style="margin: 0.75rem 0 0; display: flex; justify-content: flex-end;">
-                <button title="Descargar el listado actual en un archivo CSV" class="btn-outline btn-small" id="btnExportarCsv" onclick="app.exportar.vistaActual()" style="display: none;">⬇️ Exportar a CSV</button>
+                <button data-tooltip="Descargar el listado actual en un archivo CSV" class="btn-outline btn-small" id="btnExportarCsv" onclick="app.exportar.vistaActual()" style="display: none;">⬇️ Exportar a CSV</button>
             </div>
 
             <div class="filter-row" id="filterRow">
@@ -331,8 +331,8 @@
 
         <!-- Conmutador Lista / Calendario (solo en la vista de suplencias) -->
         <div id="suplenciasVistaToggle" style="display: none; gap: 0.5rem; margin-bottom: 1rem;">
-            <button title="Ver las suplencias en formato lista" id="btnVistaLista" class="btn-outline btn-small active" onclick="app.suplenciasCalendario.verLista()">📋 Lista</button>
-            <button title="Ver las suplencias en un calendario mensual" id="btnVistaCalendario" class="btn-outline btn-small" onclick="app.suplenciasCalendario.verCalendario()">📅 Calendario</button>
+            <button data-tooltip="Ver las suplencias en formato lista" id="btnVistaLista" class="btn-outline btn-small active" onclick="app.suplenciasCalendario.verLista()">📋 Lista</button>
+            <button data-tooltip="Ver las suplencias en un calendario mensual" id="btnVistaCalendario" class="btn-outline btn-small" onclick="app.suplenciasCalendario.verCalendario()">📅 Calendario</button>
         </div>
 
         <!-- Vista de calendario mensual de suplencias -->
@@ -340,8 +340,8 @@
 
         <!-- Conmutador Lista / Calendario (solo en la vista de colaboraciones) -->
         <div id="colaboracionesVistaToggle" style="display: none; gap: 0.5rem; margin-bottom: 1rem;">
-            <button title="Ver las colaboraciones en formato lista" id="btnVistaListaColab" class="btn-outline btn-small active" onclick="app.colaboracionesCalendario.verLista()">📋 Lista</button>
-            <button title="Ver las colaboraciones en un calendario mensual" id="btnVistaCalendarioColab" class="btn-outline btn-small" onclick="app.colaboracionesCalendario.verCalendario()">📅 Calendario</button>
+            <button data-tooltip="Ver las colaboraciones en formato lista" id="btnVistaListaColab" class="btn-outline btn-small active" onclick="app.colaboracionesCalendario.verLista()">📋 Lista</button>
+            <button data-tooltip="Ver las colaboraciones en un calendario mensual" id="btnVistaCalendarioColab" class="btn-outline btn-small" onclick="app.colaboracionesCalendario.verCalendario()">📅 Calendario</button>
         </div>
 
         <!-- Vista de calendario mensual de colaboraciones (recurrente por día de la semana) -->
@@ -355,7 +355,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h2>🔔 Mis alertas de búsqueda</h2>
-                    <button title="Cerrar" class="close-btn" onclick="app.alertas.cerrar()">✕</button>
+                    <button data-tooltip="Cerrar" class="close-btn" onclick="app.alertas.cerrar()">✕</button>
                 </div>
                 <div id="alertasBody" style="margin-bottom: 1.5rem;"></div>
             </div>
@@ -367,7 +367,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="detalleTitle">Detalle</h2>
-                <button title="Cerrar" class="close-btn" onclick="app.modal.cerrarDetalle()">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="app.modal.cerrarDetalle()">✕</button>
             </div>
             <div id="detalleBody" style="margin-bottom: 1.5rem;"></div>
         </div>
@@ -378,14 +378,14 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="modalPublicarTitle">Publicar nueva oferta</h2>
-                <button title="Cerrar" class="close-btn" onclick="app.modal.cerrarPublicar()">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="app.modal.cerrarPublicar()">✕</button>
             </div>
 
             <div class="tabs" id="tabsPublicar" style="display: none;">
-                <button title="Publicar una oferta de trabajo fija" class="tab-btn active" id="tabBtnOferta" onclick="app.modal.switchTab('oferta')">Oferta fija</button>
-                <button title="Publicar una suplencia o turno suelto" class="tab-btn" id="tabBtnSuplencia" onclick="app.modal.switchTab('suplencia')" style="display: none;">🚨 Suplencia</button>
-                <button title="Publicar tu disponibilidad como dentista" class="tab-btn" id="tabBtnSolicitud" onclick="app.modal.switchTab('solicitud')" style="display: none;">Solicitud</button>
-                <button title="Publicar una colaboración recurrente" class="tab-btn" id="tabBtnColaboracion" onclick="app.modal.switchTab('colaboracion')" style="display: none;">🤝 Colaboración</button>
+                <button data-tooltip="Publicar una oferta de trabajo fija" class="tab-btn active" id="tabBtnOferta" onclick="app.modal.switchTab('oferta')">Oferta fija</button>
+                <button data-tooltip="Publicar una suplencia o turno suelto" class="tab-btn" id="tabBtnSuplencia" onclick="app.modal.switchTab('suplencia')" style="display: none;">🚨 Suplencia</button>
+                <button data-tooltip="Publicar tu disponibilidad como dentista" class="tab-btn" id="tabBtnSolicitud" onclick="app.modal.switchTab('solicitud')" style="display: none;">Solicitud</button>
+                <button data-tooltip="Publicar una colaboración recurrente" class="tab-btn" id="tabBtnColaboracion" onclick="app.modal.switchTab('colaboracion')" style="display: none;">🤝 Colaboración</button>
             </div>
 
             <!-- Tab: Oferta -->
@@ -397,8 +397,8 @@
                             <select id="ofertaPlantillas" onchange="app.plantillas.aplicar('oferta')" style="flex: 1;">
                                 <option value="">Sin plantilla…</option>
                             </select>
-                            <button type="button" class="btn-outline btn-small" onclick="app.plantillas.guardar('oferta')" title="Guardar el formulario actual como plantilla">💾 Guardar</button>
-                            <button type="button" class="btn-text btn-small" onclick="app.plantillas.eliminar('oferta')" title="Eliminar la plantilla seleccionada">🗑️</button>
+                            <button type="button" class="btn-outline btn-small" onclick="app.plantillas.guardar('oferta')" data-tooltip="Guardar el formulario actual como plantilla">💾 Guardar</button>
+                            <button type="button" class="btn-text btn-small" onclick="app.plantillas.eliminar('oferta')" data-tooltip="Eliminar la plantilla seleccionada">🗑️</button>
                         </div>
                     </div>
                     <div class="form-group" id="ofertaSedeGroup" style="display: none;">
@@ -496,7 +496,7 @@
                         <label for="ofertaTelefonoContacto">Teléfono (de la sede)</label>
                         <input id="ofertaTelefonoContacto" type="tel" readonly style="background: #f3f4f6;">
                     </div>
-                    <button title="Publicar esta oferta de trabajo" type="submit" class="btn-primary" style="width: 100%;">Publicar oferta</button>
+                    <button data-tooltip="Publicar esta oferta de trabajo" type="submit" class="btn-primary" style="width: 100%;">Publicar oferta</button>
                 </form>
             </div>
 
@@ -509,8 +509,8 @@
                             <select id="solicitudPlantillas" onchange="app.plantillas.aplicar('solicitud')" style="flex: 1;">
                                 <option value="">Sin plantilla…</option>
                             </select>
-                            <button type="button" class="btn-outline btn-small" onclick="app.plantillas.guardar('solicitud')" title="Guardar el formulario actual como plantilla">💾 Guardar</button>
-                            <button type="button" class="btn-text btn-small" onclick="app.plantillas.eliminar('solicitud')" title="Eliminar la plantilla seleccionada">🗑️</button>
+                            <button type="button" class="btn-outline btn-small" onclick="app.plantillas.guardar('solicitud')" data-tooltip="Guardar el formulario actual como plantilla">💾 Guardar</button>
+                            <button type="button" class="btn-text btn-small" onclick="app.plantillas.eliminar('solicitud')" data-tooltip="Eliminar la plantilla seleccionada">🗑️</button>
                         </div>
                     </div>
                     <div class="form-group">
@@ -568,7 +568,7 @@
                         <label for="solicitudTelefonoContacto">Teléfono</label>
                         <input id="solicitudTelefonoContacto" type="tel" placeholder="+34 xxx xxx xxx">
                     </div>
-                    <button title="Publicar tu solicitud" type="submit" class="btn-primary" style="width: 100%;">Publicar solicitud</button>
+                    <button data-tooltip="Publicar tu solicitud" type="submit" class="btn-primary" style="width: 100%;">Publicar solicitud</button>
                 </form>
             </div>
 
@@ -613,7 +613,7 @@
                                 <label style="font-size: 0.8rem;">hasta</label>
                                 <input id="suplenciaRangoHasta" type="date">
                             </div>
-                            <button title="Añadir el rango de fechas seleccionado al calendario de la suplencia" type="button" class="btn-outline btn-small" onclick="app.publicaciones.anadirRangoCalendario('suplenciaCalendario','suplenciaRangoDesde','suplenciaRangoHasta')" style="margin-bottom: 0.15rem;">+ Añadir al calendario</button>
+                            <button data-tooltip="Añadir el rango de fechas seleccionado al calendario de la suplencia" type="button" class="btn-outline btn-small" onclick="app.publicaciones.anadirRangoCalendario('suplenciaCalendario','suplenciaRangoDesde','suplenciaRangoHasta')" style="margin-bottom: 0.15rem;">+ Añadir al calendario</button>
                         </div>
                         <div id="suplenciaCalendario"></div>
                     </div>
@@ -669,7 +669,7 @@
                         <label for="suplenciaTelefonoContacto">Teléfono (de la sede)</label>
                         <input id="suplenciaTelefonoContacto" type="tel" readonly style="background: #f3f4f6;">
                     </div>
-                    <button title="Publicar esta suplencia" type="submit" class="btn-primary" style="width: 100%; background: #ef4444;">Publicar suplencia</button>
+                    <button data-tooltip="Publicar esta suplencia" type="submit" class="btn-primary" style="width: 100%; background: #ef4444;">Publicar suplencia</button>
                 </form>
             </div>
 
@@ -779,7 +779,7 @@
                         </div>
                     </div>
 
-                    <button title="Publicar esta colaboración" type="submit" class="btn-primary" style="width: 100%;">Publicar colaboración</button>
+                    <button data-tooltip="Publicar esta colaboración" type="submit" class="btn-primary" style="width: 100%;">Publicar colaboración</button>
                 </form>
             </div>
         </div>
@@ -790,12 +790,12 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>🏥 Acceso Empresa</h2>
-                <button title="Cerrar" class="close-btn" onclick="app.modal.cerrarAuthEmpresa()">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="app.modal.cerrarAuthEmpresa()">✕</button>
             </div>
 
             <div class="tabs">
-                <button title="Iniciar sesión con tu cuenta de clínica" class="tab-btn active" onclick="app.auth.switchAuthTab('loginEmpresa')">Login</button>
-                <button title="Crear una cuenta de clínica" class="tab-btn" onclick="app.auth.switchAuthTab('registroEmpresa')">Registro</button>
+                <button data-tooltip="Iniciar sesión con tu cuenta de clínica" class="tab-btn active" onclick="app.auth.switchAuthTab('loginEmpresa')">Login</button>
+                <button data-tooltip="Crear una cuenta de clínica" class="tab-btn" onclick="app.auth.switchAuthTab('registroEmpresa')">Registro</button>
             </div>
 
             <!-- Tab: Login Empresa -->
@@ -809,8 +809,8 @@
                         <label for="loginPasswordEmp">Contraseña</label>
                         <input id="loginPasswordEmp" type="password">
                     </div>
-                    <button title="Entrar con tu cuenta" type="submit" class="btn-primary" style="width: 100%;">Entrar</button>
-                    <button title="Recuperar tu contraseña" type="button" class="btn-text btn-small" style="width: 100%; margin-top: 0.5rem;" onclick="app.auth.olvidePassword('loginEmailEmp')">¿Has olvidado tu contraseña?</button>
+                    <button data-tooltip="Entrar con tu cuenta" type="submit" class="btn-primary" style="width: 100%;">Entrar</button>
+                    <button data-tooltip="Recuperar tu contraseña" type="button" class="btn-text btn-small" style="width: 100%; margin-top: 0.5rem;" onclick="app.auth.olvidePassword('loginEmailEmp')">¿Has olvidado tu contraseña?</button>
                 </form>
             </div>
 
@@ -858,7 +858,7 @@
                         <input type="checkbox" id="regTerminosEmp" required>
                         <span>He leído y acepto la <a href="privacidad.html" target="_blank">política de privacidad</a> y los <a href="terminos.html" target="_blank">términos de uso</a> *</span>
                     </label>
-                    <button title="Crear tu cuenta" type="submit" class="btn-primary" style="width: 100%;">Registrarse</button>
+                    <button data-tooltip="Crear tu cuenta" type="submit" class="btn-primary" style="width: 100%;">Registrarse</button>
                 </form>
             </div>
         </div>
@@ -869,12 +869,12 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>👨‍⚕️ Acceso Candidato</h2>
-                <button title="Cerrar" class="close-btn" onclick="app.modal.cerrarAuthCandidato()">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="app.modal.cerrarAuthCandidato()">✕</button>
             </div>
 
             <div class="tabs">
-                <button title="Iniciar sesión con tu cuenta de dentista" class="tab-btn active" onclick="app.auth.switchAuthTab('loginCandidato')">Login</button>
-                <button title="Crear una cuenta de dentista" class="tab-btn" onclick="app.auth.switchAuthTab('registroCandidato')">Registro</button>
+                <button data-tooltip="Iniciar sesión con tu cuenta de dentista" class="tab-btn active" onclick="app.auth.switchAuthTab('loginCandidato')">Login</button>
+                <button data-tooltip="Crear una cuenta de dentista" class="tab-btn" onclick="app.auth.switchAuthTab('registroCandidato')">Registro</button>
             </div>
 
             <!-- Tab: Login Candidato -->
@@ -888,8 +888,8 @@
                         <label for="loginPasswordCand">Contraseña</label>
                         <input id="loginPasswordCand" type="password">
                     </div>
-                    <button title="Entrar con tu cuenta" type="submit" class="btn-primary" style="width: 100%;">Entrar</button>
-                    <button title="Recuperar tu contraseña" type="button" class="btn-text btn-small" style="width: 100%; margin-top: 0.5rem;" onclick="app.auth.olvidePassword('loginEmailCand')">¿Has olvidado tu contraseña?</button>
+                    <button data-tooltip="Entrar con tu cuenta" type="submit" class="btn-primary" style="width: 100%;">Entrar</button>
+                    <button data-tooltip="Recuperar tu contraseña" type="button" class="btn-text btn-small" style="width: 100%; margin-top: 0.5rem;" onclick="app.auth.olvidePassword('loginEmailCand')">¿Has olvidado tu contraseña?</button>
                 </form>
             </div>
 
@@ -916,7 +916,7 @@
                         <input type="checkbox" id="regTerminosCand" required>
                         <span>He leído y acepto la <a href="privacidad.html" target="_blank">política de privacidad</a> y los <a href="terminos.html" target="_blank">términos de uso</a> *</span>
                     </label>
-                    <button title="Crear tu cuenta" type="submit" class="btn-primary" style="width: 100%;">Registrarse</button>
+                    <button data-tooltip="Crear tu cuenta" type="submit" class="btn-primary" style="width: 100%;">Registrarse</button>
                 </form>
             </div>
         </div>
@@ -927,17 +927,17 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="perfilTitle">Mi perfil</h2>
-                <button title="Cerrar" class="close-btn" onclick="app.modal.cerrarPerfil()">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="app.modal.cerrarPerfil()">✕</button>
             </div>
 
             <div class="tabs">
-                <button title="Editar tus datos personales" class="tab-btn active" id="tabDatos" onclick="app.perfil.switchTab('datos')">Mis datos</button>
-                <button title="Editar tu experiencia, formación e idiomas" class="tab-btn" id="tabTrayectoria" onclick="app.perfil.switchTab('trayectoria')">Trayectoria</button>
-                <button title="Subir o gestionar tu CV" class="tab-btn" id="tabCv" onclick="app.perfil.switchTab('cv')">Mi CV</button>
-                <button title="Gestionar tu Book de fotos y trabajos" class="tab-btn" id="tabPortfolio" onclick="app.perfil.switchTab('portfolio')">Book</button>
-                <button title="Marcar los días en que estás disponible" class="tab-btn" id="tabDisponibilidad" onclick="app.perfil.switchTab('disponibilidad')">🗓️ Disponibilidad</button>
-                <button title="Configurar tus prioridades para calcular la compatibilidad con ofertas" class="tab-btn" id="tabCompatibilidad" onclick="app.perfil.switchTab('compatibilidad')">🧩 Compatibilidad</button>
-                <button title="Gestionar tus fotos de perfil" class="tab-btn" id="tabFotos" onclick="app.perfil.switchTab('fotos')">Fotos</button>
+                <button data-tooltip="Editar tus datos personales" class="tab-btn active" id="tabDatos" onclick="app.perfil.switchTab('datos')">Mis datos</button>
+                <button data-tooltip="Editar tu experiencia, formación e idiomas" class="tab-btn" id="tabTrayectoria" onclick="app.perfil.switchTab('trayectoria')">Trayectoria</button>
+                <button data-tooltip="Subir o gestionar tu CV" class="tab-btn" id="tabCv" onclick="app.perfil.switchTab('cv')">Mi CV</button>
+                <button data-tooltip="Gestionar tu Book de fotos y trabajos" class="tab-btn" id="tabPortfolio" onclick="app.perfil.switchTab('portfolio')">Book</button>
+                <button data-tooltip="Marcar los días en que estás disponible" class="tab-btn" id="tabDisponibilidad" onclick="app.perfil.switchTab('disponibilidad')">🗓️ Disponibilidad</button>
+                <button data-tooltip="Configurar tus prioridades para calcular la compatibilidad con ofertas" class="tab-btn" id="tabCompatibilidad" onclick="app.perfil.switchTab('compatibilidad')">🧩 Compatibilidad</button>
+                <button data-tooltip="Gestionar tus fotos de perfil" class="tab-btn" id="tabFotos" onclick="app.perfil.switchTab('fotos')">Fotos</button>
             </div>
 
             <!-- Tab: Test de compatibilidad (mismas preguntas para dentistas y clínicas) -->
@@ -946,7 +946,7 @@
                 <p id="compatibilidadIntro" style="color: #6b7280; font-size: 0.9rem; margin: 0 0 1rem;"></p>
                 <div id="compatibilidadPreguntas"></div>
                 <div id="compatibilidadPrioridades"></div>
-                <button title="Guardar tus respuestas" class="btn-primary" style="margin-top: 1rem;" onclick="app.preferencias.guardar()">Guardar respuestas</button>
+                <button data-tooltip="Guardar tus respuestas" class="btn-primary" style="margin-top: 1rem;" onclick="app.preferencias.guardar()">Guardar respuestas</button>
             </div>
 
             <!-- Tab: Mis datos -->
@@ -979,7 +979,7 @@
                 <p style="color: #6b7280; font-size: 0.9rem; margin: 0 0 1rem;">Marca mañana, tarde o ambos en los días de la semana en los que podrías colaborar con una clínica de forma recurrente. Sirve para las "Colaboraciones" (días fijos, no fechas concretas).</p>
                 <div id="disponibilidadSemanalDias"></div>
 
-                <button title="Guardar tu disponibilidad" class="btn-primary" style="margin-top: 1rem;" onclick="app.disponibilidad.guardar()">Guardar disponibilidad</button>
+                <button data-tooltip="Guardar tu disponibilidad" class="btn-primary" style="margin-top: 1rem;" onclick="app.disponibilidad.guardar()">Guardar disponibilidad</button>
             </div>
 
             <!-- Tab: Trayectoria profesional -->
@@ -1015,7 +1015,7 @@
                         <label for="expDescripcion">Descripción</label>
                         <textarea id="expDescripcion" placeholder="Funciones, logros, especialización..."></textarea>
                     </div>
-                    <button title="Añadir esta experiencia a tu trayectoria" type="submit" class="btn-primary" style="width: 100%;">Añadir experiencia</button>
+                    <button data-tooltip="Añadir esta experiencia a tu trayectoria" type="submit" class="btn-primary" style="width: 100%;">Añadir experiencia</button>
                 </form>
 
                 <h4 style="color: #0f4c75; margin: 0 0 1rem 0;">🎓 Formación</h4>
@@ -1035,7 +1035,7 @@
                             <input id="formAnyo" type="text" placeholder="2018">
                         </div>
                     </div>
-                    <button title="Añadir esta formación a tu trayectoria" type="submit" class="btn-primary" style="width: 100%;">Añadir formación</button>
+                    <button data-tooltip="Añadir esta formación a tu trayectoria" type="submit" class="btn-primary" style="width: 100%;">Añadir formación</button>
                 </form>
 
                 <h4 style="color: #0f4c75; margin: 0 0 1rem 0;">🌐 Idiomas</h4>
@@ -1057,7 +1057,7 @@
                             </select>
                         </div>
                     </div>
-                    <button title="Añadir este idioma a tu perfil" type="submit" class="btn-primary" style="width: 100%;">Añadir idioma</button>
+                    <button data-tooltip="Añadir este idioma a tu perfil" type="submit" class="btn-primary" style="width: 100%;">Añadir idioma</button>
                 </form>
             </div>
 
@@ -1065,7 +1065,7 @@
             <div id="tab-cv" class="tab-content">
                 <div style="background: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
                     <p style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: #0c4a6e;">¿No tienes CV a mano? Genera uno automáticamente con los datos de tu perfil (experiencia, especialidades y valoraciones).</p>
-                    <button title="Descargar tu perfil en formato PDF" class="btn-outline" style="width: 100%;" onclick="app.perfil.descargarCvPdf()">⬇️ Descargar mi CV en PDF</button>
+                    <button data-tooltip="Descargar tu perfil en formato PDF" class="btn-outline" style="width: 100%;" onclick="app.perfil.descargarCvPdf()">⬇️ Descargar mi CV en PDF</button>
                 </div>
                 <div id="cvPreview" style="margin-bottom: 1.5rem;"></div>
                 <div id="cvContainer">
@@ -1074,7 +1074,7 @@
                         <span>Arrastra y suelta o haz clic para seleccionar</span>
                         <input type="file" id="cvInput" accept=".pdf" style="display: none;" onchange="app.archivos.subirCV()">
                     </div>
-                    <button title="Seleccionar el archivo de tu CV" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('cvInput').click()">Seleccionar archivo</button>
+                    <button data-tooltip="Seleccionar el archivo de tu CV" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('cvInput').click()">Seleccionar archivo</button>
                 </div>
             </div>
 
@@ -1086,7 +1086,7 @@
                         <span>Arrastra y suelta o haz clic para seleccionar</span>
                         <input type="file" id="portfolioInput" accept=".pdf,.jpg,.jpeg,.png,.gif" style="display: none;" onchange="app.archivos.subirPortfolio()">
                     </div>
-                    <button title="Añadir un archivo a tu Book" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('portfolioInput').click()">Añadir archivo</button>
+                    <button data-tooltip="Añadir un archivo a tu Book" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('portfolioInput').click()">Añadir archivo</button>
                     <div id="portfolioList" style="margin-top: 1.5rem;"></div>
                 </div>
             </div>
@@ -1099,7 +1099,7 @@
                         <span>Arrastra y suelta o haz clic para seleccionar</span>
                         <input type="file" id="fotoInput" accept=".jpg,.jpeg,.png,.gif,.webp" style="display: none;" onchange="app.archivos.subirFoto()">
                     </div>
-                    <button title="Añadir una foto a tu perfil" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('fotoInput').click()">Añadir foto</button>
+                    <button data-tooltip="Añadir una foto a tu perfil" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('fotoInput').click()">Añadir foto</button>
                     <div id="fotosGallery" class="fotos-gallery" style="margin-top: 1.5rem;"></div>
                 </div>
             </div>
@@ -1137,7 +1137,7 @@
                             <input id="sedeTelefono" type="tel" placeholder="+34 93 000 00 00">
                         </div>
                     </div>
-                    <button title="Añadir esta sede o centro" type="submit" class="btn-primary" style="width: 100%;">Añadir centro</button>
+                    <button data-tooltip="Añadir esta sede o centro" type="submit" class="btn-primary" style="width: 100%;">Añadir centro</button>
                 </form>
             </div>
         </div>
@@ -1149,13 +1149,13 @@
         <div class="modal-content" style="max-width: 400px;">
             <div class="modal-header">
                 <h2>Dentistas</h2>
-                <button title="Cerrar" class="close-btn" onclick="document.getElementById('modalOpcionesStats').classList.remove('active')">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="document.getElementById('modalOpcionesStats').classList.remove('active')">✕</button>
             </div>
             <div style="padding: 2rem; text-align: center;">
                 <p style="margin-bottom: 1.5rem; color: var(--gray-600);">Selecciona por:</p>
-                <button title="Ver el desglose de dentistas por especialidad" onclick="app.stats.mostrarDesglosePorEspecialidad()" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">Especialidad</button>
-                <button title="Ver el desglose de dentistas por ciudad" onclick="app.stats.mostrarDesglosePorCiudad()" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">Ciudad</button>
-                <button title="Ver el desglose de dentistas por ciudad y especialidad" onclick="app.stats.mostrarDesglosePorCiudadEspecialidad()" class="btn-primary" style="width: 100%;">Ciudad y Especialidad</button>
+                <button data-tooltip="Ver el desglose de dentistas por especialidad" onclick="app.stats.mostrarDesglosePorEspecialidad()" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">Especialidad</button>
+                <button data-tooltip="Ver el desglose de dentistas por ciudad" onclick="app.stats.mostrarDesglosePorCiudad()" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">Ciudad</button>
+                <button data-tooltip="Ver el desglose de dentistas por ciudad y especialidad" onclick="app.stats.mostrarDesglosePorCiudadEspecialidad()" class="btn-primary" style="width: 100%;">Ciudad y Especialidad</button>
             </div>
         </div>
     </div>
@@ -1165,13 +1165,13 @@
         <div class="modal-content" style="max-width: 400px;">
             <div class="modal-header">
                 <h2>Clínicas</h2>
-                <button title="Cerrar" class="close-btn" onclick="document.getElementById('modalOpcionesClinicas').classList.remove('active')">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="document.getElementById('modalOpcionesClinicas').classList.remove('active')">✕</button>
             </div>
             <div style="padding: 2rem; text-align: center;">
                 <p style="margin-bottom: 1.5rem; color: var(--gray-600);">Selecciona por:</p>
-                <button title="Ver el desglose de clínicas por especialidad" onclick="app.stats.mostrarClinicasPorEspecialidad()" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">Especialidad</button>
-                <button title="Ver el desglose de clínicas por ciudad" onclick="app.stats.mostrarClinicasPorCiudad()" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">Ciudad</button>
-                <button title="Ver el desglose de clínicas por ciudad y especialidad" onclick="app.stats.mostrarClinicasPorCiudadEspecialidad()" class="btn-primary" style="width: 100%;">Ciudad y Especialidad</button>
+                <button data-tooltip="Ver el desglose de clínicas por especialidad" onclick="app.stats.mostrarClinicasPorEspecialidad()" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">Especialidad</button>
+                <button data-tooltip="Ver el desglose de clínicas por ciudad" onclick="app.stats.mostrarClinicasPorCiudad()" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">Ciudad</button>
+                <button data-tooltip="Ver el desglose de clínicas por ciudad y especialidad" onclick="app.stats.mostrarClinicasPorCiudadEspecialidad()" class="btn-primary" style="width: 100%;">Ciudad y Especialidad</button>
             </div>
         </div>
     </div>
@@ -1181,7 +1181,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Interesados</h2>
-                <button title="Cerrar" class="close-btn" onclick="app.modal.cerrarInteresados()">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="app.modal.cerrarInteresados()">✕</button>
             </div>
             <div id="interesadosBody"></div>
         </div>
@@ -1192,7 +1192,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Mis Postulaciones</h2>
-                <button title="Cerrar" class="close-btn" onclick="app.modal.cerrarPostulaciones()">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="app.modal.cerrarPostulaciones()">✕</button>
             </div>
             <div id="misPostulacionesContainer" style="padding: 1.5rem;"></div>
         </div>
@@ -1203,7 +1203,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Candidatos</h2>
-                <button title="Cerrar" class="close-btn" onclick="app.modal.cerrarCandidatos()">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="app.modal.cerrarCandidatos()">✕</button>
             </div>
             <div id="candidatosBody" style="padding: 1.5rem;"></div>
         </div>
@@ -1214,7 +1214,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="disponiblesTitle">Dentistas disponibles</h2>
-                <button title="Cerrar" class="close-btn" onclick="document.getElementById('modalDisponibles').classList.remove('active')">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="document.getElementById('modalDisponibles').classList.remove('active')">✕</button>
             </div>
             <div id="disponiblesBody" style="padding: 1.5rem;"></div>
         </div>
@@ -1225,7 +1225,7 @@
         <div class="modal-content" style="max-width: 440px;">
             <div class="modal-header">
                 <h2>🔑 Nueva contraseña</h2>
-                <button title="Cerrar" class="close-btn" onclick="document.getElementById('modalRestablecer').classList.remove('active')">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="document.getElementById('modalRestablecer').classList.remove('active')">✕</button>
             </div>
             <form onsubmit="event.preventDefault(); app.auth.restablecerPassword();">
                 <div class="form-group">
@@ -1236,7 +1236,7 @@
                     <label for="restablecerPasswordConfirma">Repite la contraseña</label>
                     <input id="restablecerPasswordConfirma" type="password" minlength="8" required>
                 </div>
-                <button title="Guardar tu nueva contraseña" type="submit" class="btn-primary" style="width: 100%;">Guardar contraseña</button>
+                <button data-tooltip="Guardar tu nueva contraseña" type="submit" class="btn-primary" style="width: 100%;">Guardar contraseña</button>
             </form>
         </div>
     </div>
@@ -1246,7 +1246,7 @@
         <div class="modal-content" style="max-width: 480px;">
             <div class="modal-header">
                 <h2 id="resenyaTitle">⭐ Valorar</h2>
-                <button title="Cerrar" class="close-btn" onclick="document.getElementById('modalResenya').classList.remove('active')">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="document.getElementById('modalResenya').classList.remove('active')">✕</button>
             </div>
             <form onsubmit="event.preventDefault(); app.resenyas.enviar();">
                 <div class="form-group" style="text-align: center;">
@@ -1257,7 +1257,7 @@
                     <label for="resenyaComentario">Comentario (opcional)</label>
                     <textarea id="resenyaComentario" placeholder="¿Cómo fue la experiencia de trabajar juntos?"></textarea>
                 </div>
-                <button title="Enviar tu valoración" type="submit" class="btn-primary" style="width: 100%;">Enviar valoración</button>
+                <button data-tooltip="Enviar tu valoración" type="submit" class="btn-primary" style="width: 100%;">Enviar valoración</button>
             </form>
         </div>
     </div>
@@ -1267,7 +1267,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="chatTitle">💬 Mensajes de chat</h2>
-                <button title="Cerrar" class="close-btn" onclick="app.chat.cerrar()">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="app.chat.cerrar()">✕</button>
             </div>
             <div id="chatBody"></div>
         </div>
@@ -1278,7 +1278,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Postularme</h2>
-                <button title="Cerrar" class="close-btn" onclick="app.modal.cerrarPostularseModal()">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="app.modal.cerrarPostularseModal()">✕</button>
             </div>
             <div id="postulacionError" style="background: #fee2e2; color: #991b1b; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; display: none; border-left: 4px solid #dc2626;"></div>
             <form onsubmit="event.preventDefault(); app.candidaturas.enviarPostulacion();">
@@ -1287,7 +1287,7 @@
                     <label for="postulacionMensaje">Mensaje (opcional)</label>
                     <textarea id="postulacionMensaje" placeholder="Cuéntale al empleador por qué eres un buen candidato..." style="min-height: 120px;"></textarea>
                 </div>
-                <button title="Enviar tu postulación" type="submit" class="btn-primary" style="width: 100%;">Enviar postulación</button>
+                <button data-tooltip="Enviar tu postulación" type="submit" class="btn-primary" style="width: 100%;">Enviar postulación</button>
             </form>
         </div>
     </div>
@@ -1297,7 +1297,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="contactarPerfilTitulo">Contactar</h2>
-                <button title="Cerrar" class="close-btn" onclick="app.perfiles.cerrarContactarModal()">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="app.perfiles.cerrarContactarModal()">✕</button>
             </div>
             <div id="contactarPerfilError" style="background: #fee2e2; color: #991b1b; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; display: none; border-left: 4px solid #dc2626;"></div>
             <div id="contactarPerfilAviso" style="background: #fef3c7; color: #92400e; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; display: none; border-left: 4px solid #d97706;"></div>
@@ -1307,7 +1307,7 @@
                     <textarea id="contactarPerfilMensaje" placeholder="Escribe el mensaje que recibirá con tu solicitud de contacto..." style="min-height: 120px;"></textarea>
                     <small style="color: #6b7280;">Verá este mensaje junto a tu solicitud. Podréis chatear cuando la acepte.</small>
                 </div>
-                <button title="Enviar el mensaje" type="submit" class="btn-primary" style="width: 100%;">Enviar</button>
+                <button data-tooltip="Enviar el mensaje" type="submit" class="btn-primary" style="width: 100%;">Enviar</button>
             </form>
         </div>
     </div>
@@ -1317,7 +1317,7 @@
         <div class="modal-content" style="max-width: 420px;">
             <div class="modal-header">
                 <h2 id="avisoInfoTitulo">Aviso</h2>
-                <button title="Cerrar" class="close-btn" onclick="app.modal.cerrarAvisoInfo()">✕</button>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="app.modal.cerrarAvisoInfo()">✕</button>
             </div>
             <p id="avisoInfoMensaje" style="color: #4b5563; line-height: 1.6;"></p>
         </div>
