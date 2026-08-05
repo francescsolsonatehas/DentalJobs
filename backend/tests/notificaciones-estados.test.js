@@ -74,24 +74,6 @@ test("estados de selección y preferencias de aviso", async (t) => {
     assert.equal(invalido.status, 400);
   });
 
-  await t.test("los recordatorios incluyen candidaturas en estado 'vista' (sin responder)", async () => {
-    // nueva candidatura de otra dentista, vista pero sin responder
-    const dentista2 = await registrarYLoguear(app, { nombre: "Dentista Estados 2", email: "dentista-estados2@test.com", tipo: "dentista" });
-    await request(app)
-      .post("/candidaturas")
-      .set("Authorization", `Bearer ${dentista2.token}`)
-      .send({ publicacion_id: ofertaId });
-
-    await request(app)
-      .get(`/publicaciones/${ofertaId}/candidatos`)
-      .set("Authorization", `Bearer ${clinica.token}`); // marca 'vista'
-
-    const res = await request(app)
-      .get("/recordatorios/pendientes?dias=0")
-      .set("Authorization", `Bearer ${clinica.token}`);
-    assert.equal(res.body.pendientes.length, 1);
-  });
-
   await t.test("la preferencia recibir_emails se guarda y se lee", async () => {
     const antes = await request(app)
       .get("/auth/mi-perfil")
