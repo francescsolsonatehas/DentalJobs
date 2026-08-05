@@ -2032,7 +2032,7 @@ const app = {
       // se derivan de la sede/perfil en el backend; solicitud y colaboración de
       // dentista exigen nombre y email en el propio formulario.
       const exigeContacto = tipo === 'solicitud' || colabDeDentista;
-      if (!formData.descripcion || (exigeContacto && (!formData.nombre_contacto || !formData.email_contacto))) {
+      if (exigeContacto && (!formData.nombre_contacto || !formData.email_contacto)) {
         utils.mostrarAlerta("Por favor completa todos los campos obligatorios", "error");
         return;
       }
@@ -2052,12 +2052,6 @@ const app = {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (exigeContacto && !emailRegex.test(formData.email_contacto)) {
         utils.mostrarAlerta("Por favor ingresa un email válido", "error");
-        return;
-      }
-
-      // Validar descripción no vacía
-      if (formData.descripcion.trim().length < 10) {
-        utils.mostrarAlerta("La descripción debe tener al menos 10 caracteres", "error");
         return;
       }
 
