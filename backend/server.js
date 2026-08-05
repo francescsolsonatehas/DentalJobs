@@ -824,13 +824,18 @@ app.put("/auth/actualizar-perfil", verifyToken, (req, res) => {
   // Preferencia de avisos por email: si el cliente no la envía, se mantiene activada
   const recibirEmails = req.body.recibir_emails === false || req.body.recibir_emails === 0 ? 0 : 1;
 
+  // Visibilidad del perfil para clínicas (solo aplica a dentistas, pero es
+  // inofensivo guardarlo también para clínicas): si el cliente no la envía, se
+  // mantiene visible.
+  const perfilPublico = req.body.perfil_publico === false || req.body.perfil_publico === 0 ? 0 : 1;
+
   // Geocodificar la ciudad para casar suplencias por radio. Si no se reconoce, se
   // dejan las coordenadas a NULL y el matching cae en la coincidencia por ciudad.
   const geo = geocodificarCiudad(ciudad);
 
   db.run(
-    "UPDATE usuarios SET nombre = ?, telefono = ?, movil = ?, direccion = ?, codigo_postal = ?, pais = ?, ciudad = ?, provincia = ?, descripcion = ?, anyos_experiencia = ?, recibir_emails = ?, lat = ?, lon = ? WHERE id = ?",
-    [nombre, telefono || null, movil || null, direccion || null, codigo_postal || null, pais || null, ciudad || null, provincia || null, (descripcion || "").trim() || null, experiencia, recibirEmails, geo ? geo.lat : null, geo ? geo.lon : null, usuarioId],
+    "UPDATE usuarios SET nombre = ?, telefono = ?, movil = ?, direccion = ?, codigo_postal = ?, pais = ?, ciudad = ?, provincia = ?, descripcion = ?, anyos_experiencia = ?, recibir_emails = ?, perfil_publico = ?, lat = ?, lon = ? WHERE id = ?",
+    [nombre, telefono || null, movil || null, direccion || null, codigo_postal || null, pais || null, ciudad || null, provincia || null, (descripcion || "").trim() || null, experiencia, recibirEmails, perfilPublico, geo ? geo.lat : null, geo ? geo.lon : null, usuarioId],
     (err) => {
       if (err) {
         console.error(err);
@@ -1098,7 +1103,7 @@ app.get("/auth/mi-perfil", verifyToken, (req, res) => {
   const usuarioId = req.usuario.id;
 
   db.get(
-    "SELECT id, nombre, email, tipo, telefono, movil, direccion, codigo_postal, pais, ciudad, provincia, descripcion, anyos_experiencia, email_verificado, recibir_emails, creado_en FROM usuarios WHERE id = ?",
+    "SELECT id, nombre, email, tipo, telefono, movil, direccion, codigo_postal, pais, ciudad, provincia, descripcion, anyos_experiencia, email_verificado, recibir_emails, perfil_publico, creado_en FROM usuarios WHERE id = ?",
     [usuarioId],
     (err, usuario) => {
       if (err) {
@@ -5244,6 +5249,11 @@ app.get("/perfiles", (req, res) => {
                FROM usuarios WHERE tipo = ? AND nombre != 'Usuario eliminado'`;
   const params = [tipo];
 
+  // Un dentista puede ocultar su perfil del listado que ven las clínicas (ver
+  // "Mi Perfil" > "Perfil visible para clínicas"). No afecta al listado de
+  // clínicas que ven los dentistas.
+  if (tipo === 'dentista') { query += " AND (perfil_publico IS NULL OR perfil_publico = 1)"; }
+
   if (ciudad && !usarRadio) { query += " AND ciudad LIKE ?"; params.push(`%${ciudad}%`); }
   if (provincia) { query += " AND provincia LIKE ?"; params.push(`%${provincia}%`); }
   if (especialidad) {
@@ -5306,11 +5316,13 @@ app.get("/perfiles", (req, res) => {
 // suma de las ciudades.
 app.get("/perfiles/ciudades", (req, res) => {
   const tipo = req.query.rol === 'clinica' ? 'clinica' : 'dentista';
+  const filtroPublico = tipo === 'dentista' ? " AND (perfil_publico IS NULL OR perfil_publico = 1)" : "";
   db.all(
     `SELECT ciudad, COUNT(*) AS total
        FROM usuarios
       WHERE tipo = ? AND nombre != 'Usuario eliminado'
         AND ciudad IS NOT NULL AND TRIM(ciudad) != ''
+        ${filtroPublico}
       GROUP BY ciudad
       ORDER BY ciudad`,
     [tipo],
@@ -5320,7 +5332,7 @@ app.get("/perfiles/ciudades", (req, res) => {
         return res.status(500).json({ error: "Error al obtener las ciudades" });
       }
       db.get(
-        "SELECT COUNT(*) AS total FROM usuarios WHERE tipo = ? AND nombre != 'Usuario eliminado'",
+        `SELECT COUNT(*) AS total FROM usuarios WHERE tipo = ? AND nombre != 'Usuario eliminado'${filtroPublico}`,
         [tipo],
         (err2, fila) => {
           if (err2) {

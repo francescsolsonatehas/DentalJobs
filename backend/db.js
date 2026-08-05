@@ -531,6 +531,10 @@ db.serialize(() => {
   db.run(`ALTER TABLE usuarios ADD COLUMN lon REAL`, () => {});
   db.run(`ALTER TABLE usuarios ADD COLUMN radio_km INTEGER`, () => {});
 
+  // Visibilidad del perfil del dentista en el listado "Dentistas" que ven las
+  // clínicas. 1 = visible (valor por defecto), 0 = el dentista lo ha ocultado.
+  db.run(`ALTER TABLE usuarios ADD COLUMN perfil_publico INTEGER DEFAULT 1`, () => {});
+
   // Especialidad en la que se desempeñó cada puesto de la trayectoria. Opcional: un
   // puesto puede no corresponder a una especialidad concreta (recepción, gestión…).
   db.run(`ALTER TABLE experiencia_laboral ADD COLUMN especialidad TEXT`, () => {});

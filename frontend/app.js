@@ -5660,6 +5660,14 @@ const app = {
             </div>
 
             <div class="form-group">
+              <label data-tooltip="Si lo desmarcas, las clínicas no verán tu perfil en su listado de 'Dentistas'. Tus postulaciones y candidaturas no se ven afectadas." style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <input type="checkbox" id="perfilPerfilPublico" ${u.perfil_publico === 0 ? '' : 'checked'}>
+                🌐 Perfil visible para clínicas en "Dentistas"
+              </label>
+              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Si lo desactivas, las clínicas no te encontrarán en su listado de dentistas. No afecta a tus postulaciones.</small>
+            </div>
+
+            <div class="form-group">
               <label>Fijo</label>
               <input type="tel" id="perfilTelefono" value="${utils.escapeHtml(u.telefono || '')}">
             </div>
@@ -5793,7 +5801,8 @@ const app = {
         pais: document.getElementById("perfilPais").value || null,
         descripcion: document.getElementById("perfilDescripcion")?.value || null,
         anyos_experiencia: document.getElementById("perfilAnyosExperiencia")?.value || null,
-        recibir_emails: document.getElementById("perfilRecibirEmails")?.checked ?? true
+        recibir_emails: document.getElementById("perfilRecibirEmails")?.checked ?? true,
+        perfil_publico: document.getElementById("perfilPerfilPublico")?.checked ?? true
       };
 
       try {
