@@ -169,23 +169,39 @@ test("publicaciones", async (t) => {
     assert.equal(res.body[0].experiencia_minima, 4);
   });
 
-  await t.test("una solicitud hereda ciudad y provincia del perfil del dentista (ignora la del cuerpo)", async () => {
+  await t.test("una solicitud admite elegir una ciudad distinta a la del perfil", async () => {
     // El dentista fija su ciudad/provincia en el perfil
     await request(app)
       .put("/auth/actualizar-perfil")
       .set("Authorization", `Bearer ${dentista.token}`)
       .send({ nombre: "Dentista Test", ciudad: "Girona", provincia: "Girona" });
 
-    // Publica una solicitud enviando OTRA ciudad en el cuerpo: debe ignorarse
+    // Publica una solicitud eligiendo OTRA ciudad en el formulario: puede querer
+    // trabajar fuera de la suya, así que se respeta la del cuerpo
     const crear = await request(app)
       .post("/publicaciones")
       .set("Authorization", `Bearer ${dentista.token}`)
-      .send({ tipo: "solicitud", ciudad: "OtraCiudadIgnorada", descripcion: "Busco trabajo" });
+      .send({ tipo: "solicitud", ciudad: "Figueres", provincia: "Girona", descripcion: "Busco trabajo" });
     assert.equal(crear.status, 200);
 
-    const listado = await request(app).get("/publicaciones?tipo=solicitud&ciudad=Girona");
-    const pub = listado.body.find((p) => p.id === crear.body.id);
-    assert.ok(pub, "la solicitud debería listarse por la ciudad del perfil");
+    const pub = (await request(app).get(`/publicaciones/${crear.body.id}`)).body;
+    assert.equal(pub.ciudad, "Figueres");
+    assert.equal(pub.provincia, "Girona");
+  });
+
+  await t.test("una solicitud sin ciudad en el cuerpo cae en la del perfil del dentista", async () => {
+    await request(app)
+      .put("/auth/actualizar-perfil")
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .send({ nombre: "Dentista Test", ciudad: "Girona", provincia: "Girona" });
+
+    const crear = await request(app)
+      .post("/publicaciones")
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .send({ tipo: "solicitud", descripcion: "Busco trabajo" });
+    assert.equal(crear.status, 200);
+
+    const pub = (await request(app).get(`/publicaciones/${crear.body.id}`)).body;
     assert.equal(pub.ciudad, "Girona");
     assert.equal(pub.provincia, "Girona");
   });

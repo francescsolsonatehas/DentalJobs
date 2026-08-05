@@ -2002,12 +2002,14 @@ const app = {
         const especialidadesCheckboxes = document.querySelectorAll('#solicitudEspecialidadesContainer input[type="checkbox"]:checked');
         const especialidades = Array.from(especialidadesCheckboxes).map(cb => parseInt(cb.value));
         const ciudad = document.getElementById("solicitudCiudad").value;
+        const provincia = document.getElementById("solicitudProvincia")?.value || null;
         const especialidadNombre = especialidades.length > 0 ? estadoApp.especialidades.find(e => e.id === especialidades[0])?.nombre : "Dentista";
 
         formData = {
           tipo: "solicitud",
           descripcion: document.getElementById("solicitudDescripcion").value,
           ciudad: ciudad,
+          provincia: provincia,
           especialidades: especialidades,
           contrato: document.getElementById("solicitudContrato").value || null,
           jornada: document.getElementById("solicitudJornada").value || null,
@@ -2075,24 +2077,23 @@ const app = {
       }
     },
 
-    // Rellena (solo lectura) la ciudad y provincia de la solicitud a partir del perfil del dentista
+    // Rellena por defecto la ciudad y provincia de la solicitud a partir del perfil del
+    // dentista, pero deja el campo editable: puede que quiera buscar trabajo fuera de
+    // su ciudad. El autocompletado de municipios se monta una sola vez (ver dataset
+    // guard en app.ciudades.montar).
     async rellenarCiudadSolicitudDesdePerfil() {
       const inputCiudad = document.getElementById("solicitudCiudad");
       const inputProvincia = document.getElementById("solicitudProvincia");
-      const hint = document.getElementById("solicitudCiudadHint");
+      const labelProvincia = document.getElementById("solicitudProvinciaLabel");
       if (!inputCiudad) return;
       try {
         const u = await utils.request("/auth/mi-perfil");
         const ciudad = u.ciudad || "";
         const provincia = u.provincia || "";
-        inputCiudad.value = provincia ? `${ciudad} (${provincia})` : ciudad;
+        inputCiudad.value = ciudad;
         if (inputProvincia) inputProvincia.value = provincia;
-        if (hint) {
-          hint.textContent = ciudad
-            ? 'Se toma de tu perfil. Para cambiarla ve a "Mi perfil" → Mis datos.'
-            : '⚠️ No tienes ciudad en tu perfil. Defínela en "Mi perfil" → Mis datos antes de publicar.';
-          hint.style.color = ciudad ? "" : "#b45309";
-        }
+        if (labelProvincia) labelProvincia.textContent = provincia ? `· Provincia: ${provincia}` : "";
+        app.ciudades.montar(inputCiudad, inputProvincia, labelProvincia);
       } catch (error) {
         console.error("Error al cargar la ciudad del perfil:", error);
       }
@@ -2777,8 +2778,6 @@ const app = {
 
         app.publicaciones.cargarEspecialidadesPublicar('oferta');
         app.publicaciones.cargarEspecialidadesPublicar('suplencia');
-        app.plantillas.cargar('oferta');
-        app.plantillas.cargar('suplencia');
         app.sedes.cargarEnSelector('oferta');
         app.sedes.cargarEnSelector('suplencia');
         app.sedes.cargarEnSelector('colaboracion');
@@ -2794,9 +2793,8 @@ const app = {
       } else {
         // Candidato: solo Solicitud (Colaboración no se ofrece a este rol)
         app.publicaciones.cargarEspecialidadesPublicar('solicitud');
-        app.plantillas.cargar('solicitud');
         document.getElementById("modalPublicarTitle").textContent = "Publicar nueva solicitud";
-        // La ciudad de la solicitud se hereda del perfil (no editable)
+        // La ciudad se rellena por defecto con la del perfil, pero queda editable
         app.publicaciones.rellenarCiudadSolicitudDesdePerfil();
       }
 
@@ -7797,112 +7795,6 @@ const app = {
             <div><strong>Equipamiento:</strong> ${equipos.length ? equipos.map(utils.escapeHtml).join(", ") : "ninguno"}</div>
             <div style="margin-top:.3rem;color:#0369a1;">Estos datos se toman de la ubicación y de tu perfil; no son editables aquí.</div>
           </div>`;
-      }
-    }
-  },
-
-  // ============================================
-  // Módulo: Plantillas de publicación
-  // ============================================
-
-  plantillas: {
-    lista: [],
-
-    // Ids de los campos del formulario según el tipo de publicación
-    camposDe(tipo) {
-      return {
-        ciudad: `${tipo}Ciudad`,
-        contrato: `${tipo}Contrato`,
-        jornada: `${tipo}Jornada`,
-        salario: null, // el salario de oferta ahora son dos campos numéricos; la plantilla no lo rellena
-        experiencia: `${tipo}Experiencia`,
-        descripcion: `${tipo}Descripcion`,
-        nombre_contacto: `${tipo}NombreContacto`,
-        email_contacto: `${tipo}EmailContacto`,
-        telefono_contacto: `${tipo}TelefonoContacto`
-      };
-    },
-
-    async cargar(tipo) {
-      try {
-        const data = await utils.request("/plantillas");
-        this.lista = data.plantillas || [];
-
-        const select = document.getElementById(`${tipo}Plantillas`);
-        if (!select) return;
-
-        const propias = this.lista.filter(p => p.tipo === tipo);
-        select.innerHTML = `<option value="">Sin plantilla…</option>` +
-          propias.map(p => `<option value="${p.id}">${utils.escapeHtml(p.nombre)}</option>`).join('');
-      } catch (error) {
-        console.error("Error al cargar plantillas:", error);
-      }
-    },
-
-    aplicar(tipo) {
-      const select = document.getElementById(`${tipo}Plantillas`);
-      const plantilla = this.lista.find(p => p.id === parseInt(select.value));
-      if (!plantilla) return;
-
-      const campos = this.camposDe(tipo);
-      Object.entries(campos).forEach(([campo, elementId]) => {
-        if (!elementId) return;
-        const el = document.getElementById(elementId);
-        if (el) el.value = plantilla[campo] ?? '';
-      });
-
-      // Marcar especialidades de la plantilla
-      const checkboxes = document.querySelectorAll(`#${tipo}EspecialidadesContainer input[type="checkbox"]`);
-      checkboxes.forEach(cb => {
-        cb.checked = (plantilla.especialidades || []).includes(parseInt(cb.value));
-      });
-
-      utils.mostrarAlerta(`Plantilla "${plantilla.nombre}" aplicada`, "info");
-    },
-
-    async guardar(tipo) {
-      const nombre = prompt("Nombre de la plantilla (ej: 'Oferta ortodoncia Barcelona'):");
-      if (!nombre || !nombre.trim()) return;
-
-      const campos = this.camposDe(tipo);
-      const datos = { nombre: nombre.trim(), tipo };
-      Object.entries(campos).forEach(([campo, elementId]) => {
-        if (!elementId) return;
-        const el = document.getElementById(elementId);
-        datos[campo] = el ? el.value || null : null;
-      });
-
-      datos.especialidades = Array.from(
-        document.querySelectorAll(`#${tipo}EspecialidadesContainer input[type="checkbox"]:checked`)
-      ).map(cb => parseInt(cb.value));
-
-      try {
-        await utils.request("/plantillas", {
-          method: "POST",
-          body: JSON.stringify(datos)
-        });
-        utils.mostrarAlerta("✅ Plantilla guardada", "success");
-        await this.cargar(tipo);
-      } catch (error) {
-        utils.mostrarAlerta(error.message, "error");
-      }
-    },
-
-    async eliminar(tipo) {
-      const select = document.getElementById(`${tipo}Plantillas`);
-      const plantilla = this.lista.find(p => p.id === parseInt(select.value));
-      if (!plantilla) {
-        utils.mostrarAlerta("Selecciona primero la plantilla que quieres eliminar", "info");
-        return;
-      }
-      if (!confirm(`¿Eliminar la plantilla "${plantilla.nombre}"?`)) return;
-
-      try {
-        await utils.request(`/plantillas/${plantilla.id}`, { method: "DELETE" });
-        utils.mostrarAlerta("Plantilla eliminada", "success");
-        await this.cargar(tipo);
-      } catch (error) {
-        utils.mostrarAlerta(error.message, "error");
       }
     }
   },

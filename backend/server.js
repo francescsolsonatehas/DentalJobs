@@ -2882,16 +2882,18 @@ app.post("/publicaciones", verifyToken, (req, res) => {
   };
 
   if (comoSolicitud) {
-    // La ciudad y provincia de una solicitud (o de una colaboración publicada por un
-    // dentista) se heredan del perfil (no editable en el formulario). Si el perfil aún
-    // no tiene ciudad, se acepta la que llegue en el cuerpo como respaldo.
+    // La ciudad de una solicitud se rellena por defecto con la del perfil, pero el
+    // formulario la deja editar: el dentista puede querer trabajar fuera de su ciudad.
+    // La colaboración publicada por un dentista, en cambio, sigue sin campo editable
+    // en el formulario y siempre hereda la del perfil.
     db.get("SELECT ciudad, provincia FROM usuarios WHERE id = ?", [req.usuario.id], (err, u) => {
       if (err) {
         console.error(err);
         return res.status(500).json({ error: "Error al crear publicación" });
       }
-      const ciudadFinal = (u && u.ciudad) ? u.ciudad : (ciudad || null);
-      const provinciaFinal = (u && u.ciudad) ? (u.provincia || null) : (provincia || null);
+      const ciudadElegida = tipo === "solicitud" && ciudad && ciudad.trim();
+      const ciudadFinal = ciudadElegida ? ciudad.trim() : ((u && u.ciudad) ? u.ciudad : (ciudad || null));
+      const provinciaFinal = ciudadElegida ? (provincia || null) : ((u && u.ciudad) ? (u.provincia || null) : (provincia || null));
       if (!ciudadFinal) {
         return res.status(400).json({ error: "Define tu ciudad en el perfil antes de publicar" });
       }

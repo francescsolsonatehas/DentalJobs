@@ -393,16 +393,6 @@
             <!-- Tab: Oferta -->
             <div id="tab-oferta" class="tab-content active" class="tab-oferta-content">
                 <form onsubmit="event.preventDefault(); app.publicaciones.crear('oferta');">
-                    <div class="form-group">
-                        <label for="ofertaPlantillas">Plantilla</label>
-                        <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            <select id="ofertaPlantillas" onchange="app.plantillas.aplicar('oferta')" style="flex: 1;">
-                                <option value="">Sin plantilla…</option>
-                            </select>
-                            <button type="button" class="btn-outline btn-small" onclick="app.plantillas.guardar('oferta')" data-tooltip="Guardar el formulario actual como plantilla">💾 Guardar</button>
-                            <button type="button" class="btn-text btn-small" onclick="app.plantillas.eliminar('oferta')" data-tooltip="Eliminar la plantilla seleccionada">🗑️</button>
-                        </div>
-                    </div>
                     <div class="form-group" id="ofertaSedeGroup" style="display: none;">
                         <label for="ofertaSede">Ubicación *</label>
                         <select id="ofertaSede" onchange="app.sedes.aplicarAPublicacion('oferta')">
@@ -506,20 +496,10 @@
             <div id="tab-solicitud" class="tab-content">
                 <form onsubmit="event.preventDefault(); app.publicaciones.crear('solicitud');">
                     <div class="form-group">
-                        <label for="solicitudPlantillas">Plantilla</label>
-                        <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            <select id="solicitudPlantillas" onchange="app.plantillas.aplicar('solicitud')" style="flex: 1;">
-                                <option value="">Sin plantilla…</option>
-                            </select>
-                            <button type="button" class="btn-outline btn-small" onclick="app.plantillas.guardar('solicitud')" data-tooltip="Guardar el formulario actual como plantilla">💾 Guardar</button>
-                            <button type="button" class="btn-text btn-small" onclick="app.plantillas.eliminar('solicitud')" data-tooltip="Eliminar la plantilla seleccionada">🗑️</button>
-                        </div>
-                    </div>
-                    <div class="form-group">
                         <label for="solicitudCiudad">Ciudad</label>
-                        <input id="solicitudCiudad" type="text" readonly style="background: #f3f4f6;">
+                        <input id="solicitudCiudad" type="text" autocomplete="off" placeholder="Escribe tu municipio…">
                         <input id="solicitudProvincia" type="hidden">
-                        <small id="solicitudCiudadHint" style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Se toma de tu perfil. Para cambiarla ve a "Mi perfil" → Mis datos.</small>
+                        <small id="solicitudCiudadHint" style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Por defecto, la de tu perfil. Puedes cambiarla si buscas trabajo en otra ciudad. <span id="solicitudProvinciaLabel"></span></small>
                     </div>
                     <div class="form-group">
                         <label>Especialidades</label>
