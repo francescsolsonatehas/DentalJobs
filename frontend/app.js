@@ -6262,6 +6262,7 @@ const app = {
       document.getElementById("btnExportarCsv").style.display = "inline-block";
       document.getElementById("btnChat").style.display = "inline-block";
       document.getElementById("btnNotif").style.display = "inline-block";
+      document.getElementById("btnAlertas").style.display = "inline-block";
       app.chat.actualizarContador();
       app.notificaciones.actualizar();
       app.onboarding.refrescar();
@@ -6581,7 +6582,7 @@ const app = {
       return {
         tipo: estadoApp.filtros.tipo || "",
         q: get("filterQ"),
-        ciudad: get("filterCiudad"),
+        ciudad: app.filtros.ciudadSeleccionada(),
         especialidad: get("filterEspecialidad"),
         contrato: get("filterContrato"),
         jornada: get("filterJornada"),
@@ -7276,6 +7277,13 @@ const app = {
       const config = this.VISTAS[estadoApp.vistaActual];
       btn.style.display = config ? "inline-block" : "none";
       if (config) btn.textContent = `⬇️ Exportar «${config.etiqueta()}» a CSV`;
+
+      // "Guardar esta búsqueda" (alertas): solo tiene sentido sobre el listado de
+      // publicaciones, que es lo que las alertas comparan contra nuevas coincidencias.
+      const btnAlerta = document.getElementById("btnGuardarAlerta");
+      if (btnAlerta) {
+        btnAlerta.style.display = (estadoApp.vistaActual === "publicaciones" && estadoApp.usuario) ? "inline-block" : "none";
+      }
     },
 
     // Reúne los filtros del listado tal como los envía app.publicaciones.cargar(), para

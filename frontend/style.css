@@ -1053,6 +1053,7 @@ textarea:focus {
 
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0;
   margin-bottom: 1.5rem;
   border-bottom: 2px solid var(--gray-200);
@@ -1141,11 +1142,19 @@ textarea:focus {
 /* ============ ALERTS ============ */
 
 .alert {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   padding: 1rem;
-  border-radius: 8px;
-  margin-bottom: 1rem;
+  border-radius: 0;
+  margin-bottom: 0;
   border-left: 4px solid;
   animation: slideUp 0.3s ease;
+  /* Por encima de cualquier modal (los modales llegan hasta 1100 en modal-encima):
+     si no, un aviso lanzado con un modal abierto (p. ej. un error de validación)
+     queda oculto detrás de su fondo y el usuario nunca lo ve. */
+  z-index: 2000;
 }
 
 .alert-success {
