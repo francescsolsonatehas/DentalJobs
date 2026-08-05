@@ -5662,7 +5662,7 @@ const app = {
             <div class="form-group">
               <label data-tooltip="Si lo desmarcas, las clínicas no verán tu perfil en su listado de 'Dentistas'. Tus postulaciones y candidaturas no se ven afectadas." style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                 <input type="checkbox" id="perfilPerfilPublico" ${u.perfil_publico === 0 ? '' : 'checked'}>
-                🌐 Perfil visible para clínicas en "Dentistas"
+                🌐 Perfil visible para clínicas
               </label>
               <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Si lo desactivas, las clínicas no te encontrarán en su listado de dentistas. No afecta a tus postulaciones.</small>
             </div>
