@@ -475,23 +475,10 @@ db.serialize(() => {
     )
   `);
 
-  // Alertas de búsqueda guardadas por el usuario. `filtros` es un JSON con los
-  // mismos parámetros que acepta construirFiltros (tipo, ciudad, especialidad,
-  // salarioMin...), de modo que el matching reutiliza exactamente la misma lógica
-  // que el listado de publicaciones. `ultimo_aviso` guarda cuándo se avisó por
-  // última vez, para solo notificar publicaciones nuevas desde entonces.
-  db.run(`
-    CREATE TABLE IF NOT EXISTS alertas_busqueda (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
-      nombre TEXT,
-      filtros TEXT NOT NULL,
-      frecuencia TEXT DEFAULT 'semanal',
-      activa INTEGER DEFAULT 1,
-      ultimo_aviso DATETIME,
-      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+  // La funcionalidad de "alertas de búsqueda guardadas" se retiró (sin punto de
+  // entrada en la interfaz, no aportaba). Se elimina la tabla y, con ella, cualquier
+  // dato guardado.
+  db.run(`DROP TABLE IF EXISTS alertas_busqueda`, () => {});
 
   // Backfill: calcular salario_min para publicaciones existentes que aún no lo tienen
   db.all("SELECT id, salario FROM publicaciones WHERE salario_min IS NULL AND salario IS NOT NULL", (err, filas) => {
@@ -673,13 +660,6 @@ db.serialize(() => {
        AND (SELECT group_concat(ns.publicacion_id) FROM notificaciones_suplencia ns
              WHERE ns.usuario_id = notificaciones.usuario_id
                AND julianday(notificaciones.creado_en) - julianday(ns.creado_en) BETWEEN -${VENTANA} AND ${VENTANA}) IS NOT NULL`,
-    () => {}
-  );
-
-  // Lo que no se puede reconstruir se queda con el destino genérico: de qué alerta
-  // hablaba no lo guarda nadie, y el resumen semanal es sobre un conjunto.
-  db.run(
-    "UPDATE notificaciones SET enlace = '#alertas' WHERE enlace IS NULL AND titulo = 'Nuevas coincidencias para tu alerta'",
     () => {}
   );
 
