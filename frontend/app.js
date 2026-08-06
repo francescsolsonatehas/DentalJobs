@@ -6568,24 +6568,6 @@ const app = {
   alertas: {
     _cache: [],
 
-    // Lee los filtros actuales de la barra de búsqueda
-    recogerFiltrosActuales() {
-      const get = id => (document.getElementById(id)?.value || "").trim();
-      return {
-        tipo: estadoApp.filtros.tipo || "",
-        q: get("filterQ"),
-        ciudad: app.filtros.ciudadSeleccionada(),
-        especialidad: get("filterEspecialidad"),
-        contrato: get("filterContrato"),
-        jornada: get("filterJornada"),
-        equipamiento: get("filterEquipamiento"),
-        certificacion: get("filterCertificacion"),
-        retribucion: get("filterRetribucion"),
-        salarioMin: get("filterSalarioMin"),
-        experienciaMin: get("filterExperienciaMin")
-      };
-    },
-
     // Texto legible que resume una alerta
     describirFiltros(f) {
       f = f || {};
@@ -6605,29 +6587,6 @@ const app = {
       if (f.certificacion) partes.push(f.certificacion);
       if (f.retribucion) partes.push(f.retribucion);
       return partes.length ? partes.join(" · ") : "Todas las publicaciones";
-    },
-
-    async guardarBusquedaActual() {
-      if (!estadoApp.usuario || !estadoApp.token) {
-        utils.mostrarAlerta("Inicia sesión para guardar búsquedas y recibir alertas", "info");
-        return;
-      }
-      const filtros = this.recogerFiltrosActuales();
-      const reales = Object.entries(filtros).filter(([k, v]) => k !== "tipo" && v && String(v).trim() !== "");
-      if (reales.length === 0) {
-        utils.mostrarAlerta("Ajusta algún filtro (ciudad, especialidad, salario…) antes de guardar la búsqueda", "info");
-        return;
-      }
-      const nombre = this.describirFiltros(filtros).slice(0, 60);
-      try {
-        await utils.request("/alertas", {
-          method: "POST",
-          body: JSON.stringify({ nombre, filtros, frecuencia: "semanal" })
-        });
-        utils.mostrarAlerta("🔔 Alerta guardada. Te avisaremos por email de las nuevas coincidencias.", "success");
-      } catch (e) {
-        utils.mostrarAlerta(e.message || "No se pudo guardar la alerta", "error");
-      }
     },
 
     async abrir() {
@@ -6654,7 +6613,7 @@ const app = {
 
     render(alertas) {
       if (!alertas || alertas.length === 0) {
-        return '<p style="color:#6b7280;">Aún no tienes alertas guardadas. Ajusta los filtros de búsqueda y pulsa «🔔 Guardar esta búsqueda».</p>';
+        return '<p style="color:#6b7280;">Aún no tienes alertas guardadas.</p>';
       }
       return alertas.map(a => {
         const desc = this.describirFiltros(a.filtros);
@@ -7269,13 +7228,6 @@ const app = {
       const config = this.VISTAS[estadoApp.vistaActual];
       btn.style.display = config ? "inline-block" : "none";
       if (config) btn.textContent = `⬇️ Exportar «${config.etiqueta()}» a CSV`;
-
-      // "Guardar esta búsqueda" (alertas): solo tiene sentido sobre el listado de
-      // publicaciones, que es lo que las alertas comparan contra nuevas coincidencias.
-      const btnAlerta = document.getElementById("btnGuardarAlerta");
-      if (btnAlerta) {
-        btnAlerta.style.display = (estadoApp.vistaActual === "publicaciones" && estadoApp.usuario) ? "inline-block" : "none";
-      }
     },
 
     // Reúne los filtros del listado tal como los envía app.publicaciones.cargar(), para
