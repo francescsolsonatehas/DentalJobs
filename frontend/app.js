@@ -132,12 +132,18 @@ const utils = {
   },
 
   mostrarAlerta(mensaje, tipo = "info") {
-    const alertaDiv = document.createElement("div");
-    alertaDiv.className = `alert alert-${tipo}`;
-    alertaDiv.textContent = mensaje;
-    document.body.insertBefore(alertaDiv, document.body.firstChild);
+    const titulos = { success: "Hecho", error: "Error", info: "Aviso" };
+    const modal = document.getElementById("modalAlerta");
+    const contenido = document.getElementById("modalAlertaContent");
+    document.getElementById("alertaTitulo").textContent = titulos[tipo] || titulos.info;
+    document.getElementById("alertaMensaje").textContent = mensaje;
+    contenido.classList.remove("modal-alerta-success", "modal-alerta-error", "modal-alerta-info");
+    contenido.classList.add(`modal-alerta-${tipo}`);
+    modal.classList.add("active");
+  },
 
-    setTimeout(() => alertaDiv.remove(), 4000);
+  cerrarAlerta() {
+    document.getElementById("modalAlerta")?.classList.remove("active");
   },
 
   formatearFecha(fecha) {
@@ -2678,7 +2684,8 @@ const app = {
         "modalOpcionesClinicas",
         "modalOpcionesClinicasPotenciales",
         "modalContactarPerfil",
-        "modalAvisoInfo"
+        "modalAvisoInfo",
+        "modalAlerta"
       ];
       modales.forEach(id => {
         const modal = document.getElementById(id);

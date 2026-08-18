@@ -1293,6 +1293,17 @@
         </div>
     </div>
 
+    <!-- Modal: Alertas de éxito/error/info (sustituye a los antiguos avisos flotantes que desaparecían solos) -->
+    <div id="modalAlerta" class="modal">
+        <div id="modalAlertaContent" class="modal-content modal-alerta" style="max-width: 420px;">
+            <div class="modal-header">
+                <h2 id="alertaTitulo">Aviso</h2>
+                <button data-tooltip="Cerrar" class="close-btn" onclick="utils.cerrarAlerta()">✕</button>
+            </div>
+            <p id="alertaMensaje" style="color: #4b5563; line-height: 1.6;"></p>
+        </div>
+    </div>
+
     <!-- Footer legal -->
     <footer class="footer-legal">
         <div>

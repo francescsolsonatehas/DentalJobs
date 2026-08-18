@@ -1139,40 +1139,41 @@ textarea:focus {
   color: var(--gray-500);
 }
 
-/* ============ ALERTS ============ */
+/* ============ ALERTAS (modal) ============ */
 
-.alert {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 1rem;
-  border-radius: 0;
-  margin-bottom: 0;
-  border-left: 4px solid;
-  animation: slideUp 0.3s ease;
-  /* Por encima de cualquier modal (los modales llegan hasta 1100 en modal-encima):
-     si no, un aviso lanzado con un modal abierto (p. ej. un error de validación)
-     queda oculto detrás de su fondo y el usuario nunca lo ve. */
-  z-index: 2000;
+/* Por encima de cualquier otro modal (llegan hasta 1100 en modal-encima): si no, un
+   aviso lanzado con un modal abierto (p. ej. un error de validación al publicar)
+   quedaría oculto detrás de su fondo y el usuario nunca lo vería. */
+#modalAlerta.active {
+  z-index: 2000 !important;
 }
 
-.alert-success {
-  background: #d4edda;
+.modal-alerta {
+  border-top: 4px solid;
+}
+
+.modal-alerta-success {
+  border-top-color: #28a745;
+}
+
+.modal-alerta-success #alertaTitulo {
   color: #155724;
-  border-left-color: #28a745;
 }
 
-.alert-error {
-  background: #f8d7da;
+.modal-alerta-error {
+  border-top-color: #dc3545;
+}
+
+.modal-alerta-error #alertaTitulo {
   color: #721c24;
-  border-left-color: #dc3545;
 }
 
-.alert-info {
-  background: #d1ecf1;
+.modal-alerta-info {
+  border-top-color: #17a2b8;
+}
+
+.modal-alerta-info #alertaTitulo {
   color: #0c5460;
-  border-left-color: #17a2b8;
 }
 
 /* ============ USER INFO ============ */
