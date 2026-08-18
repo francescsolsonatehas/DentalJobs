@@ -6927,12 +6927,17 @@ const app = {
       let tray = { experiencia: [], formacion: [], idiomas: [], certificaciones: [] };
       try { tray = await utils.request(`/usuarios/${id}/trayectoria`); } catch (e) { /* sin trayectoria */ }
       const resumen = await app.resenyas.cargarResumen(id);
-      // El CV que el dentista tenga subido en su perfil ("Mi CV")
-      let cv = null;
+      // El CV y el Book que el dentista tenga subidos en su perfil
+      let cv = null, book = [];
       try {
         const archivos = await utils.request(`/archivos/usuario/${id}`);
         cv = (archivos || []).find(a => a.tipo === "cv") || null;
+        book = (archivos || []).filter(a => a.tipo === "portfolio");
       } catch (e) { /* sin archivos */ }
+      // Disponibilidad: próximos días sueltos (suplencias) y días de la semana
+      // recurrentes (colaboraciones), tal cual los marcó el propio dentista.
+      let disp = { dias: [], dias_semana: [] };
+      try { disp = await utils.request(`/usuarios/${id}/disponibilidad-publica`); } catch (e) { /* sin disponibilidad */ }
 
       const ciudadLabel = u.ciudad ? (u.provincia ? `${u.ciudad} (${u.provincia})` : u.ciudad) : "No indicada";
 
@@ -6976,6 +6981,57 @@ const app = {
         if ((tray.certificaciones || []).length) {
           html += `<h5 style="margin:.8rem 0 .3rem;color:#0f4c75;">📜 Certificaciones</h5><div class="badges">` +
             tray.certificaciones.map(c => `<span class="badge">${utils.escapeHtml(c)}</span>`).join("") + `</div>`;
+        }
+      }
+      html += `</div>`;
+
+      // Apartado "Disponibilidad": próximos días sueltos (suplencias) y días de la
+      // semana recurrentes (colaboraciones), cada uno como badges.
+      const hayDisp = (disp.dias || []).length || (disp.dias_semana || []).length;
+      html += `<div class="info-section"><h4>📅 Disponibilidad</h4>`;
+      if (!hayDisp) {
+        html += `<p style="color:#9ca3af;">Este dentista aún no ha marcado disponibilidad.</p>`;
+      } else {
+        if ((disp.dias || []).length) {
+          html += `<p style="margin:.3rem 0 .2rem;font-weight:600;color:#0f4c75;">Próximos días para suplencias</p>
+            <div class="badges" style="gap:.3rem;">${disp.dias.map(f => `<span class="badge">${utils.escapeHtml(utils.formatearDia(f))}</span>`).join("")}</div>`;
+        }
+        if ((disp.dias_semana || []).length) {
+          html += `<p style="margin:.8rem 0 .2rem;font-weight:600;color:#0f4c75;">Semana para colaboraciones</p>
+            <div class="badges" style="gap:.3rem;">${disp.dias_semana.map(d => `<span class="badge">${utils.escapeHtml(utils.formatearDiaSemana(d))}</span>`).join("")}</div>`;
+        }
+      }
+      html += `</div>`;
+
+      // Apartado "Book": mismas fotos/ficheros que en el modal dedicado, pero
+      // embebidos aquí para no obligar a abrir otra ventana.
+      html += `<div class="info-section"><h4>📕 Book</h4>`;
+      if (!book.length) {
+        html += `<p style="color:#9ca3af;">Este dentista aún no ha subido su Book.</p>`;
+      } else {
+        const argJs = s => utils.escapeHtml(String(s || "").replace(/'/g, "\\'"));
+        const abrir = a => `app.perfiles.verArchivo(${a.id}, '${argJs(a.nombre_archivo)}', '${argJs(a.mime_type || "")}')`;
+        html += `<div style="margin-bottom:1rem;">
+          <button data-tooltip="Descargar todos los archivos del Book" class="btn-primary" onclick="app.perfiles.descargarBookCompleto(${id}, '${argJs(u.nombre)}', this)">⬇️ Descargar todo el Book (${book.length})</button>
+        </div>`;
+        const imagenes = book.filter(a => (a.mime_type || "").startsWith("image/"));
+        const otros = book.filter(a => !(a.mime_type || "").startsWith("image/"));
+        if (imagenes.length) {
+          html += `<div class="fotos-gallery">` + imagenes.map(a => `
+            <div class="foto-item" style="cursor:pointer;" onclick="${abrir(a)}" title="Ver ${utils.escapeHtml(a.nombre_archivo)}">
+              <img src="${API}/archivos/${a.id}/download?inline=1" alt="${utils.escapeHtml(a.nombre_archivo)}" loading="lazy">
+            </div>`).join("") + `</div>`;
+        }
+        if (otros.length) {
+          html += otros.map(a => `
+            <div class="book-fichero" onclick="${abrir(a)}" title="Ver ${utils.escapeHtml(a.nombre_archivo)}">
+              <span class="book-fichero-icono">${(a.mime_type || "") === "application/pdf" ? "📄" : "📎"}</span>
+              <span class="book-fichero-texto">
+                <span class="book-fichero-nombre">${utils.escapeHtml(a.nombre_archivo)}</span>
+                <span class="book-fichero-meta">${a.tamanyo ? utils.formatearTamanyo(a.tamanyo) : ""}</span>
+              </span>
+              <span class="book-fichero-ver">👁️ Ver</span>
+            </div>`).join("");
         }
       }
       html += `</div>`;

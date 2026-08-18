@@ -1415,6 +1415,37 @@ app.get("/usuarios/:id/trayectoria", (req, res) => {
   );
 });
 
+// Disponibilidad pública de un dentista (visible en su ficha para las clínicas):
+// próximos días sueltos para suplencias + días de la semana recurrentes para
+// colaboraciones. Solo fechas futuras; las pasadas ya no son accionables.
+app.get("/usuarios/:id/disponibilidad-publica", (req, res) => {
+  const usuarioId = req.params.id;
+  db.all(
+    "SELECT fecha FROM disponibilidad_dentista WHERE usuario_id = ? AND fecha >= date('now') ORDER BY fecha",
+    [usuarioId],
+    (err, dias) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener la disponibilidad" });
+      }
+      db.all(
+        "SELECT dia_semana, turno FROM disponibilidad_semanal_dentista WHERE usuario_id = ? ORDER BY dia_semana",
+        [usuarioId],
+        (err2, diasSemana) => {
+          if (err2) {
+            console.error(err2);
+            return res.status(500).json({ error: "Error al obtener la disponibilidad" });
+          }
+          res.json({
+            dias: (dias || []).map(f => f.fecha),
+            dias_semana: (diasSemana || []).map(f => ({ dia: f.dia_semana, turno: f.turno }))
+          });
+        }
+      );
+    }
+  );
+});
+
 app.post("/experiencia-laboral", verifyToken, (req, res) => {
   const { lugar, fecha_inicio, fecha_fin, actual, descripcion, especialidad } = req.body;
   if (!especialidad || !especialidad.trim()) {
