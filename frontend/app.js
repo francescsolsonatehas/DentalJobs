@@ -1261,8 +1261,22 @@ const app = {
         );
       }
 
+      // Cuando quien abre el enlace es quien se postuló (no el dueño de la
+      // publicación), lo suyo es dejarle donde puede actuar sobre ella —"Mis
+      // Postulaciones" (el Kanban), con la tarjeta resaltada— en vez de un simple
+      // resumen sin ningún botón.
       const enviada = (enviadas || []).find(x => String(x.id) === candidaturaId);
-      if (enviada) return app.stats.mostrarDetalleMiPostulacion(enviada);
+      if (enviada) {
+        app.modal.cerrarTodosModales();
+        await app.filtros.mostrarKanban();
+        const tarjeta = document.getElementById(`candidatura-${candidaturaId}`);
+        if (tarjeta) {
+          tarjeta.scrollIntoView({ block: "center" });
+          tarjeta.classList.add("resaltado");
+          setTimeout(() => tarjeta.classList.remove("resaltado"), 2500);
+        }
+        return;
+      }
 
       // No aparece en ninguna de las dos: la publicación se retiró o la candidatura
       // se deshizo. Se dice claramente y se deja el listado por si quiere mirar.
@@ -2569,7 +2583,7 @@ const app = {
       app.publicaciones.cargarContactadas();
     },
 
-    mostrarKanban(btn) {
+    async mostrarKanban(btn) {
       estadoApp.filtros.soloMias = false;
       estadoApp.filtros.contactadas = false;
       estadoApp.filtros.verSuplencias = false;
@@ -2584,7 +2598,7 @@ const app = {
       filtersTitle.style.display = "block";
 
       this.sincronizarUISuplencias();
-      app.kanban.render();
+      await app.kanban.render();
     },
 
     mostrarSuplencias(btn) {
@@ -4329,57 +4343,6 @@ const app = {
         console.error("Error al abrir la publicación:", error);
         utils.mostrarAlerta("No se ha podido abrir la publicación", "error");
       }
-    },
-
-    mostrarDetalleMiPostulacion(post) {
-      // Detener el refresco automático: si no, sobrescribe este detalle con la lista a los pocos segundos
-      if (this.pollingInterval) {
-        clearInterval(this.pollingInterval);
-        this.pollingInterval = null;
-      }
-
-      const estadoColor = utils.colorEstado(post.estado);
-      const especialidad = post.especialidad_nombre || 'Sin especialidad';
-      const fecha = utils.formatearFecha(post.creado_en);
-
-      let html = `
-        <div style="padding: 2rem; background: #f9fafb; border-radius: 12px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-            <h3 style="margin: 0; color: #0f4c75; font-size: 1.5rem; font-weight: 700;">${utils.escapeHtml(post.empresa_nombre || post.ciudad)}</h3>
-            <span style="background: ${estadoColor}; color: white; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-transform: capitalize;">${utils.textoEstado(post.estado)}</span>
-          </div>
-
-          <div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
-            <h4 style="margin: 0 0 0.5rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📈 Estado de tu candidatura</h4>
-            ${utils.lineaTiempoCandidatura(post.estado, post.actualizado_en)}
-          </div>
-
-          <div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
-            <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📋 Detalles</h4>
-            <p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📍 Ciudad:</strong> ${utils.escapeHtml(post.ciudad)}</p>
-            <p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📅 Fecha:</strong> ${fecha}</p>
-            <p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>🦷 Especialidad:</strong> ${especialidad}</p>
-            ${post.salario ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>💰 Salario:</strong> ${utils.escapeHtml(post.salario)}</p>` : ''}
-            ${post.contrato ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📋 Contrato:</strong> ${utils.escapeHtml(post.contrato)}</p>` : ''}
-            ${post.jornada ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>⏰ Jornada:</strong> ${utils.escapeHtml(post.jornada)}</p>` : ''}
-            ${post.empresa_email ? `<p style="margin: 0.3rem 0; font-size: 0.95rem;"><strong>📧 Email:</strong> ${utils.escapeHtml(post.empresa_email)}</p>` : ''}
-          </div>
-
-          ${post.descripcion ? `<div style="background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;">
-            <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">📝 Descripción</h4>
-            <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap;">${utils.escapeHtml(post.descripcion)}</p>
-          </div>` : ''}
-
-          ${post.mensaje ? `<div style="background: white; border-radius: 8px; padding: 1.5rem;">
-            <h4 style="margin: 0 0 1rem 0; color: #0f4c75; font-weight: 600; font-size: 1.1rem;">💬 Tu mensaje</h4>
-            <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap;">${utils.escapeHtml(post.mensaje)}</p>
-          </div>` : ''}
-        </div>
-      `;
-
-      document.getElementById("interesadosBody").innerHTML = html;
-      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent = post.empresa_nombre || post.ciudad;
-      document.getElementById("modalInteresados").classList.add("active");
     },
 
     async mostrarListaPostulaciones(postulaciones, titulo) {
@@ -7247,7 +7210,7 @@ const app = {
             <button data-tooltip="Enviar un correo con tu mensaje" class="btn-small btn-secondary" onclick="app.perfiles.contactar(${c.empresa_usuario_id}, '${nombreEsc}', '${tipoContacto}')">✉️ Enviar Mail</button>
             <button class="btn-small btn-outline" onclick="app.perfiles.iniciarChat(${c.empresa_usuario_id}, '${nombreEsc}')" data-tooltip="Empezar a chatear">💬 Iniciar chat</button>` : '';
       return `
-        <div class="kanban-tarjeta" style="border-left: 3px solid ${color};">
+        <div id="candidatura-${c.id}" class="kanban-tarjeta" style="border-left: 3px solid ${color};">
           <strong>${utils.escapeHtml(c.empresa_nombre || 'Publicación')}</strong>
           <p class="kanban-tarjeta-detalle">📍 ${utils.escapeHtml(c.ciudad || '')}</p>
           ${c.salario ? `<p class="kanban-tarjeta-detalle">💰 ${utils.escapeHtml(c.salario)}</p>` : ''}
