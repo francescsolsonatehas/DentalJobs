@@ -8756,6 +8756,15 @@ window.findBlocker = () => {
 // Inicializar la aplicación
 app.ui.init();
 
+// Los enlaces de email/notificación (#chat=, #candidatura=...) solo se procesan al
+// cargar el script, arriba en init(). Si el navegador reutiliza una pestaña de
+// DentalJobs ya abierta en vez de abrir una nueva —algo habitual en móvil al pulsar
+// un enlace desde el correo—, el script no se vuelve a ejecutar y el cambio de hash
+// pasaría desapercibido sin este listener: el usuario aterrizaba en lo que ya
+// hubiera en pantalla (la bandeja del chat, por ejemplo) en vez de en el destino
+// del enlace.
+window.addEventListener("hashchange", () => app.auth.procesarEnlacesDeCorreo());
+
 // Tooltips de botones (ver [data-tooltip] en style.css). Con delegación de eventos
 // en document para que funcione también con botones pintados después vía innerHTML,
 // sin tener que enganchar un listener a cada uno.
