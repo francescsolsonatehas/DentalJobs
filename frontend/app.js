@@ -1061,6 +1061,20 @@ const app = {
       const [nombre, argumento] = destino.split("=");
       const esClinica = estadoApp.tipoUsuario === "clinica";
 
+      // Estos destinos son privados: si el enlace llega por email y en este
+      // navegador no hay sesión iniciada, mejor decirlo claramente que dejar que la
+      // función de turno reviente contra `estadoApp.usuario.id` (null) y muestre un
+      // error de JavaScript en vez de un aviso legible.
+      const REQUIERE_SESION = [
+        "chat", "chat-perfil", "candidatura", "contacto",
+        "postulaciones-recibidas", "mis-postulaciones",
+        "dentistas-potenciales", "clinicas-potenciales"
+      ];
+      if (REQUIERE_SESION.includes(nombre) && !estadoApp.usuario) {
+        utils.mostrarAlerta("Inicia sesión para ver esto.", "info");
+        return;
+      }
+
       try {
         switch (nombre) {
           case "publicacion":
@@ -1657,12 +1671,29 @@ const app = {
       }
     },
 
+    // Destinos de las notificaciones por email (mismo vocabulario que app.rutas.ir,
+    // el que ya traduce el enlace de una notificación de la campana): al llegar por
+    // correo hace falta sesión iniciada en ese navegador para casi todos (chat,
+    // candidatura, contacto…) — si no la hay, app.rutas.ir ya maneja el fallo con su
+    // propio aviso, así que no rompe nada, solo no lleva más allá de la portada.
+    RUTAS_CORREO: [
+      "chat", "chat-perfil", "candidatura", "contacto", "correo-recibido",
+      "suplencias", "colaboraciones", "dentistas-potenciales", "clinicas-potenciales"
+    ],
+
     // Procesa los enlaces que llegan por correo (#verificar= / #restablecer= /
-    // #confirmar-email=) y el enlace público de una publicación (#publicacion=).
+    // #confirmar-email=), el enlace público de una publicación (#publicacion=), y el
+    // resto de destinos de notificación por email (#chat=, #candidatura=, etc.).
     async procesarEnlacesDeCorreo() {
       const hash = window.location.hash || "";
 
       const limpiarHash = () => history.replaceState(null, "", window.location.pathname + window.location.search);
+
+      const nombre = hash.replace(/^#/, "").split("=")[0];
+      if (this.RUTAS_CORREO.includes(nombre)) {
+        limpiarHash();
+        return app.rutas.ir(hash);
+      }
 
       if (hash.startsWith("#publicacion=")) {
         // Enlace "Copiar Enlace": abre la ficha de la publicación en solo lectura, con

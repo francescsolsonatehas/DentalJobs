@@ -49,7 +49,7 @@ function notificarUsuario(usuarioId, asunto, titulo, cuerpo, textoBoton, opcione
     // contiene todo lo que hace falta, como el mensaje escrito por el remitente).
     // cuerpoEmail: variante en HTML del cuerpo, solo para el correo (la campana
     // se queda con el `cuerpo` en texto plano de arriba).
-    const urlBoton = textoBoton === false ? null : urlFrontend();
+    const urlBoton = textoBoton === false ? null : urlFrontend() + (opciones.enlace || "");
     enviarEmail(u.email, asunto, plantilla(titulo, opciones.cuerpoEmail || cuerpo, urlBoton, textoBoton || "Abrir DentalJobs"))
       .catch(e => console.error("Error al enviar notificación:", e.message));
   });
