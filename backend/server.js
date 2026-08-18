@@ -1420,14 +1420,19 @@ app.get("/usuarios/:id/trayectoria", (req, res) => {
 // colaboraciones. Solo fechas futuras; las pasadas ya no son accionables.
 app.get("/usuarios/:id/disponibilidad-publica", (req, res) => {
   const usuarioId = req.params.id;
+  // Se traen TODOS los días (sin filtrar por fecha) y se separan en JS: así se puede
+  // avisar de "tenía días marcados, pero ya pasaron" en vez de decir simplemente que
+  // no ha marcado nunca nada, que sería falso si solo están caducados.
   db.all(
-    "SELECT fecha FROM disponibilidad_dentista WHERE usuario_id = ? AND fecha >= date('now') ORDER BY fecha",
+    "SELECT fecha FROM disponibilidad_dentista WHERE usuario_id = ? ORDER BY fecha",
     [usuarioId],
-    (err, dias) => {
+    (err, filas) => {
       if (err) {
         console.error(err);
         return res.status(500).json({ error: "Error al obtener la disponibilidad" });
       }
+      const hoy = new Date().toISOString().slice(0, 10);
+      const todas = (filas || []).map(f => f.fecha);
       db.all(
         "SELECT dia_semana, turno FROM disponibilidad_semanal_dentista WHERE usuario_id = ? ORDER BY dia_semana",
         [usuarioId],
@@ -1437,7 +1442,8 @@ app.get("/usuarios/:id/disponibilidad-publica", (req, res) => {
             return res.status(500).json({ error: "Error al obtener la disponibilidad" });
           }
           res.json({
-            dias: (dias || []).map(f => f.fecha),
+            dias: todas.filter(f => f >= hoy),
+            dias_caducados: todas.some(f => f < hoy),
             dias_semana: (diasSemana || []).map(f => ({ dia: f.dia_semana, turno: f.turno }))
           });
         }

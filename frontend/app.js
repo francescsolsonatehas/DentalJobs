@@ -5480,9 +5480,11 @@ const app = {
         // El test de compatibilidad lo responden los dos: la clínica dice cómo es
         document.getElementById("tabCompatibilidad").style.display = "inline-block";
         document.getElementById("tabFotos").style.display = "inline-block";
-        tabLogo.style.display = "inline-block";
-        tabLogo.textContent = "Logo";
-        tabLogo.setAttribute("data-tooltip", "Sube el logo de tu clínica para que aparezca junto a su nombre");
+        if (tabLogo) {
+          tabLogo.style.display = "inline-block";
+          tabLogo.textContent = "Logo";
+          tabLogo.setAttribute("data-tooltip", "Sube el logo de tu clínica para que aparezca junto a su nombre");
+        }
         // El título es el nombre de la clínica: identifica de quién es el perfil
         // mejor que un rótulo genérico. Si aún no se conoce, se cae al rótulo.
         document.getElementById("perfilTitle").textContent =
@@ -5496,9 +5498,11 @@ const app = {
         document.getElementById("tabDisponibilidad").style.display = "inline-block";
         document.getElementById("tabCompatibilidad").style.display = "inline-block";
         document.getElementById("tabFotos").style.display = "none";
-        tabLogo.style.display = "inline-block";
-        tabLogo.textContent = "Foto";
-        tabLogo.setAttribute("data-tooltip", "Sube tu foto para que aparezca junto a tu nombre");
+        if (tabLogo) {
+          tabLogo.style.display = "inline-block";
+          tabLogo.textContent = "Foto";
+          tabLogo.setAttribute("data-tooltip", "Sube tu foto para que aparezca junto a tu nombre");
+        }
         // El título es el nombre del dentista, igual que la clínica se titula con el
         // suyo. Si aún no se conoce, se cae al rótulo genérico.
         document.getElementById("perfilTitle").textContent =
@@ -7084,7 +7088,11 @@ const app = {
       const hayDisp = (disp.dias || []).length || (disp.dias_semana || []).length;
       html += `<div class="info-section"><h4>📅 Disponibilidad</h4>`;
       if (!hayDisp) {
-        html += `<p style="color:#9ca3af;">Este dentista aún no ha marcado disponibilidad.</p>`;
+        // "Aún no ha marcado" sería falso si tenía días para suplencias pero ya
+        // pasaron: se distingue de "nunca ha marcado nada" para no confundir.
+        html += disp.dias_caducados
+          ? `<p style="color:#9ca3af;">Este dentista marcó días disponibles para suplencias, pero ya han pasado. No tiene días próximos ni disponibilidad semanal para colaboraciones.</p>`
+          : `<p style="color:#9ca3af;">Este dentista aún no ha marcado disponibilidad.</p>`;
       } else {
         if ((disp.dias || []).length) {
           html += `<p style="margin:.3rem 0 .2rem;font-weight:600;color:#0f4c75;">Próximos días para suplencias</p>
