@@ -522,6 +522,10 @@ db.serialize(() => {
   // clínicas. 1 = visible (valor por defecto), 0 = el dentista lo ha ocultado.
   db.run(`ALTER TABLE usuarios ADD COLUMN perfil_publico INTEGER DEFAULT 1`, () => {});
 
+  // Logo (clínica) o foto de perfil (dentista): apunta al archivo en `archivos`
+  // (tipo 'logo') que se muestra junto al nombre en las tarjetas de publicaciones.
+  db.run(`ALTER TABLE usuarios ADD COLUMN foto_perfil_archivo_id INTEGER`, () => {});
+
   // Especialidad en la que se desempeñó cada puesto de la trayectoria. Opcional: un
   // puesto puede no corresponder a una especialidad concreta (recepción, gestión…).
   db.run(`ALTER TABLE experiencia_laboral ADD COLUMN especialidad TEXT`, () => {});

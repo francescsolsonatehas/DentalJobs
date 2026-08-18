@@ -908,6 +908,7 @@
 
             <div class="tabs">
                 <button data-tooltip="Editar tus datos personales" class="tab-btn active" id="tabDatos" onclick="app.perfil.switchTab('datos')">Mis datos</button>
+                <button data-tooltip="Sube una imagen para que aparezca junto a tu nombre" class="tab-btn" id="tabLogo" onclick="app.perfil.switchTab('logo')">Logo</button>
                 <button data-tooltip="Editar tu experiencia, formación e idiomas" class="tab-btn" id="tabTrayectoria" onclick="app.perfil.switchTab('trayectoria')">Trayectoria</button>
                 <button data-tooltip="Subir o gestionar tu CV" class="tab-btn" id="tabCv" onclick="app.perfil.switchTab('cv')">Mi CV</button>
                 <button data-tooltip="Gestionar tu Book de fotos y trabajos" class="tab-btn" id="tabPortfolio" onclick="app.perfil.switchTab('portfolio')">Book</button>
@@ -1035,6 +1036,19 @@
                     </div>
                     <button data-tooltip="Añadir este idioma a tu perfil" type="submit" class="btn-primary" style="width: 100%;">Añadir idioma</button>
                 </form>
+            </div>
+
+            <!-- Tab: Logo (clínica) / Foto (dentista) de perfil. El rótulo, el texto de la
+                 zona de subida y el contenido se adaptan por JS según el tipo de usuario. -->
+            <div id="tab-logo" class="tab-content">
+                <div id="logoContainer">
+                    <div class="drag-drop-zone" id="logoDropZone" ondrop="event.preventDefault(); app.archivos.manejarDrop(event, 'logo')" ondragover="event.preventDefault(); document.getElementById('logoDropZone').classList.add('dragover')" ondragleave="document.getElementById('logoDropZone').classList.remove('dragover')">
+                        <p>🖼️ Sube una imagen (JPG/PNG, máx 5 MB)</p>
+                        <span>Arrastra y suelta o haz clic para seleccionar</span>
+                        <input type="file" id="logoInput" accept=".jpg,.jpeg,.png,.gif,.webp" style="display: none;" onchange="app.archivos.subirLogo()">
+                    </div>
+                    <button data-tooltip="Seleccionar la imagen" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('logoInput').click()">Seleccionar archivo</button>
+                </div>
             </div>
 
             <!-- Tab: CV -->

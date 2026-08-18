@@ -5234,6 +5234,24 @@ const app = {
       }
     },
 
+    async subirLogo() {
+      const input = document.getElementById("logoInput");
+      if (input.files.length === 0) return;
+
+      const formData = new FormData();
+      formData.append("archivo", input.files[0]);
+      formData.append("tipo", "logo");
+
+      try {
+        await utils.requestForm("/archivos/upload", formData);
+        utils.mostrarAlerta(estadoApp.tipoUsuario === 'clinica' ? "Logo subido correctamente" : "Foto subida correctamente", "success");
+        input.value = '';
+        app.archivos.cargarArchivosUsuario();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
     manejarDrop(event, tipo) {
       event.preventDefault();
       const zone = event.currentTarget;
@@ -5241,7 +5259,7 @@ const app = {
 
       const files = event.dataTransfer.files;
       if (files.length > 0) {
-        const inputIds = { cv: "cvInput", portfolio: "portfolioInput", foto: "fotoInput" };
+        const inputIds = { cv: "cvInput", portfolio: "portfolioInput", foto: "fotoInput", logo: "logoInput" };
         const input = document.getElementById(inputIds[tipo]);
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(files[0]);
@@ -5251,6 +5269,8 @@ const app = {
           app.archivos.subirCV();
         } else if (tipo === 'portfolio') {
           app.archivos.subirPortfolio();
+        } else if (tipo === 'logo') {
+          app.archivos.subirLogo();
         } else {
           app.archivos.subirFoto();
         }
@@ -5295,6 +5315,30 @@ const app = {
           </div>
           <button data-tooltip="Seleccionar el archivo de tu CV" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('cvInput').click()">Seleccionar archivo</button>
         `;
+      }
+
+      // Renderizar Logo (clínica) / Foto (dentista) de perfil: una sola imagen que
+      // sustituye a la anterior, igual que el CV.
+      const logo = estadoApp.archivosUsuario.find(a => a.tipo === 'logo');
+      const logoContainer = document.getElementById("logoContainer");
+      if (logoContainer) {
+        const esClinica = estadoApp.tipoUsuario === 'clinica';
+        const etiqueta = esClinica ? "logo" : "foto";
+        const zonaSubida = `
+          <div class="drag-drop-zone" id="logoDropZone" ondrop="event.preventDefault(); app.archivos.manejarDrop(event, 'logo')" ondragover="event.preventDefault(); document.getElementById('logoDropZone').classList.add('dragover')" ondragleave="document.getElementById('logoDropZone').classList.remove('dragover')">
+            <p>${esClinica ? "🖼️ Sube el logo de tu clínica" : "📷 Sube tu foto"} (JPG/PNG, máx 5 MB)</p>
+            <span>Arrastra y suelta o haz clic para seleccionar</span>
+            <input type="file" id="logoInput" accept=".jpg,.jpeg,.png,.gif,.webp" style="display: none;" onchange="app.archivos.subirLogo()">
+          </div>
+          <button data-tooltip="Seleccionar la imagen" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('logoInput').click()">Seleccionar archivo</button>`;
+        logoContainer.innerHTML = logo
+          ? `<div class="foto-item" style="max-width:200px;">
+               <img src="${API}/archivos/${logo.id}/download?inline=1" alt="${esClinica ? 'Logo' : 'Foto'} de perfil" loading="lazy">
+               <button class="foto-eliminar" data-tooltip="Eliminar ${etiqueta}" onclick="app.archivos.eliminar(${logo.id})">✕</button>
+             </div>
+             <p style="color:#9ca3af;font-size:.85rem;margin:.8rem 0 .3rem;">Sube otra imagen para reemplazar tu ${etiqueta}.</p>
+             ${zonaSubida}`
+          : zonaSubida;
       }
 
       // Renderizar galería de fotos (clínicas)
@@ -5404,6 +5448,7 @@ const app = {
       if (!estadoApp.usuario) return;
 
       // Mostrar/ocultar tabs según tipo de usuario
+      const tabLogo = document.getElementById("tabLogo");
       if (estadoApp.tipoUsuario === 'clinica') {
         document.getElementById("tabDatos").style.display = "inline-block";
         document.getElementById("tabTrayectoria").style.display = "none";
@@ -5413,6 +5458,9 @@ const app = {
         // El test de compatibilidad lo responden los dos: la clínica dice cómo es
         document.getElementById("tabCompatibilidad").style.display = "inline-block";
         document.getElementById("tabFotos").style.display = "inline-block";
+        tabLogo.style.display = "inline-block";
+        tabLogo.textContent = "Logo";
+        tabLogo.setAttribute("data-tooltip", "Sube el logo de tu clínica para que aparezca junto a su nombre");
         // El título es el nombre de la clínica: identifica de quién es el perfil
         // mejor que un rótulo genérico. Si aún no se conoce, se cae al rótulo.
         document.getElementById("perfilTitle").textContent =
@@ -5426,6 +5474,9 @@ const app = {
         document.getElementById("tabDisponibilidad").style.display = "inline-block";
         document.getElementById("tabCompatibilidad").style.display = "inline-block";
         document.getElementById("tabFotos").style.display = "none";
+        tabLogo.style.display = "inline-block";
+        tabLogo.textContent = "Foto";
+        tabLogo.setAttribute("data-tooltip", "Sube tu foto para que aparezca junto a tu nombre");
         // El título es el nombre del dentista, igual que la clínica se titula con el
         // suyo. Si aún no se conoce, se cae al rótulo genérico.
         document.getElementById("perfilTitle").textContent =
@@ -6434,7 +6485,10 @@ const app = {
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <span style="display: flex; gap: .4rem; align-items: center;">${tipoBadge ? `<span class="card-type ${tipoClase}">${tipoBadge}</span>` : ""}${compatBadge}</span>
             </div>
-            <h3>${utils.escapeHtml(generatedTitle)}</h3>
+            <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:0.8rem;">
+              ${pub.usuario_foto_id ? `<img src="${API}/archivos/${pub.usuario_foto_id}/download?inline=1" alt="" loading="lazy" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid #e5e7eb;">` : ""}
+              <h3 style="margin-bottom:0;">${utils.escapeHtml(generatedTitle)}</h3>
+            </div>
             <div class="card-details">
               <div class="detail">
                 <span class="detail-icon">🦷</span>

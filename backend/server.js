@@ -453,7 +453,7 @@ app.use("/auth/registro", limiterAuth);
 // estos números tiene coste de RAM en el servidor y de tamaño de fila en Turso. Para
 // permitir archivos mucho más grandes habría que sacarlos de la BD a un
 // almacenamiento de objetos (S3/R2) y guardar solo el enlace.
-const MAX_MB_POR_TIPO = { cv: 5, portfolio: 25, foto: 10, chat: 25 };
+const MAX_MB_POR_TIPO = { cv: 5, portfolio: 25, foto: 10, logo: 5, chat: 25 };
 const MAX_SUBIDA_MB = Math.max(...Object.values(MAX_MB_POR_TIPO));
 
 // Configurar multer para uploads en memoria. El límite es el mayor de todos los
@@ -1897,7 +1897,7 @@ function agruparPreferencias(filas) {
 const TOPE_COMPATIBILIDAD = 200;
 
 function listarPorCompatibilidad(res, filtros, usuarioId, page, limit) {
-  const query = `SELECT p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad, s.nombre as sede_nombre
+  const query = `SELECT p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad, u.foto_perfil_archivo_id as usuario_foto_id, s.nombre as sede_nombre
                  FROM publicaciones p LEFT JOIN usuarios u ON p.usuario_id = u.id LEFT JOIN sedes s ON s.id = p.sede_id
                  WHERE p.activo = 1${filtros.sql}
                  ORDER BY p.creado_en DESC LIMIT ?`;
@@ -1974,7 +1974,7 @@ app.get("/publicaciones", (req, res) => {
 
   // sede_nombre: la clínica ve el nombre de la sede en sus propias publicaciones (una
   // clínica con varias sedes necesita distinguirlas; su propio nombre no le dice nada).
-  let selectCols = "p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad, s.nombre as sede_nombre";
+  let selectCols = "p.*, u.nombre as usuario_nombre, u.tipo as usuario_tipo, u.email as usuario_email, u.telefono as usuario_telefono, u.ciudad as usuario_ciudad, u.foto_perfil_archivo_id as usuario_foto_id, s.nombre as sede_nombre";
   const selectParams = [];
 
   const usarRelevancia = sort === 'relevancia' && paraUsuarioId;
@@ -4322,7 +4322,7 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
   }
 
   const { tipo } = req.body;
-  if (!tipo || !["cv", "portfolio", "foto", "chat"].includes(tipo)) {
+  if (!tipo || !["cv", "portfolio", "foto", "logo", "chat"].includes(tipo)) {
     return res.status(400).json({ error: "Tipo de archivo inválido" });
   }
 
@@ -4330,6 +4330,10 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
 
   if (tipo === "foto" && !mime.startsWith("image/")) {
     return res.status(400).json({ error: "Las fotos deben ser imágenes" });
+  }
+
+  if (tipo === "logo" && !mime.startsWith("image/")) {
+    return res.status(400).json({ error: "El logo/foto de perfil debe ser una imagen" });
   }
 
   // El Book (portfolio) admite PDF o imágenes, lo mismo que ofrece el formulario. Se
@@ -4359,28 +4363,54 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
     return res.status(400).json({ error: `Archivo demasiado grande (máx ${MAX_MB_POR_TIPO[tipo]} MB)` });
   }
 
-  db.run(
-    `INSERT INTO archivos (usuario_id, tipo, nombre_archivo, mime_type, contenido, tamanyo)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [req.usuario.id, tipo, req.file.originalname, req.file.mimetype, req.file.buffer, req.file.size],
-    function(err) {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al guardar archivo" });
-      }
-
-      res.json({
-        mensaje: "Archivo subido exitosamente",
-        id: this.lastID,
-        archivo: {
-          id: this.lastID,
-          nombre: req.file.originalname,
-          tipo,
-          tamanyo: req.file.size
+  const guardarArchivo = () => {
+    db.run(
+      `INSERT INTO archivos (usuario_id, tipo, nombre_archivo, mime_type, contenido, tamanyo)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [req.usuario.id, tipo, req.file.originalname, req.file.mimetype, req.file.buffer, req.file.size],
+      function(err) {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al guardar archivo" });
         }
-      });
-    }
-  );
+        const nuevoId = this.lastID;
+
+        const responder = () => res.json({
+          mensaje: "Archivo subido exitosamente",
+          id: nuevoId,
+          archivo: {
+            id: nuevoId,
+            nombre: req.file.originalname,
+            tipo,
+            tamanyo: req.file.size
+          }
+        });
+
+        // El logo/foto de perfil es de uno en uno: la nueva imagen sustituye a la
+        // anterior en `usuarios.foto_perfil_archivo_id`, y la anterior se borra para
+        // no dejar archivos huérfanos.
+        if (tipo !== "logo") return responder();
+
+        db.run("UPDATE usuarios SET foto_perfil_archivo_id = ? WHERE id = ?", [nuevoId, req.usuario.id], (errU) => {
+          if (errU) console.error(errU);
+          if (anteriorLogoId && anteriorLogoId !== nuevoId) {
+            db.run("DELETE FROM archivos WHERE id = ?", [anteriorLogoId], () => {});
+          }
+          responder();
+        });
+      }
+    );
+  };
+
+  let anteriorLogoId = null;
+  if (tipo === "logo") {
+    db.get("SELECT foto_perfil_archivo_id FROM usuarios WHERE id = ?", [req.usuario.id], (errG, row) => {
+      anteriorLogoId = row ? row.foto_perfil_archivo_id : null;
+      guardarArchivo();
+    });
+  } else {
+    guardarArchivo();
+  }
 });
 
 app.get("/archivos/usuario/:userId", (req, res) => {
@@ -4495,7 +4525,11 @@ app.delete("/archivos/:id", verifyToken, (req, res) => {
         return res.status(500).json({ error: "Error al eliminar archivo" });
       }
 
-      res.json({ mensaje: "Archivo eliminado" });
+      // Si era el logo/foto de perfil activo, se desvincula para no dejar el
+      // puntero apuntando a un archivo que ya no existe.
+      db.run("UPDATE usuarios SET foto_perfil_archivo_id = NULL WHERE foto_perfil_archivo_id = ?", [req.params.id], () => {
+        res.json({ mensaje: "Archivo eliminado" });
+      });
     });
   });
 });
