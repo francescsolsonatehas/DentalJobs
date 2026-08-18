@@ -6706,9 +6706,6 @@ const app = {
         const chips = especialidades.map(e => this.chipEspecialidad(e, esClinica)).join("");
         return `
           <div class="card ${esClinica ? "type-oferta" : "type-solicitud"}">
-            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-              ${esClinica ? `<span class="card-type type-oferta">🏥 Clínica</span>` : ""}
-            </div>
             <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:0.8rem;">
               ${utils.avatarHtml(p.foto_perfil_archivo_id)}
               <h3 style="margin-bottom:0;">${utils.escapeHtml(p.nombre)}</h3>
