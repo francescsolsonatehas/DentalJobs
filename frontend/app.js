@@ -6940,7 +6940,7 @@ const app = {
 
       // Apartado "Mis datos": los mismos datos que el dentista rellena en esa pestaña
       // (ubicación, experiencia, valoración, especialidades y descripción).
-      html += `<div class="info-section"><h4>📋 Mis datos</h4>
+      html += `<div class="info-section"><h4>📋 Datos</h4>
         <p style="margin:.3rem 0;font-size:1.05rem;"><span class="detail-icon">👨‍⚕️</span> Dentista · <strong>${utils.escapeHtml(ciudadLabel)}</strong></p>
         ${u.anyos_experiencia !== null && u.anyos_experiencia !== undefined ? `<p style="margin:.3rem 0;">🎓 <strong>${u.anyos_experiencia}</strong> años de experiencia</p>` : ""}
         <div style="margin:.3rem 0;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;"><span>⭐</span>${app.resenyas.resumenHtml(resumen, id, u.nombre)}</div>
