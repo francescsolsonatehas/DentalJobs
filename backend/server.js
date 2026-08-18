@@ -4499,6 +4499,12 @@ app.get("/archivos/:id/download", (req, res) => {
       const disposicion = req.query.inline === "1" ? "inline" : "attachment";
       res.setHeader("Content-Type", archivo.mime_type || "application/octet-stream");
       res.setHeader("Content-Disposition", `${disposicion}; filename="${archivo.nombre_archivo}"`);
+      // El frontend (GitHub Pages) y este backend (Render) van en dominios distintos.
+      // Helmet pone Cross-Origin-Resource-Policy: same-origin por defecto, que bloquea
+      // que un <img> de otro origen cargue este archivo (fotos, Book, logo/foto de
+      // perfil…). Este endpoint ya es público (sin verifyToken) y solo sirve por id,
+      // así que permitir la carga cross-origin no expone nada nuevo.
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
       res.send(archivo.contenido);
     }
   );
