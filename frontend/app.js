@@ -202,6 +202,14 @@ const utils = {
     return dias;
   },
 
+  // Avatar redondo (logo de clínica o foto de dentista) para poner junto a un
+  // nombre. Devuelve "" si no hay foto, así que se puede meter siempre delante
+  // del nombre sin comprobar antes si existe.
+  avatarHtml(fotoId, size = 32) {
+    if (!fotoId) return "";
+    return `<img src="${API}/archivos/${fotoId}/download?inline=1" alt="" loading="lazy" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid #e5e7eb;">`;
+  },
+
   formatearTamanyo(bytes) {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -5243,10 +5251,17 @@ const app = {
       formData.append("tipo", "logo");
 
       try {
-        await utils.requestForm("/archivos/upload", formData);
+        const response = await utils.requestForm("/archivos/upload", formData);
         utils.mostrarAlerta(estadoApp.tipoUsuario === 'clinica' ? "Logo subido correctamente" : "Foto subida correctamente", "success");
         input.value = '';
         app.archivos.cargarArchivosUsuario();
+        // El hero de la página principal usa la foto de estadoApp.usuario: se
+        // actualiza aquí para que se vea sin recargar ni volver a iniciar sesión.
+        if (estadoApp.usuario && response.archivo) {
+          estadoApp.usuario.foto_perfil_archivo_id = response.archivo.id;
+          localStorage.setItem("usuario", JSON.stringify(estadoApp.usuario));
+          app.ui.pintarHeroNombre();
+        }
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -5382,6 +5397,13 @@ const app = {
         await utils.request(`/archivos/${id}`, { method: "DELETE" });
         utils.mostrarAlerta("Archivo eliminado", "success");
         app.archivos.cargarArchivosUsuario();
+        // Si era el logo/foto activo, se desvincula también en memoria: si no, el
+        // hero seguiría pintando una imagen que ya no existe hasta la próxima sesión.
+        if (estadoApp.usuario && estadoApp.usuario.foto_perfil_archivo_id === id) {
+          estadoApp.usuario.foto_perfil_archivo_id = null;
+          localStorage.setItem("usuario", JSON.stringify(estadoApp.usuario));
+          app.ui.pintarHeroNombre();
+        }
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
@@ -6198,6 +6220,28 @@ const app = {
   ui: {
     statsPollingInterval: null,
 
+    // Nombre del usuario en el hero de la página principal, con su logo/foto de
+    // perfil si la tiene (si no, el diente de siempre). Aparte de al cargar la
+    // plataforma, se reutiliza al subir/borrar el logo/foto para que el cambio
+    // se vea sin recargar la página.
+    pintarHeroNombre() {
+      const heroTitle = document.querySelector("#heroPlataforma h1");
+      if (!heroTitle || !estadoApp.usuario) return;
+      const nombre = estadoApp.tipoUsuario === 'clinica'
+        ? (estadoApp.usuario.nombre || 'Mi Empresa')
+        : (() => {
+            const partes = (estadoApp.usuario.nombre || 'Candidato').split(' ');
+            return partes.length >= 2 ? `${partes[0]} ${partes[1]}` : partes[0];
+          })();
+      const fotoId = estadoApp.usuario.foto_perfil_archivo_id;
+      heroTitle.innerHTML = fotoId
+        ? `<span style="display:inline-flex;align-items:center;gap:.7rem;justify-content:center;">
+             <img src="${API}/archivos/${fotoId}/download?inline=1" alt="" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.7);">
+             ${utils.escapeHtml(nombre)}
+           </span>`
+        : `🦷 ${utils.escapeHtml(nombre)}`;
+    },
+
     iniciarActualizacionAutomatica() {
       // Detener pollings anteriores si existen
       if (this.statsPollingInterval) clearInterval(this.statsPollingInterval);
@@ -6288,7 +6332,7 @@ const app = {
       app.onboarding.refrescar();
 
       // Actualizar texto del hero según tipo de usuario
-      const heroTitle = document.querySelector("#heroPlataforma h1");
+      app.ui.pintarHeroNombre();
       const filtersTitle = document.getElementById("filtrosTitle");
       const btnTodas = document.getElementById("btnTodas");
       const btnMias = document.getElementById("btnMias");
@@ -6296,7 +6340,6 @@ const app = {
       const btnContactadas = document.getElementById("btnContactadas");
 
       if (estadoApp.tipoUsuario === 'clinica') {
-        heroTitle.textContent = `🦷 ${estadoApp.usuario?.nombre || 'Mi Empresa'}`;
         filtersTitle.textContent = "";
         filtersTitle.style.display = "none";
         btnTodas.style.display = "inline-block";
@@ -6319,9 +6362,6 @@ const app = {
         btnTodas.textContent = "Publicaciones de dentistas";
       } else {
         // Dentista
-        const nombrePartes = (estadoApp.usuario?.nombre || 'Candidato').split(' ');
-        const nombreCorto = nombrePartes.length >= 2 ? `${nombrePartes[0]} ${nombrePartes[1]}` : nombrePartes[0];
-        heroTitle.textContent = `🦷 ${nombreCorto}`;
         filtersTitle.textContent = "Clínicas";
         filtersTitle.style.display = "block";
         btnTodas.style.display = "inline-block";
@@ -6486,7 +6526,7 @@ const app = {
               <span style="display: flex; gap: .4rem; align-items: center;">${tipoBadge ? `<span class="card-type ${tipoClase}">${tipoBadge}</span>` : ""}${compatBadge}</span>
             </div>
             <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:0.8rem;">
-              ${pub.usuario_foto_id ? `<img src="${API}/archivos/${pub.usuario_foto_id}/download?inline=1" alt="" loading="lazy" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid #e5e7eb;">` : ""}
+              ${utils.avatarHtml(pub.usuario_foto_id)}
               <h3 style="margin-bottom:0;">${utils.escapeHtml(generatedTitle)}</h3>
             </div>
             <div class="card-details">
@@ -6669,7 +6709,10 @@ const app = {
             <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
               ${esClinica ? `<span class="card-type type-oferta">🏥 Clínica</span>` : ""}
             </div>
-            <h3>${utils.escapeHtml(p.nombre)}</h3>
+            <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:0.8rem;">
+              ${utils.avatarHtml(p.foto_perfil_archivo_id)}
+              <h3 style="margin-bottom:0;">${utils.escapeHtml(p.nombre)}</h3>
+            </div>
             <div class="card-details">
               <div class="detail"><span class="detail-icon">📍</span><span>${utils.escapeHtml(ciudadLabel)}</span></div>
               ${p.anyos_experiencia !== null && p.anyos_experiencia !== undefined ? `<div class="detail"><span class="detail-icon">🎓</span><span>${p.anyos_experiencia} años de experiencia</span></div>` : ""}

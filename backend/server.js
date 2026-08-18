@@ -590,7 +590,7 @@ app.post("/auth/login", (req, res) => {
     const token = generateToken(usuario);
     res.json({
       token,
-      usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, tipo: usuario.tipo }
+      usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, tipo: usuario.tipo, foto_perfil_archivo_id: usuario.foto_perfil_archivo_id }
     });
   });
 });
@@ -1080,7 +1080,7 @@ app.get("/auth/mi-perfil", verifyToken, (req, res) => {
   const usuarioId = req.usuario.id;
 
   db.get(
-    "SELECT id, nombre, email, tipo, telefono, movil, direccion, codigo_postal, pais, ciudad, provincia, descripcion, anyos_experiencia, email_verificado, recibir_emails, perfil_publico, creado_en FROM usuarios WHERE id = ?",
+    "SELECT id, nombre, email, tipo, telefono, movil, direccion, codigo_postal, pais, ciudad, provincia, descripcion, anyos_experiencia, email_verificado, recibir_emails, perfil_publico, foto_perfil_archivo_id, creado_en FROM usuarios WHERE id = ?",
     [usuarioId],
     (err, usuario) => {
       if (err) {
@@ -5107,7 +5107,7 @@ app.get("/perfiles", (req, res) => {
   const centroRadio = (radioKm && ciudad) ? geocodificarCiudad(ciudad) : null;
   const usarRadio = !!centroRadio;
 
-  let query = `SELECT id, nombre, tipo, ciudad, provincia, descripcion, anyos_experiencia, creado_en
+  let query = `SELECT id, nombre, tipo, ciudad, provincia, descripcion, anyos_experiencia, creado_en, foto_perfil_archivo_id
                FROM usuarios WHERE tipo = ? AND nombre != 'Usuario eliminado'`;
   const params = [tipo];
 
