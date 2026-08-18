@@ -777,7 +777,10 @@
                     </div>
                     <div class="form-group">
                         <label for="loginPasswordEmp">Contraseña</label>
-                        <input id="loginPasswordEmp" type="password">
+                        <div class="password-field">
+                            <input id="loginPasswordEmp" type="password">
+                            <button data-tooltip="Mostrar contraseña" type="button" class="password-toggle-btn" onclick="utils.togglePassword('loginPasswordEmp', this)">👁️</button>
+                        </div>
                     </div>
                     <button data-tooltip="Entrar con tu cuenta" type="submit" class="btn-primary" style="width: 100%;">Entrar</button>
                     <button data-tooltip="Recuperar tu contraseña" type="button" class="btn-text btn-small" style="width: 100%; margin-top: 0.5rem;" onclick="app.auth.olvidePassword('loginEmailEmp')">¿Has olvidado tu contraseña?</button>
@@ -856,7 +859,10 @@
                     </div>
                     <div class="form-group">
                         <label for="loginPasswordCand">Contraseña</label>
-                        <input id="loginPasswordCand" type="password">
+                        <div class="password-field">
+                            <input id="loginPasswordCand" type="password">
+                            <button data-tooltip="Mostrar contraseña" type="button" class="password-toggle-btn" onclick="utils.togglePassword('loginPasswordCand', this)">👁️</button>
+                        </div>
                     </div>
                     <button data-tooltip="Entrar con tu cuenta" type="submit" class="btn-primary" style="width: 100%;">Entrar</button>
                     <button data-tooltip="Recuperar tu contraseña" type="button" class="btn-text btn-small" style="width: 100%; margin-top: 0.5rem;" onclick="app.auth.olvidePassword('loginEmailCand')">¿Has olvidado tu contraseña?</button>

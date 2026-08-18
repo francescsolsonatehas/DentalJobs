@@ -146,6 +146,15 @@ const utils = {
     document.getElementById("modalAlerta")?.classList.remove("active");
   },
 
+  togglePassword(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const mostrando = input.type === "text";
+    input.type = mostrando ? "password" : "text";
+    btn.textContent = mostrando ? "👁️" : "🙈";
+    btn.setAttribute("data-tooltip", mostrando ? "Mostrar contraseña" : "Ocultar contraseña");
+  },
+
   formatearFecha(fecha) {
     const date = new Date(fecha);
     return date.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
