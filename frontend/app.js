@@ -5615,15 +5615,12 @@ const app = {
             <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
 
             <div class="form-group">
-              <label>Contraseña actual (obligatorio para cambiar)</label>
-              <input type="text" id="perfilPasswordActual" placeholder="Ingresa tu contraseña actual" style="margin-bottom: 0.8rem;">
-
               <label>Nueva contraseña (opcional)</label>
               <input type="text" id="perfilPasswordNueva" placeholder="Deja vacío si no quieres cambiar" style="margin-bottom: 0.8rem;">
 
               <label>Confirmar contraseña (debe coincidir)</label>
               <input type="text" id="perfilPasswordConfirma" placeholder="Repite la nueva contraseña">
-              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Si no cambias contraseña, deja los últimos dos campos en blanco.</small>
+              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Si no cambias contraseña, deja estos dos campos en blanco.</small>
             </div>
 
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
@@ -5746,15 +5743,12 @@ const app = {
             <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">
 
             <div class="form-group">
-              <label>Contraseña actual (obligatorio para cambiar)</label>
-              <input type="text" id="perfilPasswordActual" placeholder="Ingresa tu contraseña actual" style="margin-bottom: 0.8rem;">
-
               <label>Nueva contraseña (opcional)</label>
               <input type="text" id="perfilPasswordNueva" placeholder="Deja vacío si no quieres cambiar" style="margin-bottom: 0.8rem;">
 
               <label>Confirmar contraseña (debe coincidir)</label>
               <input type="text" id="perfilPasswordConfirma" placeholder="Repite la nueva contraseña">
-              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Si no cambias contraseña, deja los últimos dos campos en blanco.</small>
+              <small style="color: var(--gray-600); margin-top: 0.3rem; display: block;">Si no cambias contraseña, deja estos dos campos en blanco.</small>
             </div>
 
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
@@ -5890,12 +5884,11 @@ const app = {
           }
 
           // Cambiar contraseña si se proporcionó
-          const passwordActual = document.getElementById("perfilPasswordActual").value;
           const passwordNueva = document.getElementById("perfilPasswordNueva").value;
           const passwordConfirma = document.getElementById("perfilPasswordConfirma").value;
 
           // Procesar cambio si hay intención: si se ingresó algo en cualquier campo
-          const hayIntencionCambio = passwordActual || passwordNueva || passwordConfirma;
+          const hayIntencionCambio = passwordNueva || passwordConfirma;
 
           if (hayIntencionCambio) {
             // Validar que las nuevas contraseñas coincidan
@@ -5904,12 +5897,9 @@ const app = {
               return;
             }
 
-            // Nota: passwordActual puede ser vacío si la contraseña actual es también vacía
-            // Se enviará al backend para validar
-
             const resPassword = await utils.request("/auth/cambiar-password", {
               method: "PUT",
-              body: JSON.stringify({ passwordActual, passwordNueva })
+              body: JSON.stringify({ passwordNueva })
             });
 
             if (resPassword.error) {
@@ -5918,7 +5908,6 @@ const app = {
             }
 
             // Limpiar campos de password después de guardar exitosamente
-            document.getElementById("perfilPasswordActual").value = "";
             document.getElementById("perfilPasswordNueva").value = "";
             document.getElementById("perfilPasswordConfirma").value = "";
           }
@@ -5960,12 +5949,11 @@ const app = {
         }
 
         // Cambiar contraseña si se proporcionó (ANTES de cambiar email)
-        const passwordActual = document.getElementById("perfilPasswordActual").value;
         const passwordNueva = document.getElementById("perfilPasswordNueva").value;
         const passwordConfirma = document.getElementById("perfilPasswordConfirma").value;
 
         // Procesar cambio si hay intención: si se ingresó algo en cualquier campo
-        const hayIntencionCambio = passwordActual || passwordNueva || passwordConfirma;
+        const hayIntencionCambio = passwordNueva || passwordConfirma;
 
         if (hayIntencionCambio) {
           // Validar que las nuevas contraseñas coincidan
@@ -5976,7 +5964,7 @@ const app = {
 
           const resPassword = await utils.request("/auth/cambiar-password", {
             method: "PUT",
-            body: JSON.stringify({ passwordActual, passwordNueva })
+            body: JSON.stringify({ passwordNueva })
           });
 
           if (resPassword.error) {
@@ -5985,7 +5973,6 @@ const app = {
           }
 
           // Limpiar campos de password después de guardar exitosamente
-          document.getElementById("perfilPasswordActual").value = "";
           document.getElementById("perfilPasswordNueva").value = "";
           document.getElementById("perfilPasswordConfirma").value = "";
         }

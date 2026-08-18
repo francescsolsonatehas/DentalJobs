@@ -1001,52 +1001,29 @@ app.post("/auth/guardar-certificaciones", verifyToken, (req, res) => {
 });
 
 app.put("/auth/cambiar-password", verifyToken, (req, res) => {
-  const { passwordActual, passwordNueva } = req.body;
+  const { passwordNueva } = req.body;
   const usuarioId = req.usuario.id;
 
   if (!passwordNueva || typeof passwordNueva !== "string" || passwordNueva.length < 8) {
     return res.status(400).json({ error: "La nueva contraseña debe tener al menos 8 caracteres" });
   }
 
-  // passwordActual puede ser vacía (cuentas antiguas creadas sin contraseña)
+  // El JWT ya certifica quién es (verifyToken); no se le vuelve a pedir la
+  // contraseña actual para cambiarla.
+  const hashedPassword = bcrypt.hashSync(passwordNueva, 10);
 
-  // Obtener usuario actual
-  db.get("SELECT password FROM usuarios WHERE id = ?", [usuarioId], (err, usuario) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Error al cambiar contraseña" });
-    }
-
-    if (!usuario) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
-    }
-
-    // Verificar contraseña actual
-    // Si password guardada es vacía, solo permite si passwordActual también es vacío
-    const esValida = usuario.password === ""
-      ? passwordActual === ""
-      : bcrypt.compareSync(passwordActual, usuario.password);
-
-    if (!esValida) {
-      return res.status(400).json({ error: "Contraseña actual incorrecta" });
-    }
-
-    const hashedPassword = bcrypt.hashSync(passwordNueva, 10);
-
-    // Actualizar contraseña
-    db.run(
-      "UPDATE usuarios SET password = ? WHERE id = ?",
-      [hashedPassword, usuarioId],
-      (err) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).json({ error: "Error al cambiar contraseña" });
-        }
-
-        res.json({ success: true, message: "Contraseña actualizada correctamente" });
+  db.run(
+    "UPDATE usuarios SET password = ? WHERE id = ?",
+    [hashedPassword, usuarioId],
+    (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al cambiar contraseña" });
       }
-    );
-  });
+
+      res.json({ success: true, message: "Contraseña actualizada correctamente" });
+    }
+  );
 });
 
 app.post("/auth/solicitar-cambio-email", verifyToken, (req, res) => {
