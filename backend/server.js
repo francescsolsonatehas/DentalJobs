@@ -2151,7 +2151,11 @@ app.get("/publicaciones/:id", (req, res) => {
   );
 });
 
-// Obtener ofertas del usuario con conteo de candidatos
+// Conteo de candidatos por publicación propia (de clínica u ofertas/suplencias/
+// colaboraciones, o de dentista con sus solicitudes). Puro conteo de solo lectura:
+// a diferencia de GET /publicaciones/:id/candidatos, este NO marca nada como
+// "vista" — así el listado puede pedirlo para pintar el badge sin, de paso,
+// consumir las candidaturas pendientes de nadie que las haya mirado.
 app.get("/publicaciones/usuario/:usuario_id/candidatos", verifyToken, (req, res) => {
   const usuario_id = req.params.usuario_id;
 
@@ -2159,7 +2163,7 @@ app.get("/publicaciones/usuario/:usuario_id/candidatos", verifyToken, (req, res)
     `SELECT p.id as publicacion_id, COUNT(c.id) as candidatos_count
      FROM publicaciones p
      LEFT JOIN candidaturas c ON p.id = c.publicacion_id
-     WHERE p.usuario_id = ? AND p.tipo IN ('oferta', 'suplencia', 'colaboracion') AND p.activo = 1
+     WHERE p.usuario_id = ? AND p.tipo IN ('oferta', 'suplencia', 'colaboracion', 'solicitud') AND p.activo = 1
      GROUP BY p.id`,
     [usuario_id],
     (err, ofertas) => {

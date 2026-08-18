@@ -6394,9 +6394,12 @@ const app = {
         return;
       }
 
-      // Cargar candidatos para las ofertas propias
+      // Conteo de candidatos de las publicaciones propias (clínica o dentista). Se pide
+      // aparte con el endpoint de solo conteo (no el de detalle, que marca las
+      // candidaturas pendientes como "vista" — no queremos ese efecto solo por pintar
+      // la lista, sino solo cuando de verdad se abre el modal de candidatos).
       const candidatosPorOferta = {};
-      if (estadoApp.tipoUsuario === 'clinica' && estadoApp.usuario) {
+      if (estadoApp.usuario) {
         try {
           const data = await utils.request(`/publicaciones/usuario/${estadoApp.usuario.id}/candidatos`);
           if (data.ofertas) {
@@ -6454,17 +6457,12 @@ const app = {
         // buscando trabajo/colaboración), no para ofertas/suplencias/colaboraciones de
         // clínica (esas usan candidatosPorOferta más abajo)
         if (estadoApp.filtros.soloMias && estadoApp.usuario && pub.usuario_id === estadoApp.usuario.id && (pub.tipo === 'solicitud' || (pub.tipo === 'colaboracion' && !colabDeClinicaCard))) {
-          try {
-            const data = await utils.request(`/publicaciones/${pub.id}/candidatos`);
-            const interesados = (data.candidatos || []).length;
-              interesadosHTML = `
-              <button data-tooltip="Ver las clínicas interesadas en tu publicación" class="btn-interesados" onclick="app.modal.abrirCandidatos(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')">
-                👥 Clínicas Postuladas (${interesados})
-              </button>
-            `;
-          } catch (error) {
-            console.error("Error al obtener mensajes:", error);
-          }
+          const interesados = candidatosPorOferta[pub.id] || 0;
+          interesadosHTML = `
+            <button data-tooltip="Ver las clínicas interesadas en tu publicación" class="btn-interesados" onclick="app.modal.abrirCandidatos(${pub.id}, '${utils.escapeHtml(generatedTitle.replace(/'/g, "\\'"))}')">
+              👥 Clínicas Postuladas (${interesados})
+            </button>
+          `;
         }
 
         // Badge de compatibilidad: solo llega en el listado ordenado por % (dentista).
