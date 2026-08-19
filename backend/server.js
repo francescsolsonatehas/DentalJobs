@@ -25,7 +25,6 @@ const { geocodificarCiudad, distanciaKm } = require("./municipios-coords");
 const { crearZip } = require("./zip");
 const { expandirRango, sanearDias, sanearDiasSemana } = require("./fechas");
 const { comprimirImagen } = require("./imagenes");
-const storage = require("./storage");
 const sharp = require("sharp");
 const crypto = require("crypto");
 
@@ -664,17 +663,7 @@ app.delete("/auth/mi-cuenta", verifyToken, (req, res) => {
         ejecutar(i + 1);
       });
     };
-
-    // Antes de borrar las filas de `archivos` (dentro de `pasos`), limpiar también
-    // los objetos que pudieran vivir en el storage externo. Sin storage externo
-    // configurado esto no encuentra nada y sigue igual que siempre.
-    db.all(
-      "SELECT storage_key FROM archivos WHERE usuario_id = ? AND storage_key IS NOT NULL",
-      [usuarioId],
-      (errS, conStorage) => {
-        Promise.all((conStorage || []).map(f => storage.borrar(f))).finally(() => ejecutar(0));
-      }
-    );
+    ejecutar(0);
   });
 });
 
@@ -1200,17 +1189,16 @@ app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
     if (usuario.foto_perfil_archivo_id) {
       const archivoFoto = await new Promise((resolve, reject) => {
         db.get(
-          "SELECT contenido, mime_type, storage_key FROM archivos WHERE id = ? AND usuario_id = ?",
+          "SELECT contenido, mime_type FROM archivos WHERE id = ? AND usuario_id = ?",
           [usuario.foto_perfil_archivo_id, req.usuario.id],
           (e, r) => e ? reject(e) : resolve(r)
         );
       });
       if (archivoFoto) {
-        const contenidoFoto = await storage.leer(archivoFoto);
         if (/^image\/(jpeg|png)$/.test(archivoFoto.mime_type)) {
-          fotoBuffer = contenidoFoto;
+          fotoBuffer = archivoFoto.contenido;
         } else if (/^image\//.test(archivoFoto.mime_type || "")) {
-          fotoBuffer = await sharp(contenidoFoto).jpeg().toBuffer().catch(() => null);
+          fotoBuffer = await sharp(archivoFoto.contenido).jpeg().toBuffer().catch(() => null);
         }
       }
     }
@@ -4389,15 +4377,6 @@ app.get("/chat/no-leidos", verifyToken, (req, res) => {
    🔹 ARCHIVOS
 =========================== */
 
-// Borra una fila de `archivos` por id, limpiando antes su objeto en el storage
-// externo si lo tiene (best-effort: ver storage.borrar). Compartido entre la
-// sustitución del logo/CV anterior al subir uno nuevo y DELETE /archivos/:id.
-function borrarArchivoConStorage(id, cb) {
-  db.get("SELECT storage_key FROM archivos WHERE id = ?", [id], (errG, fila) => {
-    storage.borrar(fila).finally(() => db.run("DELETE FROM archivos WHERE id = ?", [id], cb));
-  });
-}
-
 app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No se envió ningún archivo" });
@@ -4463,14 +4442,10 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
         }
       }
 
-      // Si hay storage externo configurado, el contenido va ahí y en la BD solo
-      // queda la referencia (storage_key); si no, sigue guardándose como BLOB.
-      const { contenido, storageKey } = await storage.guardar(req.usuario.id, tipo, contenidoFinal);
-
       db.run(
-        `INSERT INTO archivos (usuario_id, tipo, nombre_archivo, mime_type, contenido, tamanyo, storage_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [req.usuario.id, tipo, nombreFinal, mimeFinal, contenido, contenidoFinal.length, storageKey],
+        `INSERT INTO archivos (usuario_id, tipo, nombre_archivo, mime_type, contenido, tamanyo)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [req.usuario.id, tipo, nombreFinal, mimeFinal, contenidoFinal, contenidoFinal.length],
         function(err) {
           if (err) {
             console.error(err);
@@ -4496,7 +4471,7 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
             return db.run("UPDATE usuarios SET foto_perfil_archivo_id = ? WHERE id = ?", [nuevoId, req.usuario.id], (errU) => {
               if (errU) console.error(errU);
               if (anteriorId && anteriorId !== nuevoId) {
-                return borrarArchivoConStorage(anteriorId, () => responder());
+                db.run("DELETE FROM archivos WHERE id = ?", [anteriorId], () => {});
               }
               responder();
             });
@@ -4507,7 +4482,7 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
             // "Adjuntar mi CV"): desvincularlo antes de borrarlo, o la clave foránea
             // (mensajes.archivo_id) impediría el borrado.
             return db.run("UPDATE mensajes SET archivo_id = NULL WHERE archivo_id = ?", [anteriorId], () => {
-              borrarArchivoConStorage(anteriorId, () => responder());
+              db.run("DELETE FROM archivos WHERE id = ?", [anteriorId], () => responder());
             });
           }
 
@@ -4585,9 +4560,9 @@ app.get("/archivos/book/:userId.zip", verifyToken, (req, res) => {
     if (!usuario) return res.status(404).json({ error: "Usuario no encontrado" });
 
     db.all(
-      "SELECT nombre_archivo, contenido, storage_key FROM archivos WHERE usuario_id = ? AND tipo = 'portfolio' ORDER BY creado_en",
+      "SELECT nombre_archivo, contenido FROM archivos WHERE usuario_id = ? AND tipo = 'portfolio' ORDER BY creado_en",
       [userId],
-      async (err, archivos) => {
+      (err, archivos) => {
         if (err) {
           console.error(err);
           return res.status(500).json({ error: "Error al preparar el Book" });
@@ -4598,10 +4573,7 @@ app.get("/archivos/book/:userId.zip", verifyToken, (req, res) => {
 
         let zip;
         try {
-          const conContenido = await Promise.all(
-            archivos.map(async a => ({ nombre: a.nombre_archivo, contenido: await storage.leer(a) }))
-          );
-          zip = crearZip(conContenido);
+          zip = crearZip(archivos.map(a => ({ nombre: a.nombre_archivo, contenido: a.contenido })));
         } catch (errZip) {
           console.error(errZip);
           return res.status(500).json({ error: "Error al preparar el Book" });
@@ -4623,9 +4595,9 @@ app.get("/archivos/book/:userId.zip", verifyToken, (req, res) => {
 
 app.get("/archivos/:id/download", (req, res) => {
   db.get(
-    "SELECT nombre_archivo, contenido, mime_type, storage_key FROM archivos WHERE id = ?",
+    "SELECT nombre_archivo, contenido, mime_type FROM archivos WHERE id = ?",
     [req.params.id],
-    async (err, archivo) => {
+    (err, archivo) => {
       if (err) {
         console.error(err);
         return res.status(500).json({ error: "Error al descargar archivo" });
@@ -4646,18 +4618,13 @@ app.get("/archivos/:id/download", (req, res) => {
       // perfil…). Este endpoint ya es público (sin verifyToken) y solo sirve por id,
       // así que permitir la carga cross-origin no expone nada nuevo.
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-      try {
-        res.send(await storage.leer(archivo));
-      } catch (e) {
-        console.error("Error al leer del storage externo:", e.message);
-        res.status(500).json({ error: "Error al descargar archivo" });
-      }
+      res.send(archivo.contenido);
     }
   );
 });
 
 app.delete("/archivos/:id", verifyToken, (req, res) => {
-  db.get("SELECT usuario_id, storage_key FROM archivos WHERE id = ?", [req.params.id], (err, archivo) => {
+  db.get("SELECT usuario_id FROM archivos WHERE id = ?", [req.params.id], (err, archivo) => {
     if (err) {
       console.error(err);
       return res.status(500).json({ error: "Error al eliminar archivo" });
@@ -4681,18 +4648,16 @@ app.delete("/archivos/:id", verifyToken, (req, res) => {
         return res.status(500).json({ error: "Error al eliminar archivo" });
       }
 
-      storage.borrar(archivo).finally(() => {
-        db.run("DELETE FROM archivos WHERE id = ?", [req.params.id], (err) => {
-          if (err) {
-            console.error(err);
-            return res.status(500).json({ error: "Error al eliminar archivo" });
-          }
+      db.run("DELETE FROM archivos WHERE id = ?", [req.params.id], (err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al eliminar archivo" });
+        }
 
-          // Si era el logo/foto de perfil activo, se desvincula para no dejar el
-          // puntero apuntando a un archivo que ya no existe.
-          db.run("UPDATE usuarios SET foto_perfil_archivo_id = NULL WHERE foto_perfil_archivo_id = ?", [req.params.id], () => {
-            res.json({ mensaje: "Archivo eliminado" });
-          });
+        // Si era el logo/foto de perfil activo, se desvincula para no dejar el
+        // puntero apuntando a un archivo que ya no existe.
+        db.run("UPDATE usuarios SET foto_perfil_archivo_id = NULL WHERE foto_perfil_archivo_id = ?", [req.params.id], () => {
+          res.json({ mensaje: "Archivo eliminado" });
         });
       });
     });
