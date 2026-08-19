@@ -5450,6 +5450,9 @@ const app = {
           fotosGallery.innerHTML = `<p style="color: #9ca3af; text-align: center;">Aún no has subido fotos de tu clínica.</p>`;
         }
       }
+      // Al llegar al máximo, se oculta la zona de arrastrar/soltar y el botón: no
+      // tiene sentido dejar subir un quinto archivo que el servidor va a rechazar.
+      app.archivos._aplicarLimite("foto", fotos.length, this.MAX_FOTOS, "fotosDropZone", "fotoAddBtn", "fotosLimite", "fotos");
 
       // Renderizar Portfolio
       const portfolioList = document.getElementById("portfolioList");
@@ -5466,6 +5469,30 @@ const app = {
             </div>
           </div>
         `).join("");
+      } else {
+        portfolioList.innerHTML = "";
+      }
+      app.archivos._aplicarLimite("portfolio", portfolios.length, this.MAX_PORTFOLIO, "portfolioDropZone", "portfolioAddBtn", "portfolioLimite", "archivos en el Book");
+    },
+
+    // Tope de archivos "de galería" (no sustituyen al anterior, se acumulan), igual
+    // que MAX_ARCHIVOS_POR_TIPO en el servidor: 4 fotos por clínica, 5 archivos de Book.
+    MAX_FOTOS: 4,
+    MAX_PORTFOLIO: 5,
+
+    // Oculta la zona de subida y el botón de añadir cuando ya se llegó al máximo, y
+    // deja un aviso en su lugar. El servidor igualmente lo rechazaría, pero así no se
+    // deja intentar una subida condenada a fallar.
+    _aplicarLimite(tipo, cuantos, limite, idDropZone, idBoton, idAviso, sustantivo) {
+      const dropZone = document.getElementById(idDropZone);
+      const boton = document.getElementById(idBoton);
+      const aviso = document.getElementById(idAviso);
+      const alcanzado = cuantos >= limite;
+      if (dropZone) dropZone.style.display = alcanzado ? "none" : "";
+      if (boton) boton.style.display = alcanzado ? "none" : "";
+      if (aviso) {
+        aviso.style.display = alcanzado ? "block" : "none";
+        aviso.textContent = alcanzado ? `Has llegado al máximo de ${limite} ${sustantivo}. Elimina uno para poder subir otro.` : "";
       }
     },
 

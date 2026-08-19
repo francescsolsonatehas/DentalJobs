@@ -453,8 +453,12 @@ app.use("/auth/registro", limiterAuth);
 // estos números tiene coste de RAM en el servidor y de tamaño de fila en Turso. Para
 // permitir archivos mucho más grandes habría que sacarlos de la BD a un
 // almacenamiento de objetos (S3/R2) y guardar solo el enlace.
-const MAX_MB_POR_TIPO = { cv: 5, portfolio: 25, foto: 10, logo: 5, chat: 25 };
+const MAX_MB_POR_TIPO = { cv: 5, portfolio: 10, foto: 10, logo: 5, chat: 25 };
 const MAX_SUBIDA_MB = Math.max(...Object.values(MAX_MB_POR_TIPO));
+
+// Tope de cuántos archivos puede acumular cada usuario en los tipos "de galería"
+// (foto y portfolio no sustituyen al anterior como el logo o el CV, se acumulan).
+const MAX_ARCHIVOS_POR_TIPO = { foto: 4, portfolio: 5 };
 
 // Configurar multer para uploads en memoria. El límite es el mayor de todos los
 // tipos; el ajuste fino por tipo se valida en el endpoint.
@@ -4473,6 +4477,21 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
   } else if (tipo === "cv") {
     db.get("SELECT id FROM archivos WHERE usuario_id = ? AND tipo = 'cv' ORDER BY creado_en DESC LIMIT 1", [req.usuario.id], (errG, row) => {
       anteriorId = row ? row.id : null;
+      guardarArchivo();
+    });
+  } else if (MAX_ARCHIVOS_POR_TIPO[tipo]) {
+    // foto y portfolio se acumulan (no sustituyen al anterior): con tope, hay que
+    // contar cuántos tiene ya antes de aceptar uno más.
+    const limite = MAX_ARCHIVOS_POR_TIPO[tipo];
+    db.get("SELECT COUNT(*) AS n FROM archivos WHERE usuario_id = ? AND tipo = ?", [req.usuario.id, tipo], (errG, row) => {
+      if (errG) {
+        console.error(errG);
+        return res.status(500).json({ error: "Error al comprobar el límite de archivos" });
+      }
+      if ((row?.n || 0) >= limite) {
+        const sustantivo = tipo === "foto" ? "fotos" : "archivos en el Book";
+        return res.status(400).json({ error: `Ya tienes el máximo de ${limite} ${sustantivo}. Elimina uno para poder subir otro.` });
+      }
       guardarArchivo();
     });
   } else {

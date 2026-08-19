@@ -1072,11 +1072,12 @@
             <div id="tab-portfolio" class="tab-content">
                 <div id="portfolioContainer">
                     <div class="drag-drop-zone" id="portfolioDropZone" ondrop="event.preventDefault(); app.archivos.manejarDrop(event, 'portfolio')" ondragover="event.preventDefault(); document.getElementById('portfolioDropZone').classList.add('dragover')" ondragleave="document.getElementById('portfolioDropZone').classList.remove('dragover')">
-                        <p>🎨 Sube tu Book (PDF o imágenes, máx 25 MB)</p>
+                        <p>🎨 Sube tu Book (PDF o imágenes, máx 10 MB cada uno, hasta 5 archivos)</p>
                         <span>Arrastra y suelta o haz clic para seleccionar</span>
                         <input type="file" id="portfolioInput" accept=".pdf,.jpg,.jpeg,.png,.gif" style="display: none;" onchange="app.archivos.subirPortfolio()">
                     </div>
-                    <button data-tooltip="Añadir un archivo a tu Book" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('portfolioInput').click()">Añadir archivo</button>
+                    <button id="portfolioAddBtn" data-tooltip="Añadir un archivo a tu Book" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('portfolioInput').click()">Añadir archivo</button>
+                    <p id="portfolioLimite" style="display:none;color:#9ca3af;font-size:.85rem;text-align:center;margin-top:.5rem;"></p>
                     <div id="portfolioList" style="margin-top: 1.5rem;"></div>
                 </div>
             </div>
@@ -1085,11 +1086,12 @@
             <div id="tab-fotos" class="tab-content">
                 <div id="fotosContainer">
                     <div class="drag-drop-zone" id="fotosDropZone" ondrop="event.preventDefault(); app.archivos.manejarDrop(event, 'foto')" ondragover="event.preventDefault(); document.getElementById('fotosDropZone').classList.add('dragover')" ondragleave="document.getElementById('fotosDropZone').classList.remove('dragover')">
-                        <p>📷 Sube fotos de tu clínica (JPG/PNG, máx 10 MB)</p>
+                        <p>📷 Sube fotos de tu clínica (JPG/PNG, máx 10 MB, hasta 4 fotos)</p>
                         <span>Arrastra y suelta o haz clic para seleccionar</span>
                         <input type="file" id="fotoInput" accept=".jpg,.jpeg,.png,.gif,.webp" style="display: none;" onchange="app.archivos.subirFoto()">
                     </div>
-                    <button data-tooltip="Añadir una foto a tu perfil" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('fotoInput').click()">Añadir foto</button>
+                    <button id="fotoAddBtn" data-tooltip="Añadir una foto a tu perfil" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('fotoInput').click()">Añadir foto</button>
+                    <p id="fotosLimite" style="display:none;color:#9ca3af;font-size:.85rem;text-align:center;margin-top:.5rem;"></p>
                     <div id="fotosGallery" class="fotos-gallery" style="margin-top: 1.5rem;"></div>
                 </div>
             </div>
