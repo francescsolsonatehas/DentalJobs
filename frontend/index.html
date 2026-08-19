@@ -1054,7 +1054,7 @@
             <!-- Tab: CV -->
             <div id="tab-cv" class="tab-content">
                 <div style="background: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
-                    <p style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: #0c4a6e;">¿No tienes CV a mano? Genera uno automáticamente con los datos de tu perfil (experiencia, especialidades y valoraciones).</p>
+                    <p style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: #0c4a6e;">¿No tienes CV a mano? Genera uno automáticamente con los datos de tu perfil ("Mis datos y Trayectoria").</p>
                     <button data-tooltip="Descargar tu perfil en formato PDF" class="btn-outline" style="width: 100%;" onclick="app.perfil.descargarCvPdf()">⬇️ Descargar mi CV en PDF</button>
                 </div>
                 <div id="cvPreview" style="margin-bottom: 1.5rem;"></div>
@@ -1310,6 +1310,22 @@
                 <button data-tooltip="Cerrar" class="close-btn" onclick="app.modal.cerrarAvisoInfo()">✕</button>
             </div>
             <p id="avisoInfoMensaje" style="color: #4b5563; line-height: 1.6;"></p>
+        </div>
+    </div>
+
+    <!-- Modal: Confirmación de una acción (sustituye a confirm(), poco fiable en
+         algunos navegadores/móviles: puede quedarse sin mostrarse). -->
+    <div id="modalConfirmar" class="modal">
+        <div class="modal-content" style="max-width: 420px;">
+            <div class="modal-header">
+                <h2 id="confirmarTitulo">Confirmar</h2>
+                <button data-tooltip="Cancelar" class="close-btn" onclick="utils.resolverConfirmar(false)">✕</button>
+            </div>
+            <p id="confirmarMensaje" style="color: #4b5563; line-height: 1.6;"></p>
+            <div style="display: flex; gap: 0.8rem; margin-top: 1rem;">
+                <button class="btn-outline" style="flex: 1;" onclick="utils.resolverConfirmar(false)">Cancelar</button>
+                <button id="confirmarBotonOk" class="btn-primary" style="flex: 1;" onclick="utils.resolverConfirmar(true)">Confirmar</button>
+            </div>
         </div>
     </div>
 

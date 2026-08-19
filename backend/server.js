@@ -1105,7 +1105,7 @@ async function recopilarDatosCv(usuarioId) {
   const all = (sql, params) => new Promise((resolve, reject) => db.all(sql, params, (e, r) => e ? reject(e) : resolve(r)));
 
   const usuario = await get(
-    "SELECT nombre, email, telefono, movil, ciudad, direccion, codigo_postal, pais, descripcion, anyos_experiencia FROM usuarios WHERE id = ?",
+    "SELECT nombre, email, telefono, movil, ciudad, direccion, codigo_postal, pais, descripcion, anyos_experiencia, foto_perfil_archivo_id FROM usuarios WHERE id = ?",
     [usuarioId]
   );
   if (!usuario) return null;
@@ -1172,6 +1172,23 @@ app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
     }
     const { usuario, especialidades, resenyas, solicitudes, experienciaLaboral, formacionLista, idiomasLista, certificacionesLista } = datos;
 
+    // Foto de perfil: solo se incrusta si es JPEG/PNG (lo único que soporta pdfkit
+    // de forma nativa; el logo/foto admite también GIF/WEBP, así que puede no haber
+    // foto embebible aunque el usuario tenga una subida).
+    let fotoBuffer = null;
+    if (usuario.foto_perfil_archivo_id) {
+      const archivoFoto = await new Promise((resolve, reject) => {
+        db.get(
+          "SELECT contenido, mime_type FROM archivos WHERE id = ? AND usuario_id = ?",
+          [usuario.foto_perfil_archivo_id, req.usuario.id],
+          (e, r) => e ? reject(e) : resolve(r)
+        );
+      });
+      if (archivoFoto && /^image\/(jpeg|png)$/.test(archivoFoto.mime_type)) {
+        fotoBuffer = archivoFoto.contenido;
+      }
+    }
+
     const PDFDocument = require("pdfkit");
     const doc = new PDFDocument({ margin: 50, size: "A4" });
 
@@ -1183,22 +1200,44 @@ app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
     const azul = "#0f4c75";
     const gris = "#4b5563";
 
-    // Cabecera
-    doc.fillColor(azul).fontSize(26).font("Helvetica-Bold").text(usuario.nombre, { paragraphGap: 4 });
+    // Cabecera. Si hay foto, va en el margen superior izquierdo y el texto de la
+    // cabecera se desplaza a su derecha para no solaparse; el resto del documento
+    // sigue usando el margen normal.
+    const margenIzq = doc.page.margins.left;
+    const anchoTotal = doc.page.width - margenIzq - doc.page.margins.right;
+    const fotoTamanyo = 70;
+    const fotoHueco = fotoTamanyo + 15;
+
+    if (fotoBuffer) {
+      doc.image(fotoBuffer, margenIzq, doc.y, { width: fotoTamanyo, height: fotoTamanyo, fit: [fotoTamanyo, fotoTamanyo] });
+    }
+
+    const xTexto = fotoBuffer ? margenIzq + fotoHueco : margenIzq;
+    const anchoTexto = fotoBuffer ? anchoTotal - fotoHueco : anchoTotal;
+    const yCabecera = doc.y;
+
+    doc.fillColor(azul).fontSize(26).font("Helvetica-Bold").text(usuario.nombre, xTexto, yCabecera, { width: anchoTexto, paragraphGap: 4 });
 
     const contacto = [
       usuario.email,
       usuario.movil || usuario.telefono,
       [usuario.ciudad, usuario.pais].filter(Boolean).join(", ")
     ].filter(Boolean).join("  ·  ");
-    doc.fontSize(10).text(contacto);
+    doc.fontSize(10).text(contacto, xTexto, doc.y, { width: anchoTexto });
 
     if (resenyas && resenyas.total > 0) {
       const media = Math.round(resenyas.media * 10) / 10;
       doc.moveDown(0.3);
       doc.fillColor("#b45309").fontSize(10)
-        .text(`Valoración media: ${media}/5 (${resenyas.total} reseña${resenyas.total === 1 ? "" : "s"} en DentalJobs)`);
+        .text(`Valoración media: ${media}/5 (${resenyas.total} reseña${resenyas.total === 1 ? "" : "s"} en DentalJobs)`, xTexto, doc.y, { width: anchoTexto });
     }
+
+    // Si la foto es más alta que el bloque de texto de la cabecera, bajar hasta su
+    // borde inferior para que la línea separadora no la atraviese.
+    if (fotoBuffer && doc.y < yCabecera + fotoTamanyo) {
+      doc.y = yCabecera + fotoTamanyo;
+    }
+    doc.x = margenIzq;
 
     doc.moveDown(0.5);
     doc.strokeColor(azul).lineWidth(1.5)
@@ -4307,26 +4346,37 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
           }
         });
 
-        // El logo/foto de perfil es de uno en uno: la nueva imagen sustituye a la
-        // anterior en `usuarios.foto_perfil_archivo_id`, y la anterior se borra para
-        // no dejar archivos huérfanos.
-        if (tipo !== "logo") return responder();
+        // El logo/foto de perfil y el CV son de uno en uno: el nuevo sustituye al
+        // anterior (subir uno nuevo es "actualizar"), y el anterior se borra para no
+        // dejar archivos huérfanos.
+        if (tipo === "logo") {
+          return db.run("UPDATE usuarios SET foto_perfil_archivo_id = ? WHERE id = ?", [nuevoId, req.usuario.id], (errU) => {
+            if (errU) console.error(errU);
+            if (anteriorId && anteriorId !== nuevoId) {
+              db.run("DELETE FROM archivos WHERE id = ?", [anteriorId], () => {});
+            }
+            responder();
+          });
+        }
 
-        db.run("UPDATE usuarios SET foto_perfil_archivo_id = ? WHERE id = ?", [nuevoId, req.usuario.id], (errU) => {
-          if (errU) console.error(errU);
-          if (anteriorLogoId && anteriorLogoId !== nuevoId) {
-            db.run("DELETE FROM archivos WHERE id = ?", [anteriorLogoId], () => {});
-          }
-          responder();
-        });
+        if (tipo === "cv" && anteriorId && anteriorId !== nuevoId) {
+          return db.run("DELETE FROM archivos WHERE id = ?", [anteriorId], () => responder());
+        }
+
+        responder();
       }
     );
   };
 
-  let anteriorLogoId = null;
+  let anteriorId = null;
   if (tipo === "logo") {
     db.get("SELECT foto_perfil_archivo_id FROM usuarios WHERE id = ?", [req.usuario.id], (errG, row) => {
-      anteriorLogoId = row ? row.foto_perfil_archivo_id : null;
+      anteriorId = row ? row.foto_perfil_archivo_id : null;
+      guardarArchivo();
+    });
+  } else if (tipo === "cv") {
+    db.get("SELECT id FROM archivos WHERE usuario_id = ? AND tipo = 'cv' ORDER BY creado_en DESC LIMIT 1", [req.usuario.id], (errG, row) => {
+      anteriorId = row ? row.id : null;
       guardarArchivo();
     });
   } else {

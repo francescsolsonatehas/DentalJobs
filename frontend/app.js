@@ -44,6 +44,26 @@ const utils = {
     setTimeout(() => { utils._cerrandoSesionCaducada = false; }, 1000);
   },
 
+  // Confirmación mediante modal propio, en vez de confirm(): en algunos navegadores
+  // (sobre todo móvil o dentro de un WebView) el diálogo nativo puede no llegar a
+  // mostrarse y confirm() devuelve false sin más, dejando la acción sin efecto y sin
+  // ningún aviso de qué ha pasado.
+  confirmar(mensaje, textoBoton = "Confirmar") {
+    return new Promise((resolve) => {
+      document.getElementById("confirmarMensaje").textContent = mensaje;
+      document.getElementById("confirmarBotonOk").textContent = textoBoton;
+      utils._resolverConfirmarPendiente = resolve;
+      document.getElementById("modalConfirmar").classList.add("active");
+    });
+  },
+
+  resolverConfirmar(resultado) {
+    document.getElementById("modalConfirmar").classList.remove("active");
+    const resolve = utils._resolverConfirmarPendiente;
+    utils._resolverConfirmarPendiente = null;
+    if (resolve) resolve(resultado);
+  },
+
   // Variante tolerante a fallos para datos de adorno (contadores del panel): si la
   // petición falla devuelve null en vez de propagar. Las tarjetas se pintan igual y
   // la que no tiene dato muestra "—". Antes se pedían con `await` encadenados y sin
@@ -2747,6 +2767,7 @@ const app = {
         "modalOpcionesClinicasPotenciales",
         "modalContactarPerfil",
         "modalAvisoInfo",
+        "modalConfirmar",
         "modalAlerta"
       ];
       modales.forEach(id => {
@@ -5315,8 +5336,10 @@ const app = {
           <div style="background: #F8FAFF; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #0F4C75;">
             <p style="font-weight: 700; color: #0F4C75; margin-bottom: 0.5rem;">📄 ${utils.escapeHtml(cv.nombre_archivo)}</p>
             <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">Subido el ${utils.formatearFecha(cv.creado_en)} · ${utils.formatearTamanyo(cv.tamanyo)}</p>
+            <input type="file" id="cvInput" accept=".pdf" style="display: none;" onchange="app.archivos.subirCV()">
             <div style="display: flex; gap: 0.8rem;">
               <a href="${API}/archivos/${cv.id}/download" class="btn-primary btn-small" style="text-decoration: none; display: inline-block;">Descargar</a>
+              <button data-tooltip="Subir un PDF nuevo que sustituya a este" class="btn-outline btn-small" onclick="document.getElementById('cvInput').click()">Actualizar</button>
               <button data-tooltip="Eliminar este archivo" class="btn-outline btn-small" onclick="app.archivos.eliminar(${cv.id})">Eliminar</button>
             </div>
           </div>
@@ -5391,7 +5414,7 @@ const app = {
     },
 
     async eliminar(id) {
-      if (!confirm("¿Estás seguro de que deseas eliminar este archivo?")) return;
+      if (!await utils.confirmar("¿Estás seguro de que deseas eliminar este archivo?", "Eliminar")) return;
 
       try {
         await utils.request(`/archivos/${id}`, { method: "DELETE" });

@@ -39,6 +39,35 @@ test("CV en PDF", async (t) => {
     assert.equal(res.body.slice(0, 5).toString(), "%PDF-");
   });
 
+  await t.test("con foto de perfil, el PDF la incrusta (pesa más y trae una imagen JPEG)", async () => {
+    // JPEG 1x1 válido mínimo: pdfkit necesita poder leer sus cabeceras de verdad.
+    const jpegMinimo = Buffer.from(
+      "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAj/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=",
+      "base64"
+    );
+
+    const subida = await request(app)
+      .post("/archivos/upload")
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .field("tipo", "logo")
+      .attach("archivo", jpegMinimo, { filename: "foto.jpg", contentType: "image/jpeg" });
+    assert.equal(subida.status, 200);
+
+    const res = await request(app)
+      .get("/auth/mi-cv.pdf")
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .buffer(true)
+      .parse((res, callback) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => callback(null, Buffer.concat(chunks)));
+      });
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.slice(0, 5).toString(), "%PDF-");
+    assert.ok(res.body.includes("DCTDecode"), "el PDF debe traer una imagen JPEG incrustada");
+  });
+
   await t.test("una clínica no puede generar CV", async () => {
     const res = await request(app)
       .get("/auth/mi-cv.pdf")
