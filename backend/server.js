@@ -3860,10 +3860,10 @@ app.post("/mensajes", verifyToken, (req, res) => {
 const escribiendoStatus = new Map();
 const ESCRIBIENDO_TTL_MS = 5000;
 
-// Último aviso por email de mensajes de xat, por interlocutor (throttle 1 h)
+// Último aviso por email de mensajes de chat, por interlocutor (throttle 1 h)
 const ultimaNotificacionChat = new Map();
 
-// Directorio para elegir con quién empezar un xat nuevo: todos los usuarios del tipo
+// Directorio para elegir con quién empezar un chat nuevo: todos los usuarios del tipo
 // pedido (excepto uno mismo), ordenados por cercanía (si ambos tienen ciudad
 // geocodificada) y, a igualdad, por el último apellido/palabra del nombre. Respeta el
 // mismo "perfil_publico" que oculta a un dentista del listado de perfiles.
@@ -4018,7 +4018,7 @@ app.get("/chat/con/:otroId", verifyToken, (req, res) => {
 
 // Enviar un mensaje a una persona. No hace falta decir de qué publicación se habla:
 // el hilo es uno solo. Cualquier persona registrada puede escribir a cualquier otra:
-// el xat está abierto a todos los miembros de la plataforma, sin necesidad de una
+// el chat está abierto a todos los miembros de la plataforma, sin necesidad de una
 // relación previa aceptada.
 app.post("/chat/con/:otroId", verifyToken, (req, res) => {
   const usuarioId = req.usuario.id;
@@ -4088,8 +4088,8 @@ app.post("/chat/con/:otroId", verifyToken, (req, res) => {
                 otroId,
                 `💬 Mensaje nuevo de ${remitente.nombre} en DentalJobs`,
                 "Tienes un mensaje nuevo",
-                `${remitente.nombre} te ha escrito en el xat de DentalJobs. Entra para leerlo y responder.`,
-                "Abrir el xat",
+                `${remitente.nombre} te ha escrito en el chat de DentalJobs. Entra para leerlo y responder.`,
+                "Abrir el chat",
                 { tipo: "mensaje", enlace: `#chat=${usuarioId}` }
               );
             }
@@ -4933,13 +4933,13 @@ app.post("/perfiles/:id/chat-directo", verifyToken, (req, res) => {
   if (!perfilId || perfilId === solicitanteId) return res.status(400).json({ error: "Perfil inválido" });
 
   db.get("SELECT id, tipo FROM usuarios WHERE id = ? AND nombre != 'Usuario eliminado'", [perfilId], (err, perfil) => {
-    if (err) { console.error(err); return res.status(500).json({ error: "Error al iniciar el xat" }); }
+    if (err) { console.error(err); return res.status(500).json({ error: "Error al iniciar el chat" }); }
     if (!perfil) return res.status(404).json({ error: "Perfil no encontrado" });
     // El chat directo es entre una clínica y un dentista, en cualquier sentido (la
     // clínica escribe a un dentista abierto a cambios; el dentista, a una clínica cuya
     // oferta le interesa). No tiene sentido entre dos del mismo tipo.
     if (req.usuario.tipo === perfil.tipo) {
-      return res.status(400).json({ error: "El xat directo es entre una clínica y un dentista" });
+      return res.status(400).json({ error: "El chat directo es entre una clínica y un dentista" });
     }
 
     // Un contacto entre dos personas es un único hilo, venga de donde venga. Si ya
@@ -4950,16 +4950,16 @@ app.post("/perfiles/:id/chat-directo", verifyToken, (req, res) => {
        WHERE (solicitante_id = ? AND perfil_id = ?) OR (solicitante_id = ? AND perfil_id = ?)`,
       [solicitanteId, perfilId, perfilId, solicitanteId],
       (err2, existente) => {
-        if (err2) { console.error(err2); return res.status(500).json({ error: "Error al iniciar el xat" }); }
+        if (err2) { console.error(err2); return res.status(500).json({ error: "Error al iniciar el chat" }); }
 
         if (existente) {
-          if (existente.estado === "aceptada") return res.json({ mensaje: "Xat disponible", id: existente.id });
+          if (existente.estado === "aceptada") return res.json({ mensaje: "Chat disponible", id: existente.id });
           return db.run(
             "UPDATE contactos_perfil SET estado = 'aceptada', actualizado_en = CURRENT_TIMESTAMP WHERE id = ?",
             [existente.id],
             (err3) => {
-              if (err3) { console.error(err3); return res.status(500).json({ error: "Error al iniciar el xat" }); }
-              res.json({ mensaje: "Xat disponible", id: existente.id });
+              if (err3) { console.error(err3); return res.status(500).json({ error: "Error al iniciar el chat" }); }
+              res.json({ mensaje: "Chat disponible", id: existente.id });
             }
           );
         }
@@ -4968,18 +4968,18 @@ app.post("/perfiles/:id/chat-directo", verifyToken, (req, res) => {
           "INSERT INTO contactos_perfil (solicitante_id, perfil_id, estado) VALUES (?, ?, 'aceptada')",
           [solicitanteId, perfilId],
           function(err3) {
-            if (err3) { console.error(err3); return res.status(500).json({ error: "Error al iniciar el xat" }); }
-            res.json({ mensaje: "Xat disponible", id: this.lastID });
+            if (err3) { console.error(err3); return res.status(500).json({ error: "Error al iniciar el chat" }); }
+            res.json({ mensaje: "Chat disponible", id: this.lastID });
 
             // Avisar al dentista de que una clínica ha abierto conversación
             db.get("SELECT nombre FROM usuarios WHERE id = ?", [solicitanteId], (e, sol) => {
               if (e || !sol) return;
               notificarUsuario(
                 perfilId,
-                `💬 ${sol.nombre} ha iniciado un xat contigo`,
-                "Nuevo xat",
+                `💬 ${sol.nombre} ha iniciado un chat contigo`,
+                "Nuevo chat",
                 `${sol.nombre} está interesada en tu perfil y ha abierto una conversación en DentalJobs. Entra para leerla y responder.`,
-                "Abrir el xat",
+                "Abrir el chat",
                 { tipo: "mensaje", enlace: `#chat=${solicitanteId}` }
               );
             });

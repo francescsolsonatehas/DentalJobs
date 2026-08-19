@@ -17,7 +17,7 @@ async function fijarCiudad(app, usuario, ciudad, extra = {}) {
     .send({ nombre: usuario.usuario.nombre, ciudad, ...extra });
 }
 
-test("directorio para elegir con quién empezar un xat", async (t) => {
+test("directorio para elegir con quién empezar un chat", async (t) => {
   const { app, dbPath } = createTestApp();
   t.after(() => cleanupTestApp(dbPath));
 
