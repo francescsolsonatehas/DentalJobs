@@ -621,6 +621,10 @@ app.delete("/auth/mi-cuenta", verifyToken, (req, res) => {
       // borrar (las referencian): se conservan sin el mensaje personal.
       ["UPDATE candidaturas SET mensaje = NULL WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM candidaturas WHERE usuario_id = ? AND id NOT IN (SELECT candidatura_id FROM resenyas)", [usuarioId]],
+      // Un archivo propio (p. ej. el CV) puede estar adjunto a un mensaje de chat
+      // (mensajes.archivo_id): con PRAGMA foreign_keys = ON hay que desvincularlo
+      // antes de poder borrar el archivo.
+      ["UPDATE mensajes SET archivo_id = NULL WHERE archivo_id IN (SELECT id FROM archivos WHERE usuario_id = ?)", [usuarioId]],
       ["DELETE FROM archivos WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM tokens_verificacion WHERE usuario_id = ?", [usuarioId]],
       ["DELETE FROM confirmacion_email WHERE usuario_id = ?", [usuarioId]],
@@ -4360,7 +4364,12 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
         }
 
         if (tipo === "cv" && anteriorId && anteriorId !== nuevoId) {
-          return db.run("DELETE FROM archivos WHERE id = ?", [anteriorId], () => responder());
+          // El CV anterior puede estar adjunto a un mensaje de chat (atajo
+          // "Adjuntar mi CV"): desvincularlo antes de borrarlo, o la clave foránea
+          // (mensajes.archivo_id) impediría el borrado.
+          return db.run("UPDATE mensajes SET archivo_id = NULL WHERE archivo_id = ?", [anteriorId], () => {
+            db.run("DELETE FROM archivos WHERE id = ?", [anteriorId], () => responder());
+          });
         }
 
         responder();
@@ -4496,16 +4505,27 @@ app.delete("/archivos/:id", verifyToken, (req, res) => {
       return res.status(403).json({ error: "No tienes permiso para eliminar este archivo" });
     }
 
-    db.run("DELETE FROM archivos WHERE id = ?", [req.params.id], (err) => {
-      if (err) {
-        console.error(err);
+    // Si el archivo se llegó a adjuntar a algún mensaje de chat (p. ej. con el
+    // atajo "Adjuntar mi CV"), esos mensajes lo referencian por clave foránea
+    // (mensajes.archivo_id) y con PRAGMA foreign_keys = ON el borrado fallaría.
+    // Se desvincula primero: el mensaje se queda sin adjunto, pero sigue ahí.
+    db.run("UPDATE mensajes SET archivo_id = NULL WHERE archivo_id = ?", [req.params.id], (errM) => {
+      if (errM) {
+        console.error(errM);
         return res.status(500).json({ error: "Error al eliminar archivo" });
       }
 
-      // Si era el logo/foto de perfil activo, se desvincula para no dejar el
-      // puntero apuntando a un archivo que ya no existe.
-      db.run("UPDATE usuarios SET foto_perfil_archivo_id = NULL WHERE foto_perfil_archivo_id = ?", [req.params.id], () => {
-        res.json({ mensaje: "Archivo eliminado" });
+      db.run("DELETE FROM archivos WHERE id = ?", [req.params.id], (err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al eliminar archivo" });
+        }
+
+        // Si era el logo/foto de perfil activo, se desvincula para no dejar el
+        // puntero apuntando a un archivo que ya no existe.
+        db.run("UPDATE usuarios SET foto_perfil_archivo_id = NULL WHERE foto_perfil_archivo_id = ?", [req.params.id], () => {
+          res.json({ mensaje: "Archivo eliminado" });
+        });
       });
     });
   });
