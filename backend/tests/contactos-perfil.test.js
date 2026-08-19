@@ -46,14 +46,6 @@ test("contactos de perfil y su chat", async (t) => {
     assert.ok(res.body.recibidos.some((c) => c.id === contactoId && c.estado === "pendiente"));
   });
 
-  await t.test("no se puede chatear antes de aceptar el contacto", async () => {
-    const res = await request(app)
-      .post(`/chat/con/${dentista.usuario.id}`)
-      .set("Authorization", `Bearer ${clinica.token}`)
-      .send({ cuerpo: "Hola" });
-    assert.equal(res.status, 403);
-  });
-
   await t.test("solo el destinatario puede aceptar el contacto", async () => {
     const res = await request(app)
       .put(`/contactos-perfil/${contactoId}`)
@@ -62,7 +54,7 @@ test("contactos de perfil y su chat", async (t) => {
     assert.equal(res.status, 403);
   });
 
-  await t.test("el dentista acepta y entonces ambos pueden chatear", async () => {
+  await t.test("el dentista acepta el contacto y siguen pudiendo chatear", async () => {
     const aceptar = await request(app)
       .put(`/contactos-perfil/${contactoId}`)
       .set("Authorization", `Bearer ${dentista.token}`)

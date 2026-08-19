@@ -36,13 +36,15 @@ test("chat", async (t) => {
     .send({ tipo: "oferta", ciudad: "Girona", descripcion: "Oferta con chat" });
   const ofertaId = oferta.body.id;
 
-  await t.test("no se puede chatear sin una postulación aceptada", async () => {
+  await t.test("cualquiera puede escribir a cualquiera sin relación previa", async () => {
+    const unoMas = await registrarYLoguear(app, { nombre: "Uno Más", email: "uno-mas-chat@test.com", tipo: "dentista" });
+    const otroMas = await registrarYLoguear(app, { nombre: "Otro Más", email: "otro-mas-chat@test.com", tipo: "clinica" });
     const res = await request(app)
-      .post(`/chat/con/${clinica.usuario.id}`)
-      .set("Authorization", `Bearer ${dentista.token}`)
-      .send({ cuerpo: "Hola, me interesa la oferta" });
+      .post(`/chat/con/${otroMas.usuario.id}`)
+      .set("Authorization", `Bearer ${unoMas.token}`)
+      .send({ cuerpo: "Hola, sin ninguna relación previa" });
 
-    assert.equal(res.status, 403);
+    assert.equal(res.status, 200);
   });
 
   await postularYAceptar(app, { dentista, clinica, publicacionId: ofertaId });
@@ -166,14 +168,13 @@ test("chat", async (t) => {
     assert.equal(hilo.body.mensajes.length, 3);
   });
 
-  await t.test("un tercero sin relación aceptada no puede escribir", async () => {
-    const extraño = await registrarYLoguear(app, { nombre: "Extraño", email: "extrano-chat@test.com", tipo: "dentista" });
+  await t.test("no se puede escribir a un destinatario inexistente", async () => {
     const res = await request(app)
-      .post(`/chat/con/${clinica.usuario.id}`)
-      .set("Authorization", `Bearer ${extraño.token}`)
+      .post(`/chat/con/999999`)
+      .set("Authorization", `Bearer ${dentista.token}`)
       .send({ cuerpo: "Hola" });
 
-    assert.equal(res.status, 403);
+    assert.equal(res.status, 404);
   });
 
   // El dentista puede adjuntar un fichero al chat: se sube a `archivos` y el mensaje

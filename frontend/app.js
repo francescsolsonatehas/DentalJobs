@@ -3189,7 +3189,7 @@ const app = {
 
         if (candidaturaAceptada) {
           html += `<div style="margin-top: 1.5rem;">
-                    <button data-tooltip="Enviar un mensaje de chat" class="btn-primary" onclick="app.chat.abrirConDestinatario(${publicacion.id}, ${publicacion.usuario_id}, '${nombreOtro}')">💬 Enviar mensaje</button>
+                    <button data-tooltip="Enviar un mensaje de xat" class="btn-primary" onclick="app.chat.abrirConDestinatario(${publicacion.id}, ${publicacion.usuario_id}, '${nombreOtro}')">💬 Enviar mensaje</button>
                   </div>`;
         }
       }
@@ -6563,7 +6563,7 @@ const app = {
                 if (estadoApp.tipoUsuario === 'dentista' && (pub.tipo === 'oferta' || pub.tipo === 'suplencia' || colabDeClinicaCard)) {
                   const nombreClinica = utils.escapeHtml((pub.usuario_nombre || pub.nombre_contacto || 'esta clínica').replace(/'/g, "\\'"));
                   const mailBtn = `<button data-tooltip="Enviar un correo con tu mensaje" class="btn-secondary" onclick="app.perfiles.contactar(${pub.usuario_id}, '${nombreClinica}', 'clinica')" style="flex: 1;">✉️ Enviar Mail</button>`;
-                  const chatBtn = `<button class="btn-outline" onclick="app.perfiles.iniciarChat(${pub.usuario_id}, '${nombreClinica}')" style="flex: 1;" data-tooltip="Empezar a chatear con la clínica">💬 Iniciar chat</button>`;
+                  const chatBtn = `<button class="btn-outline" onclick="app.perfiles.iniciarChat(${pub.usuario_id}, '${nombreClinica}')" style="flex: 1;" data-tooltip="Empezar a chatear con la clínica">💬 Iniciar xat</button>`;
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
                   if (yaPostulada) {
                     return `<button class="btn-success" onclick="app.stats.mostrarEstadoMiPostulacion(${pub.id})" style="flex: 1;" data-tooltip="Ver el estado de tu postulación">Postulada (${utils.textoEstado(yaPostulada.estado)})</button>
@@ -6582,7 +6582,7 @@ const app = {
                 if (estadoApp.tipoUsuario === 'clinica' && (pub.tipo === 'solicitud' || (pub.tipo === 'colaboracion' && !colabDeClinicaCard))) {
                   const nombreDent = utils.escapeHtml((pub.usuario_nombre || pub.nombre_contacto || 'este dentista').replace(/'/g, "\\'"));
                   const mailBtn = `<button data-tooltip="Enviar un correo con tu mensaje" class="btn-secondary" onclick="app.perfiles.contactar(${pub.usuario_id}, '${nombreDent}', 'dentista')" style="flex: 1;">✉️ Enviar Mail</button>`;
-                  const chatBtn = `<button class="btn-outline" onclick="app.perfiles.iniciarChat(${pub.usuario_id}, '${nombreDent}')" style="flex: 1;" data-tooltip="Empezar a chatear con el dentista">💬 Iniciar chat</button>`;
+                  const chatBtn = `<button class="btn-outline" onclick="app.perfiles.iniciarChat(${pub.usuario_id}, '${nombreDent}')" style="flex: 1;" data-tooltip="Empezar a chatear con el dentista">💬 Iniciar xat</button>`;
                   const yaPostulada = misPostulaciones.find(p => p.publicacion_id === pub.id);
                   if (yaPostulada) {
                     return `<button class="btn-success" onclick="app.stats.mostrarEstadoMiPostulacion(${pub.id})" style="flex: 1;" data-tooltip="Ver el estado de tu postulación">Postulada (${utils.textoEstado(yaPostulada.estado)})</button>
@@ -6729,7 +6729,7 @@ const app = {
                 // ambos roles: la clínica hacia el dentista y el dentista hacia la clínica.
                 const nombreEsc = utils.escapeHtml((p.nombre || (p.tipo === 'clinica' ? 'esta clínica' : 'este dentista')).replace(/'/g, "\\'"));
                 return `<button data-tooltip="Enviar un correo con tu mensaje" class="btn-secondary" onclick="app.perfiles.contactar(${p.id}, '${nombreEsc}', '${p.tipo}')" style="flex:1;">✉️ Enviar Mail</button>
-                        <button class="btn-outline" onclick="app.perfiles.iniciarChat(${p.id}, '${nombreEsc}')" style="flex:1;" data-tooltip="Empezar a chatear">💬 Iniciar chat</button>`;
+                        <button class="btn-outline" onclick="app.perfiles.iniciarChat(${p.id}, '${nombreEsc}')" style="flex:1;" data-tooltip="Empezar a chatear">💬 Iniciar xat</button>`;
               })()}
             </div>
           </div>`;
@@ -7366,7 +7366,7 @@ const app = {
       const tipoContacto = estadoApp.tipoUsuario === 'dentista' ? 'clinica' : 'dentista';
       const contactoBtns = c.empresa_usuario_id ? `
             <button data-tooltip="Enviar un correo con tu mensaje" class="btn-small btn-secondary" onclick="app.perfiles.contactar(${c.empresa_usuario_id}, '${nombreEsc}', '${tipoContacto}')">✉️ Enviar Mail</button>
-            <button class="btn-small btn-outline" onclick="app.perfiles.iniciarChat(${c.empresa_usuario_id}, '${nombreEsc}')" data-tooltip="Empezar a chatear">💬 Iniciar chat</button>` : '';
+            <button class="btn-small btn-outline" onclick="app.perfiles.iniciarChat(${c.empresa_usuario_id}, '${nombreEsc}')" data-tooltip="Empezar a chatear">💬 Iniciar xat</button>` : '';
       return `
         <div id="candidatura-${c.id}" class="kanban-tarjeta" style="border-left: 3px solid ${color};">
           <strong>${utils.escapeHtml(c.empresa_nombre || 'Publicación')}</strong>
@@ -7893,6 +7893,9 @@ const app = {
     pollingInterval: null,
     conversacionActual: null,
     ultimaSenalEscribiendo: 0,
+    // Mientras se elige con quién empezar un xat nuevo (fuera de la bandeja y de una
+    // conversación), el polling no debe repintar la bandeja encima de esta vista.
+    enDirectorio: false,
     // Límite de los adjuntos subidos desde el chat (tipo 'chat' en el backend).
     // El CV y el Book del perfil se referencian ya subidos, así que no lo aplican.
     MAX_ADJUNTO_MB: 25,
@@ -7916,6 +7919,7 @@ const app = {
     cerrar() {
       this.detenerPolling();
       this.conversacionActual = null;
+      this.enDirectorio = false;
       document.getElementById("modalChat").classList.remove("active");
       app.chat.actualizarContador();
     },
@@ -7952,6 +7956,7 @@ const app = {
     },
 
     async renderConversaciones() {
+      this.enDirectorio = false;
       try {
         const data = await utils.request("/chat/conversaciones");
         const conversaciones = data.conversaciones || [];
@@ -7974,7 +7979,11 @@ const app = {
           (c.recibidos || []).filter(x => x.estado === 'aceptada').forEach(x => añadirAceptado(x.solicitante_id, x.solicitante_nombre, x.actualizado_en));
         } catch (e) { /* sin contactos */ }
 
-        document.getElementById("chatTitle").textContent = "💬 Mensajes de chat";
+        document.getElementById("chatTitle").textContent = "💬 Mensajes de xat";
+
+        const nuevoChatHtml = `<div style="margin-bottom: 1rem;">
+          <button data-tooltip="Elegir con quién empezar una conversación nueva" class="btn-primary btn-small" onclick="app.chat.abrirDirectorio()">+ Nuevo xat</button>
+        </div>`;
 
         let pendientesHtml = "";
         if (pendientes.length) {
@@ -7993,16 +8002,16 @@ const app = {
         }
 
         if (conversaciones.length === 0 && !pendientes.length) {
-          document.getElementById("chatBody").innerHTML = `
+          document.getElementById("chatBody").innerHTML = nuevoChatHtml + `
             <div style="padding: 2rem; text-align: center; color: #6b7280;">
               <p>No tienes conversaciones todavía.</p>
-              <p style="font-size: 0.9rem;">El chat se activa tras aceptar una postulación (a una publicación o a un perfil).</p>
+              <p style="font-size: 0.9rem;">Pulsa "+ Nuevo xat" para escribirle a cualquier clínica o dentista de la plataforma.</p>
             </div>
           `;
           return;
         }
 
-        let html = pendientesHtml + `<div class="chat-conversaciones">`;
+        let html = nuevoChatHtml + pendientesHtml + `<div class="chat-conversaciones">`;
         conversaciones.forEach(c => {
           const nombreEsc = utils.escapeHtml(c.otro_nombre || 'Usuario').replace(/'/g, "\\'");
           html += `
@@ -8033,6 +8042,62 @@ const app = {
       } catch (error) {
         utils.mostrarAlerta(error.message, "error");
       }
+    },
+
+    // Pestaña para elegir con quién empezar un xat nuevo: primero el tipo (clínica o
+    // dentista), y con ese tipo elegido, el directorio ordenado por cercanía y apellido.
+    abrirDirectorio() {
+      this.conversacionActual = null;
+      this.enDirectorio = true;
+      document.getElementById("chatTitle").textContent = "💬 Nuevo xat";
+      document.getElementById("chatBody").innerHTML = `
+        <button class="btn-text btn-small" onclick="app.chat.renderConversaciones()" style="margin-bottom: 0.75rem;">← Volver a conversaciones</button>
+        <p style="color:#6b7280;margin:0 0 .75rem;">¿Con quién quieres empezar a chatear?</p>
+        <div style="display:flex;gap:.5rem;margin-bottom:1rem;">
+          <button class="btn-outline" style="flex:1;" onclick="app.chat.renderDirectorio('clinica')">🏥 Clínicas</button>
+          <button class="btn-outline" style="flex:1;" onclick="app.chat.renderDirectorio('dentista')">🦷 Dentistas</button>
+        </div>
+      `;
+    },
+
+    async renderDirectorio(tipo) {
+      document.getElementById("chatTitle").textContent = tipo === 'clinica' ? "💬 Elige una clínica" : "💬 Elige un dentista";
+      document.getElementById("chatBody").innerHTML = `
+        <button class="btn-text btn-small" onclick="app.chat.abrirDirectorio()" style="margin-bottom: 0.75rem;">← Elegir otro tipo</button>
+        <div id="chatDirectorioLista"><p style="color:#9ca3af;text-align:center;">Cargando…</p></div>
+      `;
+      try {
+        const data = await utils.request(`/chat/directorio?tipo=${tipo}`);
+        const perfiles = data.perfiles || [];
+        const cont = document.getElementById("chatDirectorioLista");
+        if (!cont) return;
+
+        if (!perfiles.length) {
+          cont.innerHTML = `<p style="padding:1rem;text-align:center;color:#6b7280;">${tipo === 'clinica' ? 'No hay clínicas disponibles todavía.' : 'No hay dentistas disponibles todavía.'}</p>`;
+          return;
+        }
+
+        cont.innerHTML = `<div class="chat-conversaciones">` + perfiles.map(p => {
+          const nombreEsc = utils.escapeHtml(p.nombre || 'Usuario').replace(/'/g, "\\'");
+          const distancia = p.distanciaKm != null ? `${Math.round(p.distanciaKm)} km` : '';
+          return `
+            <div class="chat-conversacion-item" onclick="app.chat.iniciarNuevoChat(${p.id}, '${nombreEsc}')">
+              <div class="chat-conversacion-info">
+                <strong>${utils.escapeHtml(p.nombre || 'Usuario')}</strong>
+                <p class="chat-conversacion-ultimo">${utils.escapeHtml(p.ciudad || '')}</p>
+              </div>
+              <div class="chat-conversacion-meta">
+                ${distancia ? `<span class="chat-conversacion-fecha">${distancia}</span>` : ''}
+              </div>
+            </div>`;
+        }).join("") + `</div>`;
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async iniciarNuevoChat(otroId, otroNombre) {
+      await this.abrirConversacion(otroId, otroNombre);
     },
 
     renderHiloUI(otroNombre) {
@@ -8068,6 +8133,7 @@ const app = {
     // usuario acababa en la bandeja en vez de en su conversación. Ahora el hilo se
     // abre siempre y el nombre se rellena cuando llega, si llega.
     async abrirConversacion(otroId, otroNombre) {
+      this.enDirectorio = false;
       this.conversacionActual = { otro_id: otroId, otro_nombre: otroNombre };
       this.adjuntosPendientes = [];
       this.renderHiloUI(otroNombre || "Conversación");
@@ -8394,7 +8460,7 @@ const app = {
         }
         if (this.conversacionActual) {
           await this.refrescarHilo();
-        } else {
+        } else if (!this.enDirectorio) {
           await this.renderConversaciones();
         }
       }, 3000);
@@ -8804,7 +8870,7 @@ const app = {
             : `<button class="btn-outline btn-small" onclick="app.perfiles.verDetalle(${c.usuario_id}, true)" data-tooltip="Perfil de la clínica">👤 Perfil</button>`;
           const chatTitle = esDentista ? "Empezar a chatear con el dentista" : "Empezar a chatear con la clínica";
           const mailBtn = `<button class="btn-outline btn-small" onclick="app.perfiles.contactar(${c.usuario_id}, '${nombreEsc}', '${c.tipo}')" data-tooltip="Enviar un correo con tu mensaje">✉️ Enviar Mail</button>`;
-          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.nombre)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Email:</strong> ${utils.escapeHtml(c.email)}</p>${c.telefono ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Teléfono:</strong> ${utils.escapeHtml(c.telefono)}</p>` : ''}${c.movil ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Móvil:</strong> ${utils.escapeHtml(c.movil)}</p>` : ''}${c.ciudad ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad)}</p>` : ''}${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; padding: 0.75rem; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #2563eb; color: #374151; font-size: 0.9rem;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}${utils.respuestasCribaHtml(c.respuestas)}</div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize; display: inline-block; margin-bottom: 0.5rem;">${utils.textoEstado(c.estado)}</span><div style="display: flex; gap: 0.5rem; flex-direction: column;">${utils.selectorEstado(c.id, c.estado, `app.candidaturas.actualizarEstado(${c.id}, this.value, ${publicacionId})`)}${perfilBtn}${mailBtn}<button class="btn-outline btn-small" onclick="app.perfiles.iniciarChat(${c.usuario_id}, '${nombreEsc}')" data-tooltip="${chatTitle}">💬 Iniciar chat</button></div></div></div></div>`;
+          return `<div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="flex: 1;"><h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">${utils.escapeHtml(c.nombre)}</h3><p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Email:</strong> ${utils.escapeHtml(c.email)}</p>${c.telefono ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Teléfono:</strong> ${utils.escapeHtml(c.telefono)}</p>` : ''}${c.movil ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Móvil:</strong> ${utils.escapeHtml(c.movil)}</p>` : ''}${c.ciudad ? `<p style="margin: 0.3rem 0; color: #6b7280; font-size: 0.9rem;"><strong>Ciudad:</strong> ${utils.escapeHtml(c.ciudad)}</p>` : ''}${c.mensaje ? `<p style="margin: 0.5rem 0 0 0; padding: 0.75rem; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #2563eb; color: #374151; font-size: 0.9rem;"><strong>Mensaje:</strong> ${utils.escapeHtml(c.mensaje)}</p>` : ''}${utils.respuestasCribaHtml(c.respuestas)}</div><div style="text-align: right;"><span style="background: ${estadoColor}; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; font-size: 0.85rem; text-transform: capitalize; display: inline-block; margin-bottom: 0.5rem;">${utils.textoEstado(c.estado)}</span><div style="display: flex; gap: 0.5rem; flex-direction: column;">${utils.selectorEstado(c.id, c.estado, `app.candidaturas.actualizarEstado(${c.id}, this.value, ${publicacionId})`)}${perfilBtn}${mailBtn}<button class="btn-outline btn-small" onclick="app.perfiles.iniciarChat(${c.usuario_id}, '${nombreEsc}')" data-tooltip="${chatTitle}">💬 Iniciar xat</button></div></div></div></div>`;
         });
         container.innerHTML = `<div>${html.join('')}</div>`;
       } catch (error) {
