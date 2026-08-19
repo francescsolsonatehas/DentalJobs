@@ -25,6 +25,7 @@ const { geocodificarCiudad, distanciaKm } = require("./municipios-coords");
 const { crearZip } = require("./zip");
 const { expandirRango, sanearDias, sanearDiasSemana } = require("./fechas");
 const { comprimirImagen } = require("./imagenes");
+const { comprimirPdf } = require("./pdfs");
 const sharp = require("sharp");
 const crypto = require("crypto");
 
@@ -4426,10 +4427,10 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
 
   const guardarArchivo = async () => {
     try {
-      // Las imágenes se recomprimen a WebP (ver imagenes.js) antes de guardarse; el
-      // resto (PDF del CV/Book, adjuntos de chat que no son imagen) se guarda tal
-      // cual. Si la recompresión falla (archivo corrupto, formato raro), se guarda
-      // el original: mejor eso que rechazar la subida.
+      // Las imágenes se recomprimen a WebP (ver imagenes.js) y los PDF vía la API de
+      // iLovePDF (ver pdfs.js) antes de guardarse; el resto (adjuntos de chat que no
+      // son ni imagen ni PDF) se guarda tal cual. Si la recompresión falla o no
+      // compensa, se guarda el original: mejor eso que rechazar la subida.
       let contenidoFinal = req.file.buffer;
       let mimeFinal = req.file.mimetype;
       let nombreFinal = req.file.originalname;
@@ -4440,6 +4441,8 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
           mimeFinal = comprimida.mime;
           nombreFinal = nombreFinal.replace(/\.[^.]+$/, "") + ".webp";
         }
+      } else if (mime === "application/pdf") {
+        contenidoFinal = await comprimirPdf(req.file.buffer, nombreFinal);
       }
 
       db.run(
