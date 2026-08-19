@@ -1798,6 +1798,93 @@ app.post("/admin/matching-colaboraciones", verificarAdmin, (req, res) => {
   );
 });
 
+// Coincidencia de especialidad entre publicación (p) y usuario (u): sin especialidad
+// exigida vale cualquiera; si la exige, tiene que tenerla el usuario. Mismo criterio
+// que el matching de suplencias/colaboraciones.
+const ESPECIALIDAD_MATCH_SQL =
+  `(
+     NOT EXISTS (SELECT 1 FROM publicacion_especialidades pe WHERE pe.publicacion_id = p.id)
+     OR EXISTS (
+       SELECT 1 FROM publicacion_especialidades pe
+       JOIN usuario_especialidades ue ON ue.especialidad_id = pe.especialidad_id
+       WHERE pe.publicacion_id = p.id AND ue.usuario_id = u.id
+     )
+   )`;
+
+// Digest diario de matching de publicaciones normales (ofertas y solicitudes): a cada
+// dentista, las ofertas activas que encajan con su ciudad/radio y especialidad; a cada
+// clínica, las solicitudes activas que encajan igual. Mismo patrón que el matching de
+// suplencias/colaboraciones, con su propia tabla de dedup para no repetir aviso.
+app.post("/admin/matching-publicaciones", verificarAdmin, (req, res) => {
+  const consultaOfertas = new Promise((resolve, reject) => {
+    db.all(
+      `SELECT DISTINCT u.id AS usuario_id, p.id AS publicacion_id, ${GEO_MATCH_COLS}
+       FROM usuarios u
+       JOIN publicaciones p ON p.tipo = 'oferta' AND p.activo = 1
+       WHERE u.tipo = 'dentista'
+         AND ${GEO_MATCH_SQL}
+         AND ${ESPECIALIDAD_MATCH_SQL}
+         AND NOT EXISTS (SELECT 1 FROM notificaciones_publicacion np WHERE np.usuario_id = u.id AND np.publicacion_id = p.id)
+       ORDER BY u.id, p.id`,
+      (err, filas) => err ? reject(err) : resolve(filas || [])
+    );
+  });
+
+  const consultaSolicitudes = new Promise((resolve, reject) => {
+    db.all(
+      `SELECT DISTINCT u.id AS usuario_id, p.id AS publicacion_id, ${GEO_MATCH_COLS}
+       FROM usuarios u
+       JOIN publicaciones p ON p.tipo = 'solicitud' AND p.activo = 1
+       WHERE u.tipo = 'clinica'
+         AND ${GEO_MATCH_SQL}
+         AND ${ESPECIALIDAD_MATCH_SQL}
+         AND NOT EXISTS (SELECT 1 FROM notificaciones_publicacion np WHERE np.usuario_id = u.id AND np.publicacion_id = p.id)
+       ORDER BY u.id, p.id`,
+      (err, filas) => err ? reject(err) : resolve(filas || [])
+    );
+  });
+
+  Promise.all([consultaOfertas, consultaSolicitudes])
+    .then(([ofertas, solicitudes]) => {
+      ofertas.forEach(f => { f.esClinica = false; });
+      solicitudes.forEach(f => { f.esClinica = true; });
+      const pares = ofertas.concat(solicitudes).filter(dentroDeRadioMatching);
+
+      const porUsuario = {};
+      pares.forEach(f => { (porUsuario[f.usuario_id] = porUsuario[f.usuario_id] || []).push(f); });
+
+      Object.entries(porUsuario).forEach(([uid, pubs]) => {
+        const n = pubs.length;
+        const esClinica = pubs[0].esClinica;
+        const sustantivo = esClinica ? (n === 1 ? "solicitud" : "solicitudes") : (n === 1 ? "oferta" : "ofertas");
+        notificarUsuario(
+          uid,
+          `🔍 ${n} ${sustantivo} para ti en DentalJobs`,
+          `${sustantivo[0].toUpperCase()}${sustantivo.slice(1)} que encajan contigo`,
+          `Hay ${n} ${sustantivo} en tu zona que coinciden con tu especialidad. Entra para verlas y postularte.`,
+          `Ver ${sustantivo}`,
+          {
+            tipo: esClinica ? "solicitud" : "oferta",
+            enlace: n === 1
+              ? `#publicacion=${pubs[0].publicacion_id}`
+              : `#publicaciones=${pubs.map(p => p.publicacion_id).join(",")}`
+          }
+        );
+      });
+
+      if (pares.length === 0) {
+        return res.json({ usuariosAvisados: 0, avisos: 0 });
+      }
+      const stmt = db.prepare("INSERT OR IGNORE INTO notificaciones_publicacion (usuario_id, publicacion_id) VALUES (?, ?)");
+      pares.forEach(p => stmt.run(p.usuario_id, p.publicacion_id));
+      stmt.finalize(() => res.json({ usuariosAvisados: Object.keys(porUsuario).length, avisos: pares.length }));
+    })
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({ error: "Error al calcular el matching de publicaciones" });
+    });
+});
+
 // Envía a cada clínica y dentista un resumen de sus coincidencias activas
 // (misma ciudad + especialidad). Pensado para dispararse una vez por semana
 // desde un cron externo (GitHub Actions), ya que Render free no trae cron propio.

@@ -771,6 +771,18 @@ db.serialize(() => {
     )
   `);
 
+  // Dedup de avisos de matching de ofertas/solicitudes (publicaciones normales),
+  // mismo patrón que notificaciones_suplencia y notificaciones_colaboracion.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS notificaciones_publicacion (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+      publicacion_id INTEGER NOT NULL REFERENCES publicaciones(id),
+      creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(usuario_id, publicacion_id)
+    )
+  `);
+
   // Notificaciones in-app (campana): se crean en cada evento por-usuario a la vez
   // que el email, y se muestran aunque el usuario tenga los emails desactivados.
   db.run(`

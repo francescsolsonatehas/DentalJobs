@@ -1151,6 +1151,8 @@ const app = {
             return await this.abrirSuplencias(argumento);
           case "colaboraciones":
             return await this.abrirColaboraciones(argumento);
+          case "publicaciones":
+            return await this.abrirPublicaciones(argumento);
           default:
             // Enlace desconocido (p. ej. de una versión anterior): no romper nada
             console.warn("Enlace de notificación no reconocido:", enlace);
@@ -1175,7 +1177,8 @@ const app = {
       chat: "Esa conversación ya no está disponible",
       "chat-perfil": "Esa conversación ya no está disponible",
       suplencias: "Esas suplencias ya no están disponibles",
-      colaboraciones: "Esas colaboraciones ya no están disponibles"
+      colaboraciones: "Esas colaboraciones ya no están disponibles",
+      publicaciones: "Esas publicaciones ya no están disponibles"
     },
 
     // Las suplencias de las que hablaba la notificación, en un modal.
@@ -1249,6 +1252,38 @@ const app = {
       document.getElementById("interesadosBody").innerHTML = html;
       document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent =
         `Colaboraciones que encajan contigo (${colaboraciones.length})`;
+      document.getElementById("modalInteresados").classList.add("active");
+    },
+
+    // Las ofertas o solicitudes de las que hablaba la notificación (publicaciones
+    // normales, no suplencias ni colaboraciones), mismo patrón que abrirSuplencias.
+    async abrirPublicaciones(ids) {
+      const publicaciones = await utils.request(`/publicaciones?ids=${encodeURIComponent(ids)}`);
+
+      if (!publicaciones || publicaciones.length === 0) {
+        utils.mostrarAlerta("Esas publicaciones ya no están disponibles", "info");
+        return;
+      }
+      if (publicaciones.length === 1) {
+        return app.modal.abrirDetalleConManejo(publicaciones[0]);
+      }
+
+      const html = `<div class="lista-simple">` + publicaciones.map(p => {
+        return `
+          <div style="border:1px solid #e5e7eb;border-radius:10px;padding:1rem;margin-bottom:.75rem;">
+            <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;">
+              <div style="min-width:0;">
+                <strong style="color:#0f4c75;">📍 ${utils.escapeHtml(p.ciudad || "")}</strong>
+                <p style="margin:.3rem 0 0;color:#4b5563;font-size:.9rem;">${utils.escapeHtml((p.descripcion || "").slice(0, 90))}</p>
+              </div>
+              <button data-tooltip="Ver esta publicación" class="btn-primary btn-small" onclick="app.rutas.abrirPublicacion(${p.id})">Ver</button>
+            </div>
+          </div>`;
+      }).join("") + `</div>`;
+
+      document.getElementById("interesadosBody").innerHTML = html;
+      document.getElementById("modalInteresados").querySelector(".modal-header h2").textContent =
+        `Publicaciones que encajan contigo (${publicaciones.length})`;
       document.getElementById("modalInteresados").classList.add("active");
     },
 
@@ -1729,7 +1764,7 @@ const app = {
     // propio aviso, así que no rompe nada, solo no lleva más allá de la portada.
     RUTAS_CORREO: [
       "chat", "chat-perfil", "candidatura", "contacto", "correo-recibido",
-      "suplencias", "colaboraciones", "dentistas-potenciales", "clinicas-potenciales"
+      "suplencias", "colaboraciones", "publicaciones", "dentistas-potenciales", "clinicas-potenciales"
     ],
 
     // Procesa los enlaces que llegan por correo (#verificar= / #restablecer= /

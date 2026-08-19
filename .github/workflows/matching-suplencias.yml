@@ -1,10 +1,10 @@
-# Digest diario de matching de suplencias y colaboraciones: avisa por email a cada
-# dentista de las suplencias/colaboraciones nuevas que encajan con su disponibilidad
-# (ciudad + especialidad + días, por fecha concreta o por día de la semana).
+# Digest diario de matching de suplencias, colaboraciones y publicaciones normales
+# (ofertas/solicitudes): avisa por email a cada usuario de lo nuevo que encaja con su
+# perfil (ciudad/radio + especialidad, y además disponibilidad en suplencias/colaboraciones).
 #
 # Render free no trae cron propio, así que el disparo se hace desde aquí con
-# peticiones HTTP a los endpoints protegidos /admin/matching-suplencias y
-# /admin/matching-colaboraciones.
+# peticiones HTTP a los endpoints protegidos /admin/matching-suplencias,
+# /admin/matching-colaboraciones y /admin/matching-publicaciones.
 #
 # Secrets necesarios en este repo:
 #   BACKEND_URL   → URL pública del backend en Render (ej. https://dentaljobs.onrender.com)
@@ -33,4 +33,11 @@ jobs:
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         run: |
           curl -sf -X POST "${BACKEND_URL%/}/admin/matching-colaboraciones" \
+            -H "X-Admin-Token: ${ADMIN_TOKEN}"
+      - name: Llamar al endpoint de matching de publicaciones
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          curl -sf -X POST "${BACKEND_URL%/}/admin/matching-publicaciones" \
             -H "X-Admin-Token: ${ADMIN_TOKEN}"
