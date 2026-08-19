@@ -68,6 +68,22 @@ test("directorio para elegir con quién empezar un chat", async (t) => {
     assert.ok(!ids.includes(otroDentista.usuario.id));
   });
 
+  await t.test("tipo=todos devuelve clínicas y dentistas juntos, ordenados igual", async () => {
+    const res = await request(app)
+      .get("/chat/directorio?tipo=todos")
+      .set("Authorization", `Bearer ${yo.token}`);
+    assert.equal(res.status, 200);
+
+    const nombres = res.body.perfiles.map(p => p.nombre);
+    assert.equal(nombres.length, 5);
+    // Otro Dentista está en la misma ciudad (Barcelona) que "yo", así que va primero
+    // (distancia 0), antes que las clínicas de Badalona/Girona/sin ciudad.
+    assert.equal(nombres[0], "Otro Dentista");
+    assert.deepEqual(nombres.slice(1, 3).sort(), ["Clínica Alfa Badalona", "Clínica Zeta Badalona"]);
+    assert.equal(nombres[3], "Clínica Girona");
+    assert.equal(nombres[4], "Clínica Sin Ciudad");
+  });
+
   await t.test("tipo=dentista devuelve dentistas, no clínicas", async () => {
     const res = await request(app)
       .get("/chat/directorio?tipo=dentista")

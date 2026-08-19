@@ -7982,7 +7982,7 @@ const app = {
         document.getElementById("chatTitle").textContent = "💬 Mensajes de chat";
 
         const nuevoChatHtml = `<div style="margin-bottom: 1rem;">
-          <button data-tooltip="Elegir con quién empezar una conversación nueva" class="btn-primary btn-small" onclick="app.chat.abrirDirectorio()">+ Nuevo chat</button>
+          <button data-tooltip="Elegir con quién empezar una conversación nueva" class="btn-primary btn-small" onclick="app.chat.abrirDirectorio()">Nuevo chat</button>
         </div>`;
 
         let pendientesHtml = "";
@@ -8005,7 +8005,7 @@ const app = {
           document.getElementById("chatBody").innerHTML = nuevoChatHtml + `
             <div style="padding: 2rem; text-align: center; color: #6b7280;">
               <p>No tienes conversaciones todavía.</p>
-              <p style="font-size: 0.9rem;">Pulsa "+ Nuevo chat" para escribirle a cualquier clínica o dentista de la plataforma.</p>
+              <p style="font-size: 0.9rem;">Pulsa "Nuevo chat" para escribirle a cualquier clínica o dentista de la plataforma.</p>
             </div>
           `;
           return;
@@ -8044,8 +8044,9 @@ const app = {
       }
     },
 
-    // Pestaña para elegir con quién empezar un chat nuevo: primero el tipo (clínica o
-    // dentista), y con ese tipo elegido, el directorio ordenado por cercanía y apellido.
+    // Pestaña para elegir con quién empezar un chat nuevo: primero el tipo (todos,
+    // clínica o dentista), y con ese tipo elegido, el directorio ordenado por
+    // cercanía y apellido.
     abrirDirectorio() {
       this.conversacionActual = null;
       this.enDirectorio = true;
@@ -8053,15 +8054,17 @@ const app = {
       document.getElementById("chatBody").innerHTML = `
         <button class="btn-text btn-small" onclick="app.chat.renderConversaciones()" style="margin-bottom: 0.75rem;">← Volver a conversaciones</button>
         <p style="color:#6b7280;margin:0 0 .75rem;">¿Con quién quieres empezar a chatear?</p>
-        <div style="display:flex;gap:.5rem;margin-bottom:1rem;">
-          <button class="btn-outline" style="flex:1;" onclick="app.chat.renderDirectorio('clinica')">🏥 Clínicas</button>
-          <button class="btn-outline" style="flex:1;" onclick="app.chat.renderDirectorio('dentista')">🦷 Dentistas</button>
+        <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem;">
+          <button class="btn-outline" onclick="app.chat.renderDirectorio('todos')">🏥🦷 Todas las Clínicas y Dentistas</button>
+          <button class="btn-outline" onclick="app.chat.renderDirectorio('clinica')">🏥 Selecciona una clínica</button>
+          <button class="btn-outline" onclick="app.chat.renderDirectorio('dentista')">🦷 Selecciona un dentista</button>
         </div>
       `;
     },
 
     async renderDirectorio(tipo) {
-      document.getElementById("chatTitle").textContent = tipo === 'clinica' ? "💬 Elige una clínica" : "💬 Elige un dentista";
+      const titulos = { todos: "💬 Todas las Clínicas y Dentistas", clinica: "💬 Elige una clínica", dentista: "💬 Elige un dentista" };
+      document.getElementById("chatTitle").textContent = titulos[tipo] || titulos.todos;
       document.getElementById("chatBody").innerHTML = `
         <button class="btn-text btn-small" onclick="app.chat.abrirDirectorio()" style="margin-bottom: 0.75rem;">← Elegir otro tipo</button>
         <div id="chatDirectorioLista"><p style="color:#9ca3af;text-align:center;">Cargando…</p></div>
@@ -8073,17 +8076,19 @@ const app = {
         if (!cont) return;
 
         if (!perfiles.length) {
-          cont.innerHTML = `<p style="padding:1rem;text-align:center;color:#6b7280;">${tipo === 'clinica' ? 'No hay clínicas disponibles todavía.' : 'No hay dentistas disponibles todavía.'}</p>`;
+          const vacios = { todos: 'No hay clínicas ni dentistas disponibles todavía.', clinica: 'No hay clínicas disponibles todavía.', dentista: 'No hay dentistas disponibles todavía.' };
+          cont.innerHTML = `<p style="padding:1rem;text-align:center;color:#6b7280;">${vacios[tipo] || vacios.todos}</p>`;
           return;
         }
 
         cont.innerHTML = `<div class="chat-conversaciones">` + perfiles.map(p => {
           const nombreEsc = utils.escapeHtml(p.nombre || 'Usuario').replace(/'/g, "\\'");
           const distancia = p.distanciaKm != null ? `${Math.round(p.distanciaKm)} km` : '';
+          const icono = tipo === 'todos' ? (p.tipo === 'clinica' ? '🏥 ' : '🦷 ') : '';
           return `
             <div class="chat-conversacion-item" onclick="app.chat.iniciarNuevoChat(${p.id}, '${nombreEsc}')">
               <div class="chat-conversacion-info">
-                <strong>${utils.escapeHtml(p.nombre || 'Usuario')}</strong>
+                <strong>${icono}${utils.escapeHtml(p.nombre || 'Usuario')}</strong>
                 <p class="chat-conversacion-ultimo">${utils.escapeHtml(p.ciudad || '')}</p>
               </div>
               <div class="chat-conversacion-meta">

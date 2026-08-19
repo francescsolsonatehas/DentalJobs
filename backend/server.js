@@ -3868,7 +3868,8 @@ const ultimaNotificacionChat = new Map();
 // geocodificada) y, a igualdad, por el último apellido/palabra del nombre. Respeta el
 // mismo "perfil_publico" que oculta a un dentista del listado de perfiles.
 app.get("/chat/directorio", verifyToken, (req, res) => {
-  const tipo = req.query.tipo === 'clinica' ? 'clinica' : 'dentista';
+  // Sin tipo reconocido (o "todos"), se listan clínicas y dentistas juntos.
+  const tipo = ['clinica', 'dentista'].includes(req.query.tipo) ? req.query.tipo : 'todos';
   const usuarioId = req.usuario.id;
 
   db.get("SELECT ciudad, lat, lon FROM usuarios WHERE id = ?", [usuarioId], (errYo, yo) => {
@@ -3878,10 +3879,19 @@ app.get("/chat/directorio", verifyToken, (req, res) => {
     }
 
     let query = `SELECT id, nombre, tipo, ciudad, lat, lon, foto_perfil_archivo_id
-                 FROM usuarios WHERE tipo = ? AND id != ? AND nombre != 'Usuario eliminado'`;
-    if (tipo === 'dentista') query += " AND (perfil_publico IS NULL OR perfil_publico = 1)";
+                 FROM usuarios WHERE id != ? AND nombre != 'Usuario eliminado'`;
+    const params = [usuarioId];
+    if (tipo === 'todos') {
+      query += " AND tipo IN ('clinica', 'dentista')";
+    } else {
+      query += " AND tipo = ?";
+      params.push(tipo);
+    }
+    // Un dentista puede ocultar su perfil del listado que ven las clínicas; aquí se
+    // respeta igual, tanto si se pide solo "dentista" como en el listado combinado.
+    query += " AND (tipo != 'dentista' OR perfil_publico IS NULL OR perfil_publico = 1)";
 
-    db.all(query, [tipo, usuarioId], (err, filas) => {
+    db.all(query, params, (err, filas) => {
       if (err) {
         console.error(err);
         return res.status(500).json({ error: "Error al obtener el directorio" });
