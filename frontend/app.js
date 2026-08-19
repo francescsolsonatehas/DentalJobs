@@ -5316,13 +5316,42 @@ const app = {
     async cargarArchivosUsuario() {
       if (!estadoApp.usuario) return;
 
+      // Si el servidor tarda en despertar (Render en frío), la petición al abrir el
+      // perfil puede tardar varios segundos. Si mientras tanto se sube o se elimina
+      // un archivo, esa segunda petición termina antes y pinta el estado correcto;
+      // cuando la primera llega tarde, pisaría ese estado con uno ya viejo. Se anota
+      // qué petición es la última lanzada y se descarta cualquier respuesta que no lo sea.
+      const peticion = (app.archivos._peticionArchivos = (app.archivos._peticionArchivos || 0) + 1);
       try {
         const archivos = await utils.request(`/archivos/usuario/${estadoApp.usuario.id}`);
+        if (peticion !== app.archivos._peticionArchivos) return;
         estadoApp.archivosUsuario = archivos;
         app.archivos.renderizarArchivos();
       } catch (error) {
         console.error(error);
       }
+    },
+
+    // Zona de arrastrar y soltar para (re)subir el CV: la misma que se ve la primera
+    // vez, reutilizada también al pulsar "Actualizar" sobre un CV ya existente.
+    zonaSubidaCvHtml() {
+      return `
+        <div class="drag-drop-zone" id="cvDropZone" ondrop="event.preventDefault(); app.archivos.manejarDrop(event, 'cv')" ondragover="event.preventDefault(); document.getElementById('cvDropZone').classList.add('dragover')" ondragleave="document.getElementById('cvDropZone').classList.remove('dragover')">
+          <p>📄 Sube tu CV (PDF, máx 5 MB)</p>
+          <span>Arrastra y suelta o haz clic para seleccionar</span>
+          <input type="file" id="cvInput" accept=".pdf" style="display: none;" onchange="app.archivos.subirCV()">
+        </div>
+        <button data-tooltip="Seleccionar el archivo de tu CV" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('cvInput').click()">Seleccionar archivo</button>
+      `;
+    },
+
+    // Al pulsar "Actualizar" sobre un CV ya subido: la misma zona de arrastrar y
+    // soltar que la primera vez, con la opción de volver atrás sin tocar el CV actual.
+    mostrarActualizarCv() {
+      const cvContainer = document.getElementById("cvContainer");
+      if (!cvContainer) return;
+      cvContainer.innerHTML = app.archivos.zonaSubidaCvHtml() +
+        `<button class="btn-text btn-small" style="width: 100%; margin-top: 0.5rem;" onclick="app.archivos.renderizarArchivos()">Cancelar</button>`;
     },
 
     renderizarArchivos() {
@@ -5336,23 +5365,15 @@ const app = {
           <div style="background: #F8FAFF; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #0F4C75;">
             <p style="font-weight: 700; color: #0F4C75; margin-bottom: 0.5rem;">📄 ${utils.escapeHtml(cv.nombre_archivo)}</p>
             <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">Subido el ${utils.formatearFecha(cv.creado_en)} · ${utils.formatearTamanyo(cv.tamanyo)}</p>
-            <input type="file" id="cvInput" accept=".pdf" style="display: none;" onchange="app.archivos.subirCV()">
             <div style="display: flex; gap: 0.8rem;">
               <a href="${API}/archivos/${cv.id}/download" class="btn-primary btn-small" style="text-decoration: none; display: inline-block;">Descargar</a>
-              <button data-tooltip="Subir un PDF nuevo que sustituya a este" class="btn-outline btn-small" onclick="document.getElementById('cvInput').click()">Actualizar</button>
+              <button data-tooltip="Subir un PDF nuevo que sustituya a este" class="btn-outline btn-small" onclick="app.archivos.mostrarActualizarCv()">Actualizar</button>
               <button data-tooltip="Eliminar este archivo" class="btn-outline btn-small" onclick="app.archivos.eliminar(${cv.id})">Eliminar</button>
             </div>
           </div>
         `;
       } else {
-        cvContainer.innerHTML = `
-          <div class="drag-drop-zone" id="cvDropZone" ondrop="event.preventDefault(); app.archivos.manejarDrop(event, 'cv')" ondragover="event.preventDefault(); document.getElementById('cvDropZone').classList.add('dragover')" ondragleave="document.getElementById('cvDropZone').classList.remove('dragover')">
-            <p>📄 Sube tu CV (PDF, máx 5 MB)</p>
-            <span>Arrastra y suelta o haz clic para seleccionar</span>
-            <input type="file" id="cvInput" accept=".pdf" style="display: none;" onchange="app.archivos.subirCV()">
-          </div>
-          <button data-tooltip="Seleccionar el archivo de tu CV" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('cvInput').click()">Seleccionar archivo</button>
-        `;
+        cvContainer.innerHTML = app.archivos.zonaSubidaCvHtml();
       }
 
       // Renderizar Logo (clínica) / Foto (dentista) de perfil: una sola imagen que
@@ -5419,6 +5440,11 @@ const app = {
       try {
         await utils.request(`/archivos/${id}`, { method: "DELETE" });
         utils.mostrarAlerta("Archivo eliminado", "success");
+        // Se quita también en memoria y se repinta al momento: no hace falta esperar
+        // a la recarga (que además, si el servidor tardó en despertar, podría llegar
+        // tarde con la lista de antes de borrar y devolver el archivo a la vista).
+        estadoApp.archivosUsuario = estadoApp.archivosUsuario.filter(a => a.id !== id);
+        app.archivos.renderizarArchivos();
         app.archivos.cargarArchivosUsuario();
         // Si era el logo/foto activo, se desvincula también en memoria: si no, el
         // hero seguiría pintando una imagen que ya no existe hasta la próxima sesión.
