@@ -36,6 +36,7 @@ Portal de empleo especializado para el sector dental. Conecta clínicas y dentis
 - **Email**: API HTTP de [Brevo](https://www.brevo.com) (Render bloquea SMTP saliente)
 - **Frontend**: HTML5 + CSS3 + JavaScript vanilla
 - **Despliegue**: backend en Render, frontend en GitHub Pages (se sincroniza a un repo espejo público vía GitHub Actions)
+  - El backend corre como servicio **Docker** en Render (`Dockerfile` en la raíz), no con su runtime Node nativo: hace falta para tener Ghostscript instalado (compresión de PDF, ver `backend/pdfs.js`). Al configurar el servicio en Render: Runtime = Docker, Dockerfile Path = `Dockerfile`, Docker Build Context = raíz del repo.
 
 ## Instalación y ejecución
 
