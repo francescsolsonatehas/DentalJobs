@@ -315,6 +315,14 @@ db.serialize(() => {
     // Ignorar error si la columna ya existe
   });
 
+  // Salas de chat compartidas (canal único, visible para todo el que entra, no un
+  // hilo privado): 'todos' (clínicas y dentistas), 'clinicas' (solo clínicas),
+  // 'dentistas' (solo dentistas). Un mensaje de sala no tiene destinatario_id (es
+  // para todo el que tenga acceso a esa sala) ni publicacion_id/contacto_perfil_id.
+  db.run(`ALTER TABLE mensajes ADD COLUMN sala TEXT`, (err) => {
+    // Ignorar error si la columna ya existe
+  });
+
   db.run(`ALTER TABLE usuarios ADD COLUMN email_verificado INTEGER DEFAULT 0`, (err) => {
     // Ignorar error si la columna ya existe
   });

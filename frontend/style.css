@@ -2055,6 +2055,14 @@ select:focus {
   text-align: right;
 }
 
+.chat-burbuja-remitente {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0f4c75;
+  margin-bottom: 0.2rem;
+}
+
 .chat-ticks {
   font-weight: 700;
 }

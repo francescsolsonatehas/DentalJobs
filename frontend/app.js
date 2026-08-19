@@ -7892,6 +7892,9 @@ const app = {
   chat: {
     pollingInterval: null,
     conversacionActual: null,
+    // Sala compartida abierta ('todos' | 'clinicas' | 'dentistas'), o null si se está
+    // en una conversación 1:1 o en la bandeja. Nunca coexiste con conversacionActual.
+    salaActual: null,
     ultimaSenalEscribiendo: 0,
     // Mientras se elige con quién empezar un chat nuevo (fuera de la bandeja y de una
     // conversación), el polling no debe repintar la bandeja encima de esta vista.
@@ -7919,6 +7922,7 @@ const app = {
     cerrar() {
       this.detenerPolling();
       this.conversacionActual = null;
+      this.salaActual = null;
       this.enDirectorio = false;
       document.getElementById("modalChat").classList.remove("active");
       app.chat.actualizarContador();
@@ -8044,65 +8048,39 @@ const app = {
       }
     },
 
-    // Pestaña para elegir con quién empezar un chat nuevo: primero el tipo (todos,
-    // clínica o dentista), y con ese tipo elegido, el directorio ordenado por
-    // cercanía y apellido.
+    // Pestaña para elegir con quién empezar un chat nuevo: no es un hilo privado con
+    // una persona, sino una sala compartida (canal único) según el tipo. "Todas las
+    // clínicas" y "Todos los dentistas" solo se ofrecen a ese tipo de usuario; ni
+    // siquiera aparecen para el otro.
     abrirDirectorio() {
       this.conversacionActual = null;
       this.enDirectorio = true;
+      const tipo = estadoApp.usuario?.tipo;
       document.getElementById("chatTitle").textContent = "💬 Nuevo chat";
       document.getElementById("chatBody").innerHTML = `
         <button class="btn-text btn-small" onclick="app.chat.renderConversaciones()" style="margin-bottom: 0.75rem;">← Volver a conversaciones</button>
         <p style="color:#6b7280;margin:0 0 .75rem;">¿Con quién quieres empezar a chatear?</p>
         <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem;">
-          <button class="btn-outline" onclick="app.chat.renderDirectorio('todos')">🏥🦷 Todas las Clínicas y Dentistas</button>
-          <button class="btn-outline" onclick="app.chat.renderDirectorio('clinica')">🏥 Selecciona una clínica</button>
-          <button class="btn-outline" onclick="app.chat.renderDirectorio('dentista')">🦷 Selecciona un dentista</button>
+          <button class="btn-outline" onclick="app.chat.abrirSala('todos')">🏥🦷 Todas las clínicas y dentistas</button>
+          ${tipo === 'clinica' ? `<button class="btn-outline" onclick="app.chat.abrirSala('clinicas')">🏥 Todas las clínicas</button>` : ''}
+          ${tipo === 'dentista' ? `<button class="btn-outline" onclick="app.chat.abrirSala('dentistas')">🦷 Todos los dentistas</button>` : ''}
         </div>
       `;
     },
 
-    async renderDirectorio(tipo) {
-      const titulos = { todos: "💬 Todas las Clínicas y Dentistas", clinica: "💬 Elige una clínica", dentista: "💬 Elige un dentista" };
-      document.getElementById("chatTitle").textContent = titulos[tipo] || titulos.todos;
-      document.getElementById("chatBody").innerHTML = `
-        <button class="btn-text btn-small" onclick="app.chat.abrirDirectorio()" style="margin-bottom: 0.75rem;">← Elegir otro tipo</button>
-        <div id="chatDirectorioLista"><p style="color:#9ca3af;text-align:center;">Cargando…</p></div>
-      `;
-      try {
-        const data = await utils.request(`/chat/directorio?tipo=${tipo}`);
-        const perfiles = data.perfiles || [];
-        const cont = document.getElementById("chatDirectorioLista");
-        if (!cont) return;
-
-        if (!perfiles.length) {
-          const vacios = { todos: 'No hay clínicas ni dentistas disponibles todavía.', clinica: 'No hay clínicas disponibles todavía.', dentista: 'No hay dentistas disponibles todavía.' };
-          cont.innerHTML = `<p style="padding:1rem;text-align:center;color:#6b7280;">${vacios[tipo] || vacios.todos}</p>`;
-          return;
-        }
-
-        cont.innerHTML = `<div class="chat-conversaciones">` + perfiles.map(p => {
-          const nombreEsc = utils.escapeHtml(p.nombre || 'Usuario').replace(/'/g, "\\'");
-          const distancia = p.distanciaKm != null ? `${Math.round(p.distanciaKm)} km` : '';
-          const icono = tipo === 'todos' ? (p.tipo === 'clinica' ? '🏥 ' : '🦷 ') : '';
-          return `
-            <div class="chat-conversacion-item" onclick="app.chat.iniciarNuevoChat(${p.id}, '${nombreEsc}')">
-              <div class="chat-conversacion-info">
-                <strong>${icono}${utils.escapeHtml(p.nombre || 'Usuario')}</strong>
-                <p class="chat-conversacion-ultimo">${utils.escapeHtml(p.ciudad || '')}</p>
-              </div>
-              <div class="chat-conversacion-meta">
-                ${distancia ? `<span class="chat-conversacion-fecha">${distancia}</span>` : ''}
-              </div>
-            </div>`;
-        }).join("") + `</div>`;
-      } catch (error) {
-        utils.mostrarAlerta(error.message, "error");
-      }
-    },
-
-    async iniciarNuevoChat(otroId, otroNombre) {
-      await this.abrirConversacion(otroId, otroNombre);
+    // Abre una sala compartida: un único canal para todo el que tenga acceso, no un
+    // hilo privado por persona. Reutiliza la misma UI de hilo que el chat 1:1.
+    async abrirSala(sala) {
+      this.enDirectorio = false;
+      this.conversacionActual = null;
+      this.salaActual = sala;
+      this.adjuntosPendientes = [];
+      const nombres = { todos: 'Todas las clínicas y dentistas', clinicas: 'Todas las clínicas', dentistas: 'Todos los dentistas' };
+      this.renderHiloUI(nombres[sala] || 'Sala');
+      await this.refrescarHilo(true);
+      this.cargarAtajosArchivos();
+      const input = document.getElementById("chatInput");
+      if (input) input.focus();
     },
 
     renderHiloUI(otroNombre) {
@@ -8139,6 +8117,7 @@ const app = {
     // abre siempre y el nombre se rellena cuando llega, si llega.
     async abrirConversacion(otroId, otroNombre) {
       this.enDirectorio = false;
+      this.salaActual = null;
       this.conversacionActual = { otro_id: otroId, otro_nombre: otroNombre };
       this.adjuntosPendientes = [];
       this.renderHiloUI(otroNombre || "Conversación");
@@ -8164,15 +8143,17 @@ const app = {
 
     async volverALista() {
       this.conversacionActual = null;
+      this.salaActual = null;
       await this.renderConversaciones();
     },
 
     async refrescarHilo(forzarScroll = false) {
       const conv = this.conversacionActual;
-      if (!conv) return;
+      const sala = this.salaActual;
+      if (!conv && !sala) return;
 
       try {
-        const data = await utils.request(`/chat/con/${conv.otro_id}`);
+        const data = await utils.request(sala ? `/chat/sala/${sala}` : `/chat/con/${conv.otro_id}`);
         const mensajes = data.mensajes || [];
         const contenedor = document.getElementById("chatMensajes");
         if (!contenedor) return;
@@ -8189,7 +8170,7 @@ const app = {
           let contextoAnterior = null;
           contenedor.innerHTML = mensajes.map(m => {
             const esMio = m.usuario_id === estadoApp.usuario.id;
-            const ticks = esMio
+            const ticks = (esMio && !sala)
               ? `<span class="chat-ticks ${m.leido ? 'chat-ticks-leido' : ''}">${m.leido ? '✓✓' : '✓'}</span>`
               : '';
             const hora = new Date(m.creado_en).toLocaleTimeString("es-ES", { hour: '2-digit', minute: '2-digit' });
@@ -8203,12 +8184,18 @@ const app = {
             }
             contextoAnterior = contexto;
 
+            // En una sala hablan varias personas: hace falta saber quién escribió
+            // cada mensaje que no es mío (en un hilo 1:1 ya se sabe por el título).
+            const remitenteHtml = (sala && !esMio)
+              ? `<span class="chat-burbuja-remitente">${utils.escapeHtml(m.remitente_nombre_usuario || m.remitente_nombre || 'Usuario')}</span>`
+              : '';
+
             const cuerpoHtml = m.cuerpo ? `<p>${utils.escapeHtml(m.cuerpo)}</p>` : '';
             const adjuntoHtml = m.archivo_id ? this.renderAdjunto(m) : '';
 
             return separador + `
               <div class="chat-burbuja ${esMio ? 'chat-burbuja-mia' : 'chat-burbuja-otro'}">
-                ${cuerpoHtml}${adjuntoHtml}
+                ${remitenteHtml}${cuerpoHtml}${adjuntoHtml}
                 <span class="chat-burbuja-meta">${utils.formatearFecha(m.creado_en)} ${hora} ${ticks}</span>
               </div>
             `;
@@ -8235,8 +8222,9 @@ const app = {
     // se referencia por su id.
     async enviar() {
       const conv = this.conversacionActual;
+      const sala = this.salaActual;
       const input = document.getElementById("chatInput");
-      if (!conv || this._enviando) return;
+      if ((!conv && !sala) || this._enviando) return;
 
       const cuerpo = input ? input.value.trim() : "";
       const pendientes = this.adjuntosPendientes;
@@ -8258,7 +8246,7 @@ const app = {
           }
         }
 
-        const enviarMensaje = (body) => utils.request(`/chat/con/${conv.otro_id}`, {
+        const enviarMensaje = (body) => utils.request(sala ? `/chat/sala/${sala}` : `/chat/con/${conv.otro_id}`, {
           method: "POST",
           body: JSON.stringify(body)
         });
@@ -8463,7 +8451,7 @@ const app = {
           this.detenerPolling();
           return;
         }
-        if (this.conversacionActual) {
+        if (this.conversacionActual || this.salaActual) {
           await this.refrescarHilo();
         } else if (!this.enDirectorio) {
           await this.renderConversaciones();

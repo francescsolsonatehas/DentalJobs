@@ -3863,61 +3863,101 @@ const ESCRIBIENDO_TTL_MS = 5000;
 // Último aviso por email de mensajes de chat, por interlocutor (throttle 1 h)
 const ultimaNotificacionChat = new Map();
 
-// Directorio para elegir con quién empezar un chat nuevo: todos los usuarios del tipo
-// pedido (excepto uno mismo), ordenados por cercanía (si ambos tienen ciudad
-// geocodificada) y, a igualdad, por el último apellido/palabra del nombre. Respeta el
-// mismo "perfil_publico" que oculta a un dentista del listado de perfiles.
-app.get("/chat/directorio", verifyToken, (req, res) => {
-  // Sin tipo reconocido (o "todos"), se listan clínicas y dentistas juntos.
-  const tipo = ['clinica', 'dentista'].includes(req.query.tipo) ? req.query.tipo : 'todos';
-  const usuarioId = req.usuario.id;
+// Salas de chat: canales compartidos (no un hilo privado 1:1) donde todo el que
+// tiene acceso ve los mismos mensajes y puede responder ahí. 'todos' es para
+// cualquiera; 'clinicas' y 'dentistas' son de acceso exclusivo a ese tipo de
+// usuario (ni siquiera se listan para el otro tipo en el frontend).
+const SALAS_VALIDAS = ['todos', 'clinicas', 'dentistas'];
+function accesoSala(sala, tipoUsuario) {
+  if (sala === 'todos') return true;
+  if (sala === 'clinicas') return tipoUsuario === 'clinica';
+  if (sala === 'dentistas') return tipoUsuario === 'dentista';
+  return false;
+}
 
-  db.get("SELECT ciudad, lat, lon FROM usuarios WHERE id = ?", [usuarioId], (errYo, yo) => {
-    if (errYo) {
-      console.error(errYo);
-      return res.status(500).json({ error: "Error al obtener el directorio" });
-    }
+app.get("/chat/sala/:sala", verifyToken, (req, res) => {
+  const sala = req.params.sala;
+  if (!SALAS_VALIDAS.includes(sala)) {
+    return res.status(404).json({ error: "Sala no encontrada" });
+  }
+  if (!accesoSala(sala, req.usuario.tipo)) {
+    return res.status(403).json({ error: "No tienes acceso a esta sala" });
+  }
 
-    let query = `SELECT id, nombre, tipo, ciudad, lat, lon, foto_perfil_archivo_id
-                 FROM usuarios WHERE id != ? AND nombre != 'Usuario eliminado'`;
-    const params = [usuarioId];
-    if (tipo === 'todos') {
-      query += " AND tipo IN ('clinica', 'dentista')";
-    } else {
-      query += " AND tipo = ?";
-      params.push(tipo);
-    }
-    // Un dentista puede ocultar su perfil del listado que ven las clínicas; aquí se
-    // respeta igual, tanto si se pide solo "dentista" como en el listado combinado.
-    query += " AND (tipo != 'dentista' OR perfil_publico IS NULL OR perfil_publico = 1)";
-
-    db.all(query, params, (err, filas) => {
+  db.all(
+    `SELECT m.*, ur.nombre as remitente_nombre_usuario,
+            a.tipo as archivo_tipo, a.nombre_archivo as archivo_nombre,
+            a.tamanyo as archivo_tamanyo, a.mime_type as archivo_mime
+     FROM mensajes m
+     LEFT JOIN usuarios ur ON m.usuario_id = ur.id
+     LEFT JOIN archivos a ON m.archivo_id = a.id
+     WHERE m.sala = ?
+     ORDER BY m.creado_en ASC
+     LIMIT 200`,
+    [sala],
+    (err, mensajes) => {
       if (err) {
         console.error(err);
-        return res.status(500).json({ error: "Error al obtener el directorio" });
+        return res.status(500).json({ error: "Error al obtener la sala" });
+      }
+      res.json({ mensajes: mensajes || [] });
+    }
+  );
+});
+
+// Enviar un mensaje a una sala compartida. Sin aviso por email (a diferencia del
+// chat 1:1): podría llegar a mucha gente a la vez y sería spam.
+app.post("/chat/sala/:sala", verifyToken, (req, res) => {
+  const sala = req.params.sala;
+  const usuarioId = req.usuario.id;
+  const cuerpo = (req.body.cuerpo || "").trim();
+  const archivoId = req.body.archivo_id ? parseInt(req.body.archivo_id) : null;
+
+  if (!SALAS_VALIDAS.includes(sala)) {
+    return res.status(404).json({ error: "Sala no encontrada" });
+  }
+  if (!accesoSala(sala, req.usuario.tipo)) {
+    return res.status(403).json({ error: "No tienes acceso a esta sala" });
+  }
+  if (!cuerpo && !archivoId) {
+    return res.status(400).json({ error: "Faltan datos obligatorios" });
+  }
+
+  const comprobarArchivo = (cb) => {
+    if (!archivoId) return cb(null);
+    db.get("SELECT usuario_id FROM archivos WHERE id = ?", [archivoId], (errA, archivo) => {
+      if (errA) return cb(errA);
+      if (!archivo) return cb({ status: 404, msg: "El adjunto no existe" });
+      if (archivo.usuario_id !== usuarioId) return cb({ status: 403, msg: "No puedes adjuntar un archivo que no es tuyo" });
+      cb(null);
+    });
+  };
+
+  comprobarArchivo((errArch) => {
+    if (errArch) {
+      if (errArch.status) return res.status(errArch.status).json({ error: errArch.msg });
+      console.error(errArch);
+      return res.status(500).json({ error: "Error al enviar mensaje" });
+    }
+
+    db.get("SELECT nombre, email FROM usuarios WHERE id = ?", [usuarioId], (err2, remitente) => {
+      if (err2 || !remitente) {
+        console.error(err2);
+        return res.status(500).json({ error: "Error al enviar mensaje" });
       }
 
-      const apellido = (nombre) => (nombre || '').trim().split(/\s+/).pop().toLocaleLowerCase('es');
-
-      const perfiles = (filas || [])
-        .map(u => ({
-          id: u.id,
-          nombre: u.nombre,
-          tipo: u.tipo,
-          ciudad: u.ciudad,
-          foto_perfil_archivo_id: u.foto_perfil_archivo_id,
-          distanciaKm: (yo && yo.lat != null && yo.lon != null && u.lat != null && u.lon != null)
-            ? distanciaKm(yo.lat, yo.lon, u.lat, u.lon)
-            : null
-        }))
-        .sort((a, b) => {
-          const da = a.distanciaKm ?? Infinity;
-          const db_ = b.distanciaKm ?? Infinity;
-          if (da !== db_) return da - db_;
-          return apellido(a.nombre).localeCompare(apellido(b.nombre), 'es');
-        });
-
-      res.json({ perfiles });
+      db.run(
+        `INSERT INTO mensajes (publicacion_id, contacto_perfil_id, usuario_id, destinatario_id, sala, remitente_nombre, remitente_email, cuerpo, archivo_id)
+         VALUES (NULL, NULL, ?, NULL, ?, ?, ?, ?, ?)`,
+        [usuarioId, sala, remitente.nombre, remitente.email, cuerpo, archivoId],
+        function(err3) {
+          if (err3) {
+            console.error(err3);
+            return res.status(500).json({ error: "Error al enviar mensaje" });
+          }
+          res.json({ mensaje: "Mensaje enviado", id: this.lastID });
+        }
+      );
     });
   });
 });
