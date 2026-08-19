@@ -3069,47 +3069,6 @@ app.get("/publicaciones/:id/especialidades", (req, res) => {
   );
 });
 
-app.post("/publicaciones/:id/especialidades", verifyToken, (req, res) => {
-  const { especialidades } = req.body;
-  const publicacionId = req.params.id;
-
-  if (!Array.isArray(especialidades)) {
-    return res.status(400).json({ error: "Especialidades debe ser un array" });
-  }
-
-  // Verificar que la publicación pertenece al usuario
-  db.get("SELECT usuario_id FROM publicaciones WHERE id = ?", [publicacionId], (err, pub) => {
-    if (err || !pub) {
-      return res.status(404).json({ error: "Publicación no encontrada" });
-    }
-
-    if (pub.usuario_id !== req.usuario.id) {
-      return res.status(403).json({ error: "No tienes permiso para modificar esta publicación" });
-    }
-
-    if (especialidades.length === 0) {
-      return res.json({ success: true });
-    }
-
-    const stmt = db.prepare(
-      "INSERT INTO publicacion_especialidades (publicacion_id, especialidad_id) VALUES (?, ?)"
-    );
-
-    especialidades.forEach(espId => {
-      stmt.run(publicacionId, espId);
-    });
-
-    stmt.finalize((err) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al guardar especialidades" });
-      }
-
-      res.json({ success: true });
-    });
-  });
-});
-
 app.put("/publicaciones/:id", verifyToken, (req, res) => {
   const { descripcion, ciudad, especialidades, contrato, jornada, salario, experiencia, nombre_contacto, email_contacto, telefono_contacto, preguntas, dias, fecha_desde, fecha_hasta, diasSemana } = req.body;
   // Solo se actualizan las preguntas si el cliente las envía (undefined = no tocar)
@@ -3247,38 +3206,6 @@ app.delete("/publicaciones/:id", verifyToken, (req, res) => {
 });
 
 // Endpoints de estadísticas
-app.get("/stats/total-clinicas", (req, res) => {
-  db.get(
-    "SELECT COUNT(DISTINCT usuario_id) as total FROM publicaciones WHERE tipo = 'oferta' AND activo = 1",
-    (err, result) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener total de clínicas" });
-      }
-      res.json({ total: result.total || 0 });
-    }
-  );
-});
-
-// Estadísticas para dentistas (candidatos)
-app.get("/stats/mis-postulaciones/:usuario_id", verifyToken, (req, res) => {
-  const usuario_id = req.params.usuario_id;
-  db.get(
-    `SELECT COUNT(*) as total
-     FROM candidaturas c
-     INNER JOIN publicaciones p ON c.publicacion_id = p.id
-     WHERE c.usuario_id = ? AND p.activo = 1`,
-    [usuario_id],
-    (err, result) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener postulaciones" });
-      }
-      res.json({ total: result.total || 0 });
-    }
-  );
-});
-
 app.get("/stats/mis-postulaciones-lista/:usuario_id", verifyToken, (req, res) => {
   const usuario_id = req.params.usuario_id;
   db.all(
@@ -3356,42 +3283,6 @@ app.get("/stats/posibles-candidatos-lista/:empresa_id", verifyToken, (req, res) 
         return res.status(500).json({ error: "Error al obtener posibles candidatos" });
       }
       res.json(candidatos || []);
-    }
-  );
-});
-
-app.get("/stats/clinicas-potenciales/:usuario_id", verifyToken, (req, res) => {
-  db.get(
-    `WITH pub_esp AS (
-       SELECT pe.publicacion_id, pe.especialidad_id FROM publicacion_especialidades pe
-       UNION
-       SELECT p.id as publicacion_id, p.especialidad_id FROM publicaciones p
-       WHERE p.especialidad_id IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM publicacion_especialidades WHERE publicacion_id = p.id)
-     )
-     SELECT COUNT(*) as total
-     FROM (
-       SELECT DISTINCT s.id as publicacion_id, o.usuario_id
-       FROM publicaciones o
-       INNER JOIN publicaciones s ON s.usuario_id = ? AND s.tipo = 'solicitud' AND s.activo = 1
-         AND (o.ciudad = s.ciudad OR s.ciudad LIKE '%' || o.ciudad || '%' OR o.ciudad LIKE '%' || s.ciudad || '%')
-       WHERE o.tipo = 'oferta' AND o.activo = 1
-       AND (
-         NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = o.id)
-         OR NOT EXISTS (SELECT 1 FROM pub_esp WHERE publicacion_id = s.id)
-         OR EXISTS (
-           SELECT 1 FROM pub_esp peo INNER JOIN pub_esp pes ON peo.especialidad_id = pes.especialidad_id
-           WHERE peo.publicacion_id = o.id AND pes.publicacion_id = s.id
-         )
-       )
-     )`,
-    [req.params.usuario_id],
-    (err, result) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener clínicas potenciales" });
-      }
-      res.json({ total: result.total || 0 });
     }
   );
 });
@@ -3487,23 +3378,6 @@ app.get("/stats/dentistas-por-especialidad", (req, res) => {
         return res.status(500).json({ error: "Error al obtener dentistas por especialidad" });
       }
       res.json(resultado || []);
-    }
-  );
-});
-
-app.get("/stats/postulaciones-recibidas-dentista/:usuario_id", verifyToken, (req, res) => {
-  db.get(
-    `SELECT COUNT(*) as total
-     FROM candidaturas c
-     INNER JOIN publicaciones p ON c.publicacion_id = p.id
-     WHERE p.usuario_id = ? AND p.tipo IN ('solicitud', 'colaboracion') AND p.activo = 1`,
-    [req.params.usuario_id],
-    (err, result) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener postulaciones recibidas" });
-      }
-      res.json({ total: result.total || 0 });
     }
   );
 });
@@ -3976,92 +3850,6 @@ app.post("/mensajes", verifyToken, (req, res) => {
       }
     );
   });
-});
-
-// Obtener conversaciones del usuario (bandeja de entrada)
-app.get("/mensajes/conversaciones", verifyToken, (req, res) => {
-  const usuario_id = req.usuario.id;
-
-  db.all(
-    `SELECT DISTINCT
-      m.remitente_email,
-      m.remitente_nombre,
-      MAX(m.creado_en) as ultima_fecha,
-      SUM(CASE WHEN m.leido = 0 AND m.usuario_id = ? THEN 1 ELSE 0 END) as no_leidos,
-      (SELECT COUNT(*) FROM mensajes m2 WHERE m2.remitente_email = m.remitente_email) as total_mensajes
-     FROM mensajes m
-     WHERE m.usuario_id = ? OR m.remitente_email IN (
-       SELECT remitente_email FROM mensajes WHERE usuario_id = ?
-     )
-     GROUP BY m.remitente_email
-     ORDER BY ultima_fecha DESC`,
-    [usuario_id, usuario_id, usuario_id],
-    (err, conversaciones) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener conversaciones" });
-      }
-
-      res.json({ conversaciones: conversaciones || [] });
-    }
-  );
-});
-
-// Obtener historial de conversación con un usuario específico
-app.get("/mensajes/conversacion/:email", verifyToken, (req, res) => {
-  const usuario_id = req.usuario.id;
-  const email = req.params.email;
-
-  db.all(
-    `SELECT * FROM mensajes
-     WHERE (usuario_id = ? AND remitente_email = ?) OR (remitente_email = ? AND usuario_id = ?)
-     ORDER BY creado_en DESC`,
-    [usuario_id, email, email, usuario_id],
-    (err, mensajes) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener conversación" });
-      }
-
-      res.json({ mensajes: (mensajes || []).reverse() });
-    }
-  );
-});
-
-// Marcar mensaje como leído
-app.put("/mensajes/:id/leer", verifyToken, (req, res) => {
-  const mensaje_id = req.params.id;
-
-  db.run(
-    "UPDATE mensajes SET leido = 1 WHERE id = ?",
-    [mensaje_id],
-    (err) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al marcar como leído" });
-      }
-
-      res.json({ success: true });
-    }
-  );
-});
-
-// Contar mensajes no leídos
-app.get("/mensajes/no-leidos/count", verifyToken, (req, res) => {
-  const usuario_id = req.usuario.id;
-
-  db.get(
-    "SELECT COUNT(*) as total FROM mensajes WHERE usuario_id = ? AND leido = 0",
-    [usuario_id],
-    (err, result) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al contar mensajes" });
-      }
-
-      res.json({ no_leidos: result.total });
-    }
-  );
 });
 
 /* ===========================
@@ -4570,27 +4358,6 @@ app.get("/exportar/:vista.csv", verifyToken, async (req, res) => {
    🔹 CANDIDATURAS
 =========================== */
 
-// Exportar postulaciones a CSV: 'recibidas' (sobre mis publicaciones) o 'enviadas' (las mías).
-app.get("/candidaturas/export.csv", verifyToken, async (req, res) => {
-  const tipoExport = req.query.tipo || (req.usuario.tipo === "clinica" ? "recibidas" : "enviadas");
-  if (!["recibidas", "enviadas"].includes(tipoExport)) {
-    return res.status(400).json({ error: "Tipo de exportación inválido" });
-  }
-
-  const vista = tipoExport === "recibidas" ? "postulaciones-recibidas" : "mis-postulaciones";
-
-  try {
-    const { csv } = await generarCsv(db, req.usuario, vista, {});
-    const fecha = new Date().toISOString().slice(0, 10);
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="postulaciones-${tipoExport}-${fecha}.csv"`);
-    res.send(csv);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error al exportar postulaciones" });
-  }
-});
-
 // Crear candidatura (dentista postulándose a oferta)
 app.post("/candidaturas", verifyToken, (req, res) => {
   const { publicacion_id, mensaje, respuestas } = req.body;
@@ -4930,83 +4697,6 @@ app.delete("/sedes/:id", verifyToken, (req, res) => {
           res.json({ mensaje: "Centro eliminado" });
         });
       });
-    });
-  });
-});
-
-/* ===========================
-   🔹 PLANTILLAS DE PUBLICACIÓN
-=========================== */
-
-app.post("/plantillas", verifyToken, (req, res) => {
-  const { nombre, tipo, descripcion, ciudad, contrato, jornada, salario, experiencia,
-          nombre_contacto, email_contacto, telefono_contacto, especialidades } = req.body;
-
-  if (!nombre || !nombre.trim()) {
-    return res.status(400).json({ error: "La plantilla necesita un nombre" });
-  }
-  if (!["oferta", "solicitud", "suplencia"].includes(tipo)) {
-    return res.status(400).json({ error: "Tipo de plantilla inválido" });
-  }
-
-  const experienciaNum = experiencia !== undefined && experiencia !== null && experiencia !== ''
-    ? parseInt(experiencia)
-    : null;
-
-  db.run(
-    `INSERT INTO plantillas_publicacion
-     (usuario_id, nombre, tipo, descripcion, ciudad, contrato, jornada, salario, experiencia,
-      nombre_contacto, email_contacto, telefono_contacto, especialidades)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [req.usuario.id, nombre.trim(), tipo, descripcion || null, ciudad || null, contrato || null,
-     jornada || null, salario || null, experienciaNum, nombre_contacto || null,
-     email_contacto || null, telefono_contacto || null,
-     JSON.stringify(Array.isArray(especialidades) ? especialidades : [])],
-    function(err) {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al guardar plantilla" });
-      }
-      res.json({ mensaje: "Plantilla guardada", id: this.lastID });
-    }
-  );
-});
-
-app.get("/plantillas", verifyToken, (req, res) => {
-  db.all(
-    "SELECT * FROM plantillas_publicacion WHERE usuario_id = ? ORDER BY nombre",
-    [req.usuario.id],
-    (err, plantillas) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al obtener plantillas" });
-      }
-      const lista = (plantillas || []).map(p => ({
-        ...p,
-        especialidades: (() => {
-          try { return JSON.parse(p.especialidades || "[]"); } catch (e) { return []; }
-        })()
-      }));
-      res.json({ plantillas: lista });
-    }
-  );
-});
-
-app.delete("/plantillas/:id", verifyToken, (req, res) => {
-  db.get("SELECT usuario_id FROM plantillas_publicacion WHERE id = ?", [req.params.id], (err, plantilla) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Error al eliminar plantilla" });
-    }
-    if (!plantilla || plantilla.usuario_id !== req.usuario.id) {
-      return res.status(403).json({ error: "No tienes permiso para eliminar esta plantilla" });
-    }
-    db.run("DELETE FROM plantillas_publicacion WHERE id = ?", [req.params.id], (err) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Error al eliminar plantilla" });
-      }
-      res.json({ mensaje: "Plantilla eliminada" });
     });
   });
 });

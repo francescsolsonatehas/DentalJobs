@@ -103,14 +103,11 @@ Luego accede a `http://localhost:8000` (o el puerto que configure)
 - `POST /publicaciones/:id/vista` — Registrar una vista
 - `GET /publicaciones/:id/estadisticas` — Vistas, postulantes por estado y tiempo medio de respuesta (solo dueño)
 
-### Plantillas
-- `POST /plantillas` / `GET /plantillas` / `DELETE /plantillas/:id` — Plantillas de publicación reutilizables
-
 ### Sedes
 - `POST /sedes` / `GET /sedes` / `PUT /sedes/:id` / `DELETE /sedes/:id` — Sedes de una clínica; las ofertas pueden asociarse con `sede_id`
 
 ### Exportación
-- `GET /candidaturas/export.csv` — Exportar postulaciones recibidas o enviadas (`?tipo=recibidas|enviadas`)
+- `GET /exportar/:vista.csv` — Exportar cualquier vista de listado (postulaciones, publicaciones, dentistas…) a CSV
 
 ### Administración
 Requieren la cabecera `X-Admin-Token` con el valor de `ADMIN_TOKEN` (ver `.env.example`).
@@ -119,10 +116,6 @@ Requieren la cabecera `X-Admin-Token` con el valor de `ADMIN_TOKEN` (ver `.env.e
 
 ## Desarrollo futuro
 
-- [ ] Búsqueda fulltext (nombre de clínica, especialista)
-- [ ] Recomendaciones basadas en perfil
-- [ ] Notificaciones por email
-- [ ] Verificación de email
 - [ ] Publicaciones destacadas / planes de suscripción
 
 ## Licencia

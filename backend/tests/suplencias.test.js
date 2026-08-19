@@ -95,14 +95,6 @@ test("suplencias y turnos sueltos", async (t) => {
     assert.ok(res.text.includes(`/oferta/${oferta.body.id}</loc>`));
   });
 
-  await t.test("una plantilla de tipo suplencia es válida", async () => {
-    const res = await request(app)
-      .post("/plantillas")
-      .set("Authorization", `Bearer ${clinica.token}`)
-      .send({ nombre: "Suplencia fin de semana", tipo: "suplencia", ciudad: "Reus", descripcion: "Plantilla de prueba" });
-    assert.equal(res.status, 200);
-  });
-
   await t.test("'Mis publicaciones' de una clínica devuelve tanto ofertas como suplencias sin filtrar por tipo", async () => {
     const res = await request(app).get(`/publicaciones?usuario_id=${clinica.usuario.id}&limit=100`);
     const tipos = new Set(res.body.map(p => p.tipo));
