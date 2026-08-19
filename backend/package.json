@@ -17,7 +17,6 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@ilovepdf/ilovepdf-nodejs": "^0.3.1",
     "@libsql/client": "^0.17.4",
     "bcryptjs": "^2.4.3",
     "compression": "^1.8.1",
