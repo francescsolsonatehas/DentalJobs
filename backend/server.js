@@ -3863,6 +3863,65 @@ const ESCRIBIENDO_TTL_MS = 5000;
 // Último aviso por email de mensajes de chat, por interlocutor (throttle 1 h)
 const ultimaNotificacionChat = new Map();
 
+// Directorio para elegir con quién empezar un chat 1:1 nuevo: todos los usuarios del
+// tipo pedido (excepto uno mismo), ordenados por cercanía (si ambos tienen ciudad
+// geocodificada) y, a igualdad, por el último apellido/palabra del nombre. Respeta el
+// mismo "perfil_publico" que oculta a un dentista del listado de perfiles.
+app.get("/chat/directorio", verifyToken, (req, res) => {
+  // Sin tipo reconocido (o "todos"), se listan clínicas y dentistas juntos.
+  const tipo = ['clinica', 'dentista'].includes(req.query.tipo) ? req.query.tipo : 'todos';
+  const usuarioId = req.usuario.id;
+
+  db.get("SELECT ciudad, lat, lon FROM usuarios WHERE id = ?", [usuarioId], (errYo, yo) => {
+    if (errYo) {
+      console.error(errYo);
+      return res.status(500).json({ error: "Error al obtener el directorio" });
+    }
+
+    let query = `SELECT id, nombre, tipo, ciudad, lat, lon, foto_perfil_archivo_id
+                 FROM usuarios WHERE id != ? AND nombre != 'Usuario eliminado'`;
+    const params = [usuarioId];
+    if (tipo === 'todos') {
+      query += " AND tipo IN ('clinica', 'dentista')";
+    } else {
+      query += " AND tipo = ?";
+      params.push(tipo);
+    }
+    // Un dentista puede ocultar su perfil del listado que ven las clínicas; aquí se
+    // respeta igual, tanto si se pide solo "dentista" como en el listado combinado.
+    query += " AND (tipo != 'dentista' OR perfil_publico IS NULL OR perfil_publico = 1)";
+
+    db.all(query, params, (err, filas) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Error al obtener el directorio" });
+      }
+
+      const apellido = (nombre) => (nombre || '').trim().split(/\s+/).pop().toLocaleLowerCase('es');
+
+      const perfiles = (filas || [])
+        .map(u => ({
+          id: u.id,
+          nombre: u.nombre,
+          tipo: u.tipo,
+          ciudad: u.ciudad,
+          foto_perfil_archivo_id: u.foto_perfil_archivo_id,
+          distanciaKm: (yo && yo.lat != null && yo.lon != null && u.lat != null && u.lon != null)
+            ? distanciaKm(yo.lat, yo.lon, u.lat, u.lon)
+            : null
+        }))
+        .sort((a, b) => {
+          const da = a.distanciaKm ?? Infinity;
+          const db_ = b.distanciaKm ?? Infinity;
+          if (da !== db_) return da - db_;
+          return apellido(a.nombre).localeCompare(apellido(b.nombre), 'es');
+        });
+
+      res.json({ perfiles });
+    });
+  });
+});
+
 // Salas de chat: canales compartidos (no un hilo privado 1:1) donde todo el que
 // tiene acceso ve los mismos mensajes y puede responder ahí. 'todos' es para
 // cualquiera; 'clinicas' y 'dentistas' son de acceso exclusivo a ese tipo de

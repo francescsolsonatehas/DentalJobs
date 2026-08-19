@@ -8048,10 +8048,10 @@ const app = {
       }
     },
 
-    // Pestaña para elegir con quién empezar un chat nuevo: no es un hilo privado con
-    // una persona, sino una sala compartida (canal único) según el tipo. "Todas las
-    // clínicas" y "Todos los dentistas" solo se ofrecen a ese tipo de usuario; ni
-    // siquiera aparecen para el otro.
+    // Pestaña para elegir con quién empezar un chat nuevo: las salas son un único
+    // canal compartido según el tipo ("Todas las clínicas"/"Todos los dentistas" solo
+    // se ofrecen a ese tipo de usuario; ni siquiera aparecen para el otro), y además
+    // se puede elegir a una persona concreta para un hilo 1:1 privado.
     abrirDirectorio() {
       this.conversacionActual = null;
       this.enDirectorio = true;
@@ -8064,8 +8064,55 @@ const app = {
           <button class="btn-outline" onclick="app.chat.abrirSala('todos')">🏥🦷 Todas las clínicas y dentistas</button>
           ${tipo === 'clinica' ? `<button class="btn-outline" onclick="app.chat.abrirSala('clinicas')">🏥 Todas las clínicas</button>` : ''}
           ${tipo === 'dentista' ? `<button class="btn-outline" onclick="app.chat.abrirSala('dentistas')">🦷 Todos los dentistas</button>` : ''}
+          <button class="btn-outline" onclick="app.chat.renderDirectorio('clinica')">🏥 Selecciona una clínica</button>
+          <button class="btn-outline" onclick="app.chat.renderDirectorio('dentista')">🦷 Selecciona un dentista</button>
         </div>
       `;
+    },
+
+    // Lista de personas de un tipo para elegir una y abrirle un hilo 1:1 privado
+    // (a diferencia de las salas, que son un canal compartido). Ordenada por
+    // cercanía y, a igualdad, por el último apellido del nombre.
+    async renderDirectorio(tipo) {
+      const titulos = { clinica: "💬 Elige una clínica", dentista: "💬 Elige un dentista" };
+      document.getElementById("chatTitle").textContent = titulos[tipo] || "💬 Nuevo chat";
+      document.getElementById("chatBody").innerHTML = `
+        <button class="btn-text btn-small" onclick="app.chat.abrirDirectorio()" style="margin-bottom: 0.75rem;">← Volver</button>
+        <div id="chatDirectorioLista"><p style="color:#9ca3af;text-align:center;">Cargando…</p></div>
+      `;
+      try {
+        const data = await utils.request(`/chat/directorio?tipo=${tipo}`);
+        const perfiles = data.perfiles || [];
+        const cont = document.getElementById("chatDirectorioLista");
+        if (!cont) return;
+
+        if (!perfiles.length) {
+          const vacios = { clinica: 'No hay clínicas disponibles todavía.', dentista: 'No hay dentistas disponibles todavía.' };
+          cont.innerHTML = `<p style="padding:1rem;text-align:center;color:#6b7280;">${vacios[tipo] || 'No hay nadie disponible todavía.'}</p>`;
+          return;
+        }
+
+        cont.innerHTML = `<div class="chat-conversaciones">` + perfiles.map(p => {
+          const nombreEsc = utils.escapeHtml(p.nombre || 'Usuario').replace(/'/g, "\\'");
+          const distancia = p.distanciaKm != null ? `${Math.round(p.distanciaKm)} km` : '';
+          return `
+            <div class="chat-conversacion-item" onclick="app.chat.iniciarNuevoChat(${p.id}, '${nombreEsc}')">
+              <div class="chat-conversacion-info">
+                <strong>${utils.escapeHtml(p.nombre || 'Usuario')}</strong>
+                <p class="chat-conversacion-ultimo">${utils.escapeHtml(p.ciudad || '')}</p>
+              </div>
+              <div class="chat-conversacion-meta">
+                ${distancia ? `<span class="chat-conversacion-fecha">${distancia}</span>` : ''}
+              </div>
+            </div>`;
+        }).join("") + `</div>`;
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
+    },
+
+    async iniciarNuevoChat(otroId, otroNombre) {
+      await this.abrirConversacion(otroId, otroNombre);
     },
 
     // Abre una sala compartida: un único canal para todo el que tenga acceso, no un
