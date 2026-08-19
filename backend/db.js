@@ -287,6 +287,11 @@ db.serialize(() => {
     )
   `);
 
+  // Referencia al objeto en un storage externo (S3/R2), cuando está configurado
+  // (ver storage.js). NULL = el contenido vive en la propia columna `contenido`,
+  // como siempre.
+  db.run(`ALTER TABLE archivos ADD COLUMN storage_key TEXT`, () => {});
+
   // Contactos de PERFIL: "postularse" a la ficha de otro usuario (sin publicación asociada).
   // Al aceptarse, se habilita el chat entre ambos (espejo de candidaturas para publicaciones).
   db.run(`
