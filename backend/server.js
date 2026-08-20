@@ -5464,12 +5464,71 @@ function escaparHtml(texto) {
 function employmentTypesJobPosting(pub) {
   const tipos = new Set();
   if (pub.tipo === "suplencia") tipos.add("TEMPORARY");
+  if (pub.tipo === "colaboracion") tipos.add("PER_DIEM");
   const porContrato = { Indefinido: "FULL_TIME", Temporal: "TEMPORARY", Autónomo: "CONTRACTOR", Prácticas: "INTERN" };
   const porJornada = { Completa: "FULL_TIME", Parcial: "PART_TIME" };
   if (porContrato[pub.contrato]) tipos.add(porContrato[pub.contrato]);
   if (porJornada[pub.jornada]) tipos.add(porJornada[pub.jornada]);
   return [...tipos];
 }
+
+// Quita acentos y deja solo [a-z0-9-], para construir URLs por ciudad legibles
+// (p.ej. "Alcalá de Henares" → "alcala-de-henares").
+function slugify(texto) {
+  return String(texto || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+// Slugs de /empleo/especialidad/:slug: el término por el que la gente busca al
+// profesional (no siempre coincide con el nombre del catálogo), como alias del
+// nombre real en `especialidades`. Varios slugs pueden apuntar al mismo nombre.
+const ESPECIALIDAD_POR_SLUG = {
+  "generalista": "Generalista",
+  "cirugia-e-implantologia": "Cirugía e Implantología",
+  "implantologia": "Cirugía e Implantología",
+  "implantologo": "Cirugía e Implantología",
+  "cirugia-oral": "Cirugía e Implantología",
+  "endodoncia": "Endodoncia",
+  "endodoncista": "Endodoncia",
+  "periodoncia": "Periodoncia",
+  "periodoncista": "Periodoncia",
+  "ortodoncia": "Ortodoncia",
+  "ortodoncista": "Ortodoncia",
+  "estetica-dental": "Estética dental",
+  "odontologia-estetica": "Estética dental",
+  "odontopediatria": "Odontopediatría",
+  "odontopediatra": "Odontopediatría",
+};
+
+// Slug único "canónico" por especialidad: el que se usa al generar enlaces
+// (sitemap, canonical), para no tener varias URLs equivalentes indexadas.
+const SLUG_CANONICO_POR_ESPECIALIDAD = {
+  "Generalista": "generalista",
+  "Cirugía e Implantología": "implantologia",
+  "Endodoncia": "endodoncista",
+  "Periodoncia": "periodoncista",
+  "Ortodoncia": "ortodoncista",
+  "Estética dental": "estetica-dental",
+  "Odontopediatría": "odontopediatra",
+};
+
+// Término profesional por especialidad, para títulos legibles ("Ofertas para
+// endodoncista" en vez de "Ofertas para Endodoncia").
+const TERMINO_PROFESIONAL_POR_ESPECIALIDAD = {
+  "Generalista": "dentista generalista",
+  "Cirugía e Implantología": "implantólogo",
+  "Endodoncia": "endodoncista",
+  "Periodoncia": "periodoncista",
+  "Ortodoncia": "ortodoncista",
+  "Estética dental": "especialista en estética dental",
+  "Odontopediatría": "odontopediatra",
+};
+
+const NOMBRES_DIA_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const NOMBRES_TURNO = { manana: "mañana", tarde: "tarde", ambos: "mañana y tarde" };
 
 // JobPosting de schema.org: es lo que permite que la oferta aparezca en el
 // carrusel "Google empleos" de los resultados de búsqueda, no solo como un
@@ -5515,13 +5574,19 @@ function construirJobPostingJsonLd(pub, especialidades, urlCanonica) {
   return jsonLd;
 }
 
+// Filtro SQL común a las páginas públicas: oferta y suplencia siempre las
+// publica una clínica; una colaboración puede publicarla un dentista (se
+// anuncia a sí mismo) y esa NO es pública — solo las de clínica, que sí son
+// una necesidad de contratación real.
+const SQL_PUBLICABLE = "(p.tipo IN ('oferta', 'suplencia') OR (p.tipo = 'colaboracion' AND u.tipo = 'clinica'))";
+
 // Página pública e indexable de una oferta: visible sin cuenta, con CTA al registro
 app.get("/oferta/:id", (req, res) => {
   db.get(
     `SELECT p.*, u.nombre as clinica_nombre, u.id as clinica_id
      FROM publicaciones p
      LEFT JOIN usuarios u ON p.usuario_id = u.id
-     WHERE p.id = ? AND p.activo = 1 AND p.tipo IN ('oferta', 'suplencia')`,
+     WHERE p.id = ? AND p.activo = 1 AND ${SQL_PUBLICABLE}`,
     [req.params.id],
     (err, pub) => {
       if (err) {
@@ -5543,23 +5608,31 @@ app.get("/oferta/:id", (req, res) => {
         (err, esps) => {
           const especialidades = (esps || []).map(e => e.nombre);
           const esSuplencia = pub.tipo === 'suplencia';
-          const titulo = esSuplencia
-            ? `${pub.urgente ? "🚨 Urgente: " : ""}Suplencia de ${especialidades[0] || "dentista"} en ${pub.ciudad}`
-            : `${especialidades[0] || "Dentista"} en ${pub.ciudad} — oferta de empleo dental`;
-          const descripcionMeta = (pub.descripcion || "").slice(0, 155).replace(/\s+/g, " ");
-          const urlApp = escaparHtml(urlFrontend());
-          const urlCanonica = `${req.protocol}://${req.get("host")}/oferta/${pub.id}`;
-          const rangoFechas = [pub.fecha_desde, pub.fecha_hasta].filter(Boolean).join(" — ");
-          // Escapar "</script" evita que una descripción con ese texto rompa el
-          // bloque JSON-LD; JSON.stringify ya se encarga del resto del escapado.
-          const jsonLd = JSON.stringify(construirJobPostingJsonLd(pub, especialidades, urlCanonica))
-            .replace(/<\/script/gi, "<\\/script");
+          const esColaboracion = pub.tipo === 'colaboracion';
 
-          const detalle = (etiqueta, valor) => valor
-            ? `<div style="padding: 0.6rem 0; border-bottom: 1px solid #e5e7eb;"><strong style="color: #0f4c75;">${etiqueta}:</strong> ${escaparHtml(valor)}</div>`
-            : "";
+          const continuar = (diasSemana) => {
+            const titulo = esSuplencia
+              ? `${pub.urgente ? "🚨 Urgente: " : ""}Suplencia de ${especialidades[0] || "dentista"} en ${pub.ciudad}`
+              : esColaboracion
+                ? `Colaboración de ${especialidades[0] || "dentista"} en ${pub.ciudad}`
+                : `${especialidades[0] || "Dentista"} en ${pub.ciudad} — oferta de empleo dental`;
+            const descripcionMeta = (pub.descripcion || "").slice(0, 155).replace(/\s+/g, " ");
+            const urlApp = escaparHtml(urlFrontend());
+            const urlCanonica = `${req.protocol}://${req.get("host")}/oferta/${pub.id}`;
+            const rangoFechas = [pub.fecha_desde, pub.fecha_hasta].filter(Boolean).join(" — ");
+            const diasSemanaTexto = (diasSemana || [])
+              .map(d => `${NOMBRES_DIA_SEMANA[d.dia_semana - 1] || d.dia_semana} (${NOMBRES_TURNO[d.turno] || d.turno})`)
+              .join(", ");
+            // Escapar "</script" evita que una descripción con ese texto rompa el
+            // bloque JSON-LD; JSON.stringify ya se encarga del resto del escapado.
+            const jsonLd = JSON.stringify(construirJobPostingJsonLd(pub, especialidades, urlCanonica))
+              .replace(/<\/script/gi, "<\\/script");
 
-          res.send(`<!DOCTYPE html>
+            const detalle = (etiqueta, valor) => valor
+              ? `<div style="padding: 0.6rem 0; border-bottom: 1px solid #e5e7eb;"><strong style="color: #0f4c75;">${etiqueta}:</strong> ${escaparHtml(valor)}</div>`
+              : "";
+
+            res.send(`<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
@@ -5584,6 +5657,7 @@ app.get("/oferta/:id", (req, res) => {
       <h1 style="color: #0f4c75; margin-top: 0;">${escaparHtml(titulo)}</h1>
       ${pub.clinica_nombre ? `<p style="color: #6b7280;">Publicada por <strong>${escaparHtml(pub.clinica_nombre)}</strong></p>` : ""}
       ${esSuplencia ? detalle("🗓️ Fechas", rangoFechas) : ""}
+      ${esColaboracion ? detalle("🗓️ Días de la semana", diasSemanaTexto) : ""}
       ${detalle("📍 Ciudad", pub.ciudad)}
       ${detalle("🦷 Especialidades", especialidades.join(", "))}
       ${detalle("📋 Contrato", pub.contrato)}
@@ -5603,37 +5677,201 @@ app.get("/oferta/:id", (req, res) => {
   </div>
 </body>
 </html>`);
+          };
+
+          if (esColaboracion) {
+            db.all(
+              "SELECT dia_semana, turno FROM colaboracion_dias WHERE publicacion_id = ? ORDER BY dia_semana",
+              [pub.id],
+              (e2, filas) => continuar(filas || [])
+            );
+          } else {
+            continuar(null);
+          }
         }
       );
     }
   );
 });
 
-// Sitemap con todas las ofertas y suplencias activas (para buscadores)
-app.get("/sitemap.xml", (req, res) => {
-  db.all(
-    "SELECT id, creado_en FROM publicaciones WHERE activo = 1 AND tipo IN ('oferta', 'suplencia') ORDER BY id",
-    (err, ofertas) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).send("");
-      }
-      const home = `  <url><loc>${escaparHtml(urlFrontend())}</loc></url>`;
-      const base = `${req.protocol}://${req.get("host")}`;
-      const urls = (ofertas || []).map(o =>
-        `  <url><loc>${base}/oferta/${o.id}</loc><lastmod>${String(o.creado_en).slice(0, 10)}</lastmod></url>`
-      ).join("\n");
+// Consulta base de las páginas "hub" /empleo/... : todas las publicaciones
+// públicas activas, con sus especialidades concatenadas (separador "||", no
+// choca con nombres que ya llevan ", "). Se filtra en JS (ciudad por slug,
+// especialidad por nombre) porque el volumen es pequeño y evita repetir SQL
+// por cada combinación ciudad×especialidad.
+const SQL_HUB = `
+  SELECT p.id, p.tipo, p.ciudad, p.provincia, p.salario, p.urgente, p.creado_en,
+         u.nombre as clinica_nombre,
+         (SELECT GROUP_CONCAT(e.nombre, '||') FROM publicacion_especialidades pe
+            INNER JOIN especialidades e ON e.id = pe.especialidad_id
+           WHERE pe.publicacion_id = p.id) as especialidades_raw
+  FROM publicaciones p
+  LEFT JOIN usuarios u ON p.usuario_id = u.id
+  WHERE p.activo = 1 AND ${SQL_PUBLICABLE}
+  ORDER BY p.urgente DESC, p.creado_en DESC
+`;
 
-      res.type("application/xml").send(
-        `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${home}\n${urls}\n</urlset>`
-      );
+function especialidadesDe(pub) {
+  return (pub.especialidades_raw || "").split("||").filter(Boolean);
+}
+
+function tituloHubFila(pub) {
+  const especialidades = especialidadesDe(pub);
+  if (pub.tipo === 'suplencia') return `${pub.urgente ? "🚨 " : ""}Suplencia de ${especialidades[0] || "dentista"} en ${pub.ciudad}`;
+  if (pub.tipo === 'colaboracion') return `Colaboración de ${especialidades[0] || "dentista"} en ${pub.ciudad}`;
+  return `${especialidades[0] || "Dentista"} en ${pub.ciudad}`;
+}
+
+function tarjetaHub(pub) {
+  const titulo = tituloHubFila(pub);
+  return `    <a href="/oferta/${pub.id}" style="display: block; background: white; border-radius: 10px; padding: 1.1rem 1.3rem; margin-bottom: 0.8rem; text-decoration: none; color: inherit; box-shadow: 0 1px 4px rgba(0,0,0,0.08);">
+      <strong style="color: #0f4c75;">${escaparHtml(titulo)}</strong>
+      ${pub.clinica_nombre ? `<div style="color: #6b7280; font-size: 0.85rem; margin-top: 0.2rem;">${escaparHtml(pub.clinica_nombre)}</div>` : ""}
+      <div style="color: #6b7280; font-size: 0.85rem; margin-top: 0.2rem;">📍 ${escaparHtml(pub.ciudad)}${pub.salario ? ` · 💰 ${escaparHtml(pub.salario)}` : ""}</div>
+    </a>`;
+}
+
+// Página "hub" de listado (/empleo/dentista, /empleo/dentista/:ciudad,
+// /empleo/especialidad/:slug): agrupa publicaciones públicas para dar más
+// superficie indexable por ciudad/especialidad que las páginas individuales.
+function renderHubEmpleo(req, res, { titulo, descripcion, urlPath, filtroJs }) {
+  db.all(SQL_HUB, [], (err, filas) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).send("Error interno");
     }
-  );
+    const publicaciones = filtroJs ? (filas || []).filter(filtroJs) : (filas || []);
+    const base = `${req.protocol}://${req.get("host")}`;
+    const urlCanonica = `${base}${urlPath}`;
+    const hayResultados = publicaciones.length > 0;
+
+    const tarjetas = hayResultados
+      ? publicaciones.map(tarjetaHub).join("\n")
+      : `    <p style="text-align: center; color: #6b7280;">No hay ofertas activas ahora mismo. <a href="${escaparHtml(urlFrontend())}">Regístrate</a> para enterarte en cuanto haya una.</p>`;
+
+    // ItemList: ayuda a los buscadores a descubrir las páginas de oferta
+    // individuales enlazadas desde este listado (además del sitemap).
+    const itemListJsonLd = hayResultados
+      ? JSON.stringify({
+          "@context": "https://schema.org/",
+          "@type": "ItemList",
+          itemListElement: publicaciones.map((p, i) => ({ "@type": "ListItem", position: i + 1, url: `${base}/oferta/${p.id}` })),
+        }).replace(/<\/script/gi, "<\\/script")
+      : null;
+
+    res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escaparHtml(titulo)} | DentalJobs</title>
+  <meta name="description" content="${escaparHtml(descripcion)}">
+  <link rel="canonical" href="${escaparHtml(urlCanonica)}">
+  ${hayResultados ? "" : `<meta name="robots" content="noindex, follow">`}
+  <meta property="og:title" content="${escaparHtml(titulo)}">
+  <meta property="og:description" content="${escaparHtml(descripcion)}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="${escaparHtml(urlCanonica)}">
+  ${itemListJsonLd ? `<script type="application/ld+json">${itemListJsonLd}</script>` : ""}
+</head>
+<body style="font-family: Arial, sans-serif; margin: 0; background: #f3f4f6;">
+  <div style="max-width: 720px; margin: 0 auto; padding: 2rem 1rem;">
+    <p style="color: #0f4c75; font-weight: bold; font-size: 1.3rem;"><a href="${escaparHtml(urlFrontend())}" style="color: inherit; text-decoration: none;">🦷 DentalJobs</a></p>
+    <h1 style="color: #0f4c75;">${escaparHtml(titulo)}</h1>
+    <p style="color: #6b7280;">${publicaciones.length} oferta${publicaciones.length === 1 ? "" : "s"} activa${publicaciones.length === 1 ? "" : "s"}</p>
+${tarjetas}
+  </div>
+</body>
+</html>`);
+  });
+}
+
+app.get("/empleo/dentista", (req, res) => {
+  renderHubEmpleo(req, res, {
+    titulo: "Ofertas de empleo para dentistas",
+    descripcion: "Todas las ofertas, suplencias y colaboraciones activas para dentistas en DentalJobs, el portal de empleo especializado en odontología.",
+    urlPath: "/empleo/dentista",
+  });
+});
+
+app.get("/empleo/dentista/:ciudad", (req, res) => {
+  const ciudadSlug = slugify(req.params.ciudad);
+  // El nombre "bonito" de la ciudad se toma de la primera publicación que
+  // encaje (como está escrito en la BD); si no hay ninguna, se deriva del slug.
+  db.all(SQL_HUB, [], (err, filas) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).send("Error interno");
+    }
+    const coincidencias = (filas || []).filter(p => slugify(p.ciudad) === ciudadSlug);
+    const nombreCiudad = coincidencias[0]
+      ? coincidencias[0].ciudad
+      : req.params.ciudad.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    renderHubEmpleo(req, res, {
+      titulo: `Empleo para dentistas en ${nombreCiudad}`,
+      descripcion: `Ofertas, suplencias y colaboraciones activas para dentistas en ${nombreCiudad}.`,
+      urlPath: `/empleo/dentista/${ciudadSlug}`,
+      filtroJs: p => slugify(p.ciudad) === ciudadSlug,
+    });
+  });
+});
+
+app.get("/empleo/especialidad/:slug", (req, res) => {
+  const nombreEspecialidad = ESPECIALIDAD_POR_SLUG[slugify(req.params.slug)];
+  if (!nombreEspecialidad) {
+    return res.status(404).send(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Especialidad no encontrada — DentalJobs</title></head>
+      <body style="font-family: Arial; text-align: center; padding: 4rem;">
+      <h1>🦷 Especialidad no encontrada</h1>
+      <p><a href="${escaparHtml(urlFrontend())}">Ver ofertas en DentalJobs</a></p></body></html>`);
+  }
+  const slugCanonico = SLUG_CANONICO_POR_ESPECIALIDAD[nombreEspecialidad];
+  const termino = TERMINO_PROFESIONAL_POR_ESPECIALIDAD[nombreEspecialidad];
+  renderHubEmpleo(req, res, {
+    titulo: `Ofertas de empleo para ${termino}`,
+    descripcion: `Ofertas, suplencias y colaboraciones activas para ${termino} en clínicas dentales de toda España.`,
+    urlPath: `/empleo/especialidad/${slugCanonico}`,
+    filtroJs: p => especialidadesDe(p).includes(nombreEspecialidad),
+  });
+});
+
+// Sitemap con las páginas públicas indexables: home, hubs por ciudad/especialidad
+// y cada oferta/suplencia/colaboración (de clínica) activa.
+app.get("/sitemap.xml", (req, res) => {
+  db.all(SQL_HUB, [], (err, filas) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).send("");
+    }
+    const base = `${req.protocol}://${req.get("host")}`;
+    const publicaciones = filas || [];
+
+    const ciudades = new Set();
+    const especialidadSlugs = new Set();
+    publicaciones.forEach(p => {
+      if (p.ciudad) ciudades.add(slugify(p.ciudad));
+      especialidadesDe(p).forEach(nombre => {
+        const slug = SLUG_CANONICO_POR_ESPECIALIDAD[nombre];
+        if (slug) especialidadSlugs.add(slug);
+      });
+    });
+
+    const urls = [
+      `  <url><loc>${escaparHtml(urlFrontend())}</loc></url>`,
+      `  <url><loc>${base}/empleo/dentista</loc></url>`,
+      ...[...ciudades].map(c => `  <url><loc>${base}/empleo/dentista/${c}</loc></url>`),
+      ...[...especialidadSlugs].map(s => `  <url><loc>${base}/empleo/especialidad/${s}</loc></url>`),
+      ...publicaciones.map(p => `  <url><loc>${base}/oferta/${p.id}</loc><lastmod>${String(p.creado_en).slice(0, 10)}</lastmod></url>`),
+    ].join("\n");
+
+    res.type("application/xml").send(
+      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`
+    );
+  });
 });
 
 app.get("/robots.txt", (req, res) => {
   const base = `${req.protocol}://${req.get("host")}`;
-  res.type("text/plain").send(`User-agent: *\nAllow: /oferta/\nSitemap: ${base}/sitemap.xml\n`);
+  res.type("text/plain").send(`User-agent: *\nAllow: /oferta/\nAllow: /empleo/\nSitemap: ${base}/sitemap.xml\n`);
 });
 
 // Comprobación de salud (UptimeRobot y deploys)
