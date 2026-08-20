@@ -5458,6 +5458,12 @@ function escaparHtml(texto) {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+// La imagen de Open Graph vive en el frontend (GitHub Pages), no en este
+// backend, igual que el resto de estáticos que sirve `urlFrontend()`.
+function urlOgImage() {
+  return urlFrontend() + "og-image.png";
+}
+
 // Deriva el/los employmentType de schema.org (Google for Jobs) a partir de
 // contrato + jornada. Puede haber más de uno aplicable (p.ej. "Temporal" +
 // "Parcial"), así que se acumulan sin duplicados.
@@ -5644,9 +5650,13 @@ app.get("/oferta/:id", (req, res) => {
   <meta property="og:description" content="${escaparHtml(descripcionMeta)}">
   <meta property="og:type" content="website">
   <meta property="og:url" content="${escaparHtml(urlCanonica)}">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:image" content="${escaparHtml(urlOgImage())}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="${escaparHtml(titulo)}">
   <meta name="twitter:description" content="${escaparHtml(descripcionMeta)}">
+  <meta name="twitter:image" content="${escaparHtml(urlOgImage())}">
   <script type="application/ld+json">${jsonLd}</script>
 </head>
 <body style="font-family: Arial, sans-serif; margin: 0; background: #f3f4f6;">
@@ -5772,6 +5782,9 @@ function renderHubEmpleo(req, res, { titulo, descripcion, urlPath, filtroJs }) {
   <meta property="og:description" content="${escaparHtml(descripcion)}">
   <meta property="og:type" content="website">
   <meta property="og:url" content="${escaparHtml(urlCanonica)}">
+  <meta property="og:image" content="${escaparHtml(urlOgImage())}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="${escaparHtml(urlOgImage())}">
   ${itemListJsonLd ? `<script type="application/ld+json">${itemListJsonLd}</script>` : ""}
 </head>
 <body style="font-family: Arial, sans-serif; margin: 0; background: #f3f4f6;">
