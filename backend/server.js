@@ -5458,6 +5458,63 @@ function escaparHtml(texto) {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+// Deriva el/los employmentType de schema.org (Google for Jobs) a partir de
+// contrato + jornada. Puede haber más de uno aplicable (p.ej. "Temporal" +
+// "Parcial"), así que se acumulan sin duplicados.
+function employmentTypesJobPosting(pub) {
+  const tipos = new Set();
+  if (pub.tipo === "suplencia") tipos.add("TEMPORARY");
+  const porContrato = { Indefinido: "FULL_TIME", Temporal: "TEMPORARY", Autónomo: "CONTRACTOR", Prácticas: "INTERN" };
+  const porJornada = { Completa: "FULL_TIME", Parcial: "PART_TIME" };
+  if (porContrato[pub.contrato]) tipos.add(porContrato[pub.contrato]);
+  if (porJornada[pub.jornada]) tipos.add(porJornada[pub.jornada]);
+  return [...tipos];
+}
+
+// JobPosting de schema.org: es lo que permite que la oferta aparezca en el
+// carrusel "Google empleos" de los resultados de búsqueda, no solo como un
+// resultado web normal. Ver https://developers.google.com/search/docs/appearance/structured-data/job-posting
+function construirJobPostingJsonLd(pub, especialidades, urlCanonica) {
+  const jsonLd = {
+    "@context": "https://schema.org/",
+    "@type": "JobPosting",
+    title: especialidades[0] ? `${especialidades[0]} en ${pub.ciudad}` : `Dentista en ${pub.ciudad}`,
+    // Texto plano: aunque JobPosting admite HTML en description, aquí se
+    // guarda tal cual lo escribió el usuario, así que se despoja de
+    // etiquetas para no volcar HTML sin escapar dentro del <script> JSON-LD.
+    description: String(pub.descripcion || pub.ciudad).replace(/<[^>]*>/g, ""),
+    datePosted: String(pub.creado_en).slice(0, 10),
+    hiringOrganization: { "@type": "Organization", name: pub.clinica_nombre || "DentalJobs" },
+    jobLocation: {
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: pub.ciudad,
+        addressRegion: pub.provincia || undefined,
+        addressCountry: "ES",
+      },
+    },
+    directApply: false,
+    url: urlCanonica,
+  };
+  if (pub.tipo === "suplencia" && pub.fecha_hasta) jsonLd.validThrough = pub.fecha_hasta;
+  const employmentTypes = employmentTypesJobPosting(pub);
+  if (employmentTypes.length) jsonLd.employmentType = employmentTypes;
+  if (pub.retribucion_tipo === "fijo" && (pub.salario_min || pub.salario_max)) {
+    jsonLd.baseSalary = {
+      "@type": "MonetaryAmount",
+      currency: "EUR",
+      value: {
+        "@type": "QuantitativeValue",
+        minValue: pub.salario_min || pub.salario_max,
+        maxValue: pub.salario_max || pub.salario_min,
+        unitText: "MONTH",
+      },
+    };
+  }
+  return jsonLd;
+}
+
 // Página pública e indexable de una oferta: visible sin cuenta, con CTA al registro
 app.get("/oferta/:id", (req, res) => {
   db.get(
@@ -5491,7 +5548,12 @@ app.get("/oferta/:id", (req, res) => {
             : `${especialidades[0] || "Dentista"} en ${pub.ciudad} — oferta de empleo dental`;
           const descripcionMeta = (pub.descripcion || "").slice(0, 155).replace(/\s+/g, " ");
           const urlApp = escaparHtml(urlFrontend());
+          const urlCanonica = `${req.protocol}://${req.get("host")}/oferta/${pub.id}`;
           const rangoFechas = [pub.fecha_desde, pub.fecha_hasta].filter(Boolean).join(" — ");
+          // Escapar "</script" evita que una descripción con ese texto rompa el
+          // bloque JSON-LD; JSON.stringify ya se encarga del resto del escapado.
+          const jsonLd = JSON.stringify(construirJobPostingJsonLd(pub, especialidades, urlCanonica))
+            .replace(/<\/script/gi, "<\\/script");
 
           const detalle = (etiqueta, valor) => valor
             ? `<div style="padding: 0.6rem 0; border-bottom: 1px solid #e5e7eb;"><strong style="color: #0f4c75;">${etiqueta}:</strong> ${escaparHtml(valor)}</div>`
@@ -5504,9 +5566,15 @@ app.get("/oferta/:id", (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escaparHtml(titulo)} | DentalJobs</title>
   <meta name="description" content="${escaparHtml(descripcionMeta)}">
+  <link rel="canonical" href="${escaparHtml(urlCanonica)}">
   <meta property="og:title" content="${escaparHtml(titulo)}">
   <meta property="og:description" content="${escaparHtml(descripcionMeta)}">
   <meta property="og:type" content="website">
+  <meta property="og:url" content="${escaparHtml(urlCanonica)}">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="${escaparHtml(titulo)}">
+  <meta name="twitter:description" content="${escaparHtml(descripcionMeta)}">
+  <script type="application/ld+json">${jsonLd}</script>
 </head>
 <body style="font-family: Arial, sans-serif; margin: 0; background: #f3f4f6;">
   <div style="max-width: 640px; margin: 0 auto; padding: 2rem 1rem;">
@@ -5550,13 +5618,14 @@ app.get("/sitemap.xml", (req, res) => {
         console.error(err);
         return res.status(500).send("");
       }
+      const home = `  <url><loc>${escaparHtml(urlFrontend())}</loc></url>`;
       const base = `${req.protocol}://${req.get("host")}`;
       const urls = (ofertas || []).map(o =>
         `  <url><loc>${base}/oferta/${o.id}</loc><lastmod>${String(o.creado_en).slice(0, 10)}</lastmod></url>`
       ).join("\n");
 
       res.type("application/xml").send(
-        `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`
+        `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${home}\n${urls}\n</urlset>`
       );
     }
   );
