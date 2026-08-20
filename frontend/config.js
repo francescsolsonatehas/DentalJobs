@@ -6,5 +6,5 @@
 //
 // ⚠️ Al crear el servicio en Render, sustituir por la URL real si difiere.
 window.API_URL = window.location.hostname.endsWith("github.io")
-  ? "https://dentaljobs.onrender.com"
+  ? "https://dentaljobs-docker.onrender.com"
   : "";
