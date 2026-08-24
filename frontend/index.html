@@ -937,7 +937,7 @@
                 <button data-tooltip="Editar tus datos personales" class="tab-btn active" id="tabDatos" onclick="app.perfil.switchTab('datos')">Mis datos</button>
                 <button data-tooltip="Sube una imagen para que aparezca junto a tu nombre" class="tab-btn" id="tabLogo" onclick="app.perfil.switchTab('logo')">Logo</button>
                 <button data-tooltip="Editar tu experiencia, formación e idiomas" class="tab-btn" id="tabTrayectoria" onclick="app.perfil.switchTab('trayectoria')">Trayectoria</button>
-                <button data-tooltip="Subir o gestionar tu CV" class="tab-btn" id="tabCv" onclick="app.perfil.switchTab('cv')">Mi CV</button>
+                <button data-tooltip="Ver y descargar tu CV" class="tab-btn" id="tabCv" onclick="app.perfil.switchTab('cv')">Mi CV</button>
                 <button data-tooltip="Gestionar tu Book de fotos y trabajos" class="tab-btn" id="tabPortfolio" onclick="app.perfil.switchTab('portfolio')">Book</button>
                 <button data-tooltip="Marcar los días en que estás disponible" class="tab-btn" id="tabDisponibilidad" onclick="app.perfil.switchTab('disponibilidad')">🗓️ Disponibilidad</button>
                 <button data-tooltip="Configurar tus prioridades para calcular la compatibilidad con ofertas" class="tab-btn" id="tabCompatibilidad" onclick="app.perfil.switchTab('compatibilidad')">🧩 Compatibilidad</button>
@@ -1081,18 +1081,10 @@
             <!-- Tab: CV -->
             <div id="tab-cv" class="tab-content">
                 <div style="background: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
-                    <p style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: #0c4a6e;">¿No tienes CV a mano? Genera uno automáticamente con los datos de tu perfil ("Mis datos y Trayectoria").</p>
+                    <p style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: #0c4a6e;">Tu CV se genera automáticamente con los datos de tu perfil ("Mis datos" y "Trayectoria").</p>
                     <button data-tooltip="Descargar tu perfil en formato PDF" class="btn-outline" style="width: 100%;" onclick="app.perfil.descargarCvPdf()">⬇️ Descargar mi CV en PDF</button>
                 </div>
                 <div id="cvPreview" style="margin-bottom: 1.5rem;"></div>
-                <div id="cvContainer">
-                    <div class="drag-drop-zone" id="cvDropZone" ondrop="event.preventDefault(); app.archivos.manejarDrop(event, 'cv')" ondragover="event.preventDefault(); document.getElementById('cvDropZone').classList.add('dragover')" ondragleave="document.getElementById('cvDropZone').classList.remove('dragover')">
-                        <p>📄 Sube tu CV (PDF, máx 5 MB)</p>
-                        <span>Arrastra y suelta o haz clic para seleccionar</span>
-                        <input type="file" id="cvInput" accept=".pdf" style="display: none;" onchange="app.archivos.subirCV()">
-                    </div>
-                    <button data-tooltip="Seleccionar el archivo de tu CV" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('cvInput').click()">Seleccionar archivo</button>
-                </div>
             </div>
 
             <!-- Tab: Portfolio -->

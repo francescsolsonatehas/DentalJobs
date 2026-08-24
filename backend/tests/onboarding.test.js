@@ -42,7 +42,6 @@ test("onboarding: primeros pasos del dentista", async (t) => {
     assert.equal(res.status, 200);
     assert.equal(res.body.completado, false);
     assert.equal(paso(res.body, "perfil").hecho, false);
-    assert.equal(paso(res.body, "cv").opcional, true);
   });
 
   await t.test("perfil (ciudad + especialidad) marca el paso", async () => {
@@ -64,15 +63,14 @@ test("onboarding: primeros pasos del dentista", async (t) => {
     assert.equal(paso(res.body, "compatibilidad").hecho, true);
   });
 
-  await t.test("al postularse se completan los pasos obligatorios (el CV es opcional)", async () => {
+  await t.test("al postularse se completan los pasos obligatorios", async () => {
     const oferta = await request(app).post("/publicaciones").set({ Authorization: `Bearer ${clinica.token}` })
       .send({ tipo: "oferta", ciudad: "Valencia", descripcion: "Generalista" });
     await request(app).post("/candidaturas").set(auth).send({ publicacion_id: oferta.body.id });
 
     const res = await request(app).get("/onboarding").set(auth);
     assert.equal(paso(res.body, "postular").hecho, true);
-    assert.equal(paso(res.body, "cv").hecho, false); // opcional, sigue sin hacer
-    assert.equal(res.body.completado, true); // pero completado, porque el CV no cuenta
+    assert.equal(res.body.completado, true);
   });
 });
 

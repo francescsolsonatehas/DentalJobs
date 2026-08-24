@@ -1532,7 +1532,6 @@ const app = {
         case "perfil": app.modal.abrirPerfil(); break;
         case "disponibilidad": abrirPerfilEn("tabDisponibilidad"); break;
         case "compatibilidad": abrirPerfilEn("tabCompatibilidad"); break;
-        case "cv": abrirPerfilEn("tabCv"); break;
         // Las sedes ya no tienen pestaña propia: están dentro de "Mis datos"
         case "sedes": abrirPerfilEn("tabDatos"); break;
         case "publicar": app.modal.abrirPublicar(); break;
@@ -5244,24 +5243,6 @@ const app = {
   // ============================================
 
   archivos: {
-    async subirCV() {
-      const input = document.getElementById("cvInput");
-      if (input.files.length === 0) return;
-
-      const formData = new FormData();
-      formData.append("archivo", input.files[0]);
-      formData.append("tipo", "cv");
-
-      try {
-        const response = await utils.requestForm("/archivos/upload", formData);
-        utils.mostrarAlerta("CV subido exitosamente", "success");
-        input.value = '';
-        app.archivos.cargarArchivosUsuario();
-      } catch (error) {
-        utils.mostrarAlerta(error.message, "error");
-      }
-    },
-
     async subirPortfolio() {
       const input = document.getElementById("portfolioInput");
       if (input.files.length === 0) return;
@@ -5330,15 +5311,13 @@ const app = {
 
       const files = event.dataTransfer.files;
       if (files.length > 0) {
-        const inputIds = { cv: "cvInput", portfolio: "portfolioInput", foto: "fotoInput", logo: "logoInput" };
+        const inputIds = { portfolio: "portfolioInput", foto: "fotoInput", logo: "logoInput" };
         const input = document.getElementById(inputIds[tipo]);
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(files[0]);
         input.files = dataTransfer.files;
 
-        if (tipo === 'cv') {
-          app.archivos.subirCV();
-        } else if (tipo === 'portfolio') {
+        if (tipo === 'portfolio') {
           app.archivos.subirPortfolio();
         } else if (tipo === 'logo') {
           app.archivos.subirLogo();
@@ -5367,52 +5346,11 @@ const app = {
       }
     },
 
-    // Zona de arrastrar y soltar para (re)subir el CV: la misma que se ve la primera
-    // vez, reutilizada también al pulsar "Actualizar" sobre un CV ya existente.
-    zonaSubidaCvHtml() {
-      return `
-        <div class="drag-drop-zone" id="cvDropZone" ondrop="event.preventDefault(); app.archivos.manejarDrop(event, 'cv')" ondragover="event.preventDefault(); document.getElementById('cvDropZone').classList.add('dragover')" ondragleave="document.getElementById('cvDropZone').classList.remove('dragover')">
-          <p>📄 Sube tu CV (PDF, máx 5 MB)</p>
-          <span>Arrastra y suelta o haz clic para seleccionar</span>
-          <input type="file" id="cvInput" accept=".pdf" style="display: none;" onchange="app.archivos.subirCV()">
-        </div>
-        <button data-tooltip="Seleccionar el archivo de tu CV" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('cvInput').click()">Seleccionar archivo</button>
-      `;
-    },
-
-    // Al pulsar "Actualizar" sobre un CV ya subido: la misma zona de arrastrar y
-    // soltar que la primera vez, con la opción de volver atrás sin tocar el CV actual.
-    mostrarActualizarCv() {
-      const cvContainer = document.getElementById("cvContainer");
-      if (!cvContainer) return;
-      cvContainer.innerHTML = app.archivos.zonaSubidaCvHtml() +
-        `<button class="btn-text btn-small" style="width: 100%; margin-top: 0.5rem;" onclick="app.archivos.renderizarArchivos()">Cancelar</button>`;
-    },
-
     renderizarArchivos() {
-      const cv = estadoApp.archivosUsuario.find(a => a.tipo === 'cv');
       const portfolios = estadoApp.archivosUsuario.filter(a => a.tipo === 'portfolio');
 
-      // Renderizar CV
-      const cvContainer = document.getElementById("cvContainer");
-      if (cv) {
-        cvContainer.innerHTML = `
-          <div style="background: #F8FAFF; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #0F4C75;">
-            <p style="font-weight: 700; color: #0F4C75; margin-bottom: 0.5rem;">📄 ${utils.escapeHtml(cv.nombre_archivo)}</p>
-            <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">Subido el ${utils.formatearFecha(cv.creado_en)} · ${utils.formatearTamanyo(cv.tamanyo)}</p>
-            <div style="display: flex; gap: 0.8rem;">
-              <a href="${API}/archivos/${cv.id}/download" class="btn-primary btn-small" style="text-decoration: none; display: inline-block;">Descargar</a>
-              <button data-tooltip="Subir un PDF nuevo que sustituya a este" class="btn-outline btn-small" onclick="app.archivos.mostrarActualizarCv()">Actualizar</button>
-              <button data-tooltip="Eliminar este archivo" class="btn-outline btn-small" onclick="app.archivos.eliminar(${cv.id})">Eliminar</button>
-            </div>
-          </div>
-        `;
-      } else {
-        cvContainer.innerHTML = app.archivos.zonaSubidaCvHtml();
-      }
-
       // Renderizar Logo (clínica) / Foto (dentista) de perfil: una sola imagen que
-      // sustituye a la anterior, igual que el CV.
+      // sustituye a la anterior.
       const logo = estadoApp.archivosUsuario.find(a => a.tipo === 'logo');
       const logoContainer = document.getElementById("logoContainer");
       if (logoContainer) {
@@ -7136,11 +7074,11 @@ const app = {
       let tray = { experiencia: [], formacion: [], idiomas: [], certificaciones: [] };
       try { tray = await utils.request(`/usuarios/${id}/trayectoria`); } catch (e) { /* sin trayectoria */ }
       const resumen = await app.resenyas.cargarResumen(id);
-      // El CV y el Book que el dentista tenga subidos en su perfil
-      let cv = null, book = [];
+      // El Book que el dentista tenga subido en su perfil (el CV ya no se sube: se
+      // genera al vuelo desde "Mis datos" y "Trayectoria", ver descargarCvUsuario).
+      let book = [];
       try {
         const archivos = await utils.request(`/archivos/usuario/${id}`);
-        cv = (archivos || []).find(a => a.tipo === "cv") || null;
         book = (archivos || []).filter(a => a.tipo === "portfolio");
       } catch (e) { /* sin archivos */ }
       // Disponibilidad: próximos días sueltos (suplencias) y días de la semana
@@ -7149,6 +7087,7 @@ const app = {
       try { disp = await utils.request(`/usuarios/${id}/disponibilidad-publica`); } catch (e) { /* sin disponibilidad */ }
 
       const ciudadLabel = u.ciudad ? (u.provincia ? `${u.ciudad} (${u.provincia})` : u.ciudad) : "No indicada";
+      const argJs = s => utils.escapeHtml(String(s || "").replace(/'/g, "\\'"));
 
       let html = `<div class="perfil-dentista">`;
 
@@ -7222,7 +7161,6 @@ const app = {
       if (!book.length) {
         html += `<p style="color:#9ca3af;">Este dentista aún no ha subido su Book.</p>`;
       } else {
-        const argJs = s => utils.escapeHtml(String(s || "").replace(/'/g, "\\'"));
         const abrir = a => `app.perfiles.verArchivo(${a.id}, '${argJs(a.nombre_archivo)}', '${argJs(a.mime_type || "")}')`;
         html += `<div style="margin-bottom:1rem;">
           <button data-tooltip="Descargar todos los archivos del Book" class="btn-primary" onclick="app.perfiles.descargarBookCompleto(${id}, '${argJs(u.nombre)}', this)">⬇️ Descargar todo el Book (${book.length})</button>
@@ -7249,17 +7187,39 @@ const app = {
       }
       html += `</div>`;
 
-      // El CV cierra la ficha: es lo último que se mira y lo que uno se lleva. Sin
-      // rótulo, el propio botón dice lo que hace.
+      // El CV cierra la ficha: es lo último que se mira y lo que uno se lleva. Se
+      // genera al vuelo a partir de su perfil/trayectoria, no hace falta que lo haya subido.
       html += `<div class="info-section">
-        ${cv
-          ? `<a href="${API}/archivos/${cv.id}/download" class="btn-primary" style="text-decoration:none;display:inline-block;">📄 Descargar CV</a>
-             <span style="color:#9ca3af;font-size:.85rem;margin-left:.5rem;">${utils.escapeHtml(cv.nombre_archivo)}${cv.tamanyo ? " · " + utils.formatearTamanyo(cv.tamanyo) : ""}</span>`
-          : `<p style="margin:0;color:#9ca3af;">Este dentista aún no ha subido su CV.</p>`}
+        <button data-tooltip="Descargar el CV de este dentista en PDF" class="btn-primary" onclick="app.perfiles.descargarCvUsuario(${id}, '${argJs(u.nombre)}')">📄 Descargar CV</button>
       </div>`;
 
       html += `</div>`;
       return html;
+    },
+
+    // Descarga el CV en PDF de otro dentista, generado por el backend a partir de su
+    // perfil (fetch con token → blob, igual que app.perfil.descargarCvPdf con el propio).
+    async descargarCvUsuario(id, nombre) {
+      try {
+        const response = await fetch(`${API}/usuarios/${id}/cv.pdf`, {
+          headers: { Authorization: `Bearer ${estadoApp.token}` }
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || "Error al generar el CV");
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const enlace = document.createElement("a");
+        enlace.href = url;
+        enlace.download = `CV-${(nombre || 'dentista').replace(/\s+/g, '-')}.pdf`;
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
     },
 
     // Ficha pública de la clínica: sus datos (sin duplicar los que ya están en la
@@ -8459,9 +8419,10 @@ const app = {
         </a>`;
     },
 
-    // Los dentistas tienen a mano botones para adjuntar su CV y su Book sin volver a
-    // subirlos: se referencia lo que ya guardaron en su perfil. El Book puede estar
-    // compuesto por varios ficheros; se conservan todos para poder adjuntarlos.
+    // Los dentistas tienen a mano botones para adjuntar su CV y su Book sin tener que
+    // volver a subirlos. El CV se genera al vuelo desde su perfil (no hace falta que
+    // exista un archivo ya subido); el Book puede estar compuesto por varios ficheros,
+    // que sí se referencian tal cual los guardó en su perfil.
     async cargarAtajosArchivos() {
       const cont = document.getElementById("chatAtajos");
       if (!cont) return;
@@ -8470,11 +8431,9 @@ const app = {
       if (!estadoApp.usuario || estadoApp.usuario.tipo !== 'dentista') return;
       try {
         const archivos = await utils.request(`/archivos/usuario/${estadoApp.usuario.id}`);
-        const cv = archivos.find(a => a.tipo === 'cv');
         const book = archivos.filter(a => a.tipo === 'portfolio');
-        this.atajosArchivos = { cv, portfolio: book };
-        let html = '';
-        if (cv) html += `<button data-tooltip="Adjuntar tu CV a este mensaje" type="button" class="chat-atajo" onclick="app.chat.adjuntarPerfil('cv')">📄 Adjuntar mi CV</button>`;
+        this.atajosArchivos = { portfolio: book };
+        let html = `<button data-tooltip="Adjuntar tu CV a este mensaje" type="button" class="chat-atajo" onclick="app.chat.adjuntarMiCv()">📄 Adjuntar mi CV</button>`;
         if (book.length) html += `<button data-tooltip="Adjuntar tu Book a este mensaje" type="button" class="chat-atajo" onclick="app.chat.adjuntarPerfil('portfolio')">📕 Adjuntar mi Book${book.length > 1 ? ` (${book.length})` : ''}</button>`;
         cont.innerHTML = html;
       } catch (error) {
@@ -8504,13 +8463,12 @@ const app = {
       if (caja) caja.focus();
     },
 
-    // Dejar pendiente el CV o el Book del perfil (no se re-suben: ya están subidos, así
-    // que no les aplica el tope del chat). El Book añade todos sus ficheros.
+    // Dejar pendiente el Book del perfil (no se re-sube: ya está subido, así que no le
+    // aplica el tope del chat). Añade todos sus ficheros.
     adjuntarPerfil(tipo) {
+      if (tipo !== 'portfolio') return;
       if (!this.atajosArchivos) return;
-      const lista = tipo === 'cv'
-        ? (this.atajosArchivos.cv ? [this.atajosArchivos.cv] : [])
-        : (this.atajosArchivos.portfolio || []);
+      const lista = this.atajosArchivos.portfolio || [];
       lista.forEach(a => {
         // No duplicar un archivo del perfil que ya esté pendiente
         if (this.adjuntosPendientes.some(p => p.archivoId === a.id)) return;
@@ -8519,6 +8477,23 @@ const app = {
       this.renderAdjuntosPendientes();
       const caja = document.getElementById("chatInput");
       if (caja) caja.focus();
+    },
+
+    // El CV no está ya subido en ningún sitio: se genera en el momento a partir de
+    // "Mis datos" y "Trayectoria" y se guarda como adjunto de chat en el mismo paso.
+    // No duplica si ya hay un CV pendiente de enviar (evita generarlo dos veces).
+    async adjuntarMiCv() {
+      if (this.adjuntosPendientes.some(p => p.tipo === 'cv')) return;
+      try {
+        const response = await utils.request("/archivos/mi-cv-chat", { method: "POST" });
+        const a = response.archivo;
+        this.adjuntosPendientes.push({ archivoId: a.id, nombre: a.nombre, tamanyo: a.tamanyo, tipo: a.tipo });
+        this.renderAdjuntosPendientes();
+        const caja = document.getElementById("chatInput");
+        if (caja) caja.focus();
+      } catch (error) {
+        utils.mostrarAlerta(error.message, "error");
+      }
     },
 
     // Arrastrar y soltar ficheros sobre el hilo para adjuntarlos.

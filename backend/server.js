@@ -456,11 +456,11 @@ app.use("/auth/registro", limiterAuth);
 // estos números tiene coste de RAM en el servidor y de tamaño de fila en Turso. Para
 // permitir archivos mucho más grandes habría que sacarlos de la BD a un
 // almacenamiento de objetos (S3/R2) y guardar solo el enlace.
-const MAX_MB_POR_TIPO = { cv: 5, portfolio: 10, foto: 10, logo: 5, chat: 25 };
+const MAX_MB_POR_TIPO = { portfolio: 10, foto: 10, logo: 5, chat: 25 };
 const MAX_SUBIDA_MB = Math.max(...Object.values(MAX_MB_POR_TIPO));
 
 // Tope de cuántos archivos puede acumular cada usuario en los tipos "de galería"
-// (foto y portfolio no sustituyen al anterior como el logo o el CV, se acumulan).
+// (foto y portfolio no sustituyen al anterior como el logo, se acumulan).
 const MAX_ARCHIVOS_POR_TIPO = { foto: 4, portfolio: 5 };
 
 // Configurar multer para uploads en memoria. El límite es el mayor de todos los
@@ -1171,48 +1171,46 @@ app.get("/auth/mi-cv", verifyToken, async (req, res) => {
   }
 });
 
-app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
-  if (req.usuario.tipo !== "dentista") {
-    return res.status(403).json({ error: "El CV en PDF solo está disponible para dentistas" });
-  }
+// Genera el PDF del CV de un usuario a partir de sus datos de perfil/trayectoria y
+// devuelve el buffer entero (no lo escribe a ninguna respuesta). Reutilizado por la
+// descarga directa (/auth/mi-cv.pdf), por la ficha pública que ve otro usuario
+// (/usuarios/:id/cv.pdf) y por el adjunto generado al vuelo en el chat.
+async function generarCvPdfBuffer(usuarioId) {
+  const datos = await recopilarDatosCv(usuarioId);
+  if (!datos) return null;
+  const { usuario, especialidades, resenyas, solicitudes, experienciaLaboral, formacionLista, idiomasLista, certificacionesLista } = datos;
 
-  try {
-    const datos = await recopilarDatosCv(req.usuario.id);
-    if (!datos) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
-    }
-    const { usuario, especialidades, resenyas, solicitudes, experienciaLaboral, formacionLista, idiomasLista, certificacionesLista } = datos;
-
-    // Foto de perfil: pdfkit solo sabe incrustar JPEG/PNG de forma nativa. El logo/foto
-    // se guarda recomprimido en WebP (ver imagenes.js), así que aquí se convierte a
-    // JPEG sobre la marcha con sharp antes de incrustarla.
-    let fotoBuffer = null;
-    if (usuario.foto_perfil_archivo_id) {
-      const archivoFoto = await new Promise((resolve, reject) => {
-        db.get(
-          "SELECT contenido, mime_type FROM archivos WHERE id = ? AND usuario_id = ?",
-          [usuario.foto_perfil_archivo_id, req.usuario.id],
-          (e, r) => e ? reject(e) : resolve(r)
-        );
-      });
-      if (archivoFoto) {
-        if (/^image\/(jpeg|png)$/.test(archivoFoto.mime_type)) {
-          fotoBuffer = archivoFoto.contenido;
-        } else if (/^image\//.test(archivoFoto.mime_type || "")) {
-          fotoBuffer = await sharp(archivoFoto.contenido).jpeg().toBuffer().catch(() => null);
-        }
+  // Foto de perfil: pdfkit solo sabe incrustar JPEG/PNG de forma nativa. El logo/foto
+  // se guarda recomprimido en WebP (ver imagenes.js), así que aquí se convierte a
+  // JPEG sobre la marcha con sharp antes de incrustarla.
+  let fotoBuffer = null;
+  if (usuario.foto_perfil_archivo_id) {
+    const archivoFoto = await new Promise((resolve, reject) => {
+      db.get(
+        "SELECT contenido, mime_type FROM archivos WHERE id = ? AND usuario_id = ?",
+        [usuario.foto_perfil_archivo_id, usuarioId],
+        (e, r) => e ? reject(e) : resolve(r)
+      );
+    });
+    if (archivoFoto) {
+      if (/^image\/(jpeg|png)$/.test(archivoFoto.mime_type)) {
+        fotoBuffer = archivoFoto.contenido;
+      } else if (/^image\//.test(archivoFoto.mime_type || "")) {
+        fotoBuffer = await sharp(archivoFoto.contenido).jpeg().toBuffer().catch(() => null);
       }
     }
+  }
 
-    const PDFDocument = require("pdfkit");
-    const doc = new PDFDocument({ margin: 50, size: "A4" });
+  const PDFDocument = require("pdfkit");
+  const doc = new PDFDocument({ margin: 50, size: "A4" });
+  const chunks = [];
+  doc.on("data", (c) => chunks.push(c));
+  const bufferListo = new Promise((resolve, reject) => {
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+  });
 
-    const nombreArchivo = (usuario.nombre || "dentista").replace(/[^\wáéíóúüñÁÉÍÓÚÜÑ\s-]/g, "").trim().replace(/\s+/g, "-");
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="CV-${nombreArchivo}.pdf"`);
-    doc.pipe(res);
-
-    const azul = "#0f4c75";
+  const azul = "#0f4c75";
     const gris = "#4b5563";
 
     // Cabecera. Si hay foto, va en el margen superior izquierdo y el texto de la
@@ -1340,7 +1338,47 @@ app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
     doc.fillColor("#9ca3af").fontSize(8)
       .text(`CV generado automáticamente por DentalJobs el ${new Date().toLocaleDateString("es-ES")}`, { align: "center" });
 
-    doc.end();
+  doc.end();
+  const buffer = await bufferListo;
+  const nombreArchivo = (usuario.nombre || "dentista").replace(/[^\wáéíóúüñÁÉÍÓÚÜÑ\s-]/g, "").trim().replace(/\s+/g, "-");
+  return { buffer, nombreArchivo };
+}
+
+app.get("/auth/mi-cv.pdf", verifyToken, async (req, res) => {
+  if (req.usuario.tipo !== "dentista") {
+    return res.status(403).json({ error: "El CV en PDF solo está disponible para dentistas" });
+  }
+  try {
+    const resultado = await generarCvPdfBuffer(req.usuario.id);
+    if (!resultado) return res.status(404).json({ error: "Usuario no encontrado" });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="CV-${resultado.nombreArchivo}.pdf"`);
+    res.send(resultado.buffer);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al generar el CV" });
+  }
+});
+
+// CV en PDF de otro dentista, para que quien vea su ficha (p. ej. una clínica) pueda
+// descargarlo. El CV ya no se sube a mano: se genera igual que el propio, a partir del
+// perfil/trayectoria del dentista. Requiere sesión porque el CV trae email y teléfono,
+// datos que el resto de la ficha pública deja fuera a propósito (ver /usuarios/:id/publico).
+app.get("/usuarios/:id/cv.pdf", verifyToken, async (req, res) => {
+  const usuarioId = parseInt(req.params.id);
+  if (!usuarioId) return res.status(400).json({ error: "Usuario inválido" });
+  try {
+    const usuario = await new Promise((resolve, reject) => {
+      db.get("SELECT tipo FROM usuarios WHERE id = ?", [usuarioId], (e, r) => e ? reject(e) : resolve(r));
+    });
+    if (!usuario || usuario.tipo !== "dentista") {
+      return res.status(404).json({ error: "Dentista no encontrado" });
+    }
+    const resultado = await generarCvPdfBuffer(usuarioId);
+    if (!resultado) return res.status(404).json({ error: "Usuario no encontrado" });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="CV-${resultado.nombreArchivo}.pdf"`);
+    res.send(resultado.buffer);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error al generar el CV" });
@@ -2643,10 +2681,9 @@ app.get("/onboarding", verifyToken, (req, res) => {
          (SELECT ciudad FROM usuarios WHERE id = ?) AS ciudad,
          (SELECT COUNT(*) FROM usuario_especialidades WHERE usuario_id = ?) AS especialidades,
          (SELECT COUNT(*) FROM disponibilidad_dentista WHERE usuario_id = ?) AS disponibilidad,
-         (SELECT COUNT(*) FROM archivos WHERE usuario_id = ? AND tipo = 'cv') AS cv,
          (SELECT COUNT(*) FROM candidaturas WHERE usuario_id = ?) AS candidaturas,
          (SELECT COUNT(DISTINCT clave) FROM preferencias WHERE usuario_id = ?) AS preferencias`,
-      [uid, uid, uid, uid, uid, uid],
+      [uid, uid, uid, uid, uid],
       (err, r) => {
         if (err) {
           console.error(err);
@@ -2660,8 +2697,6 @@ app.get("/onboarding", verifyToken, (req, res) => {
             titulo: "Marca tu disponibilidad", descripcion: "Señala los días que puedes cubrir suplencias y recibe avisos cuando encajen." },
           { id: "compatibilidad", hecho: r.preferencias >= DIMENSIONES_CUESTIONARIO.length, opcional: false, accion: "compatibilidad",
             titulo: "Responde el test de compatibilidad", descripcion: "5 preguntas sobre cómo quieres trabajar. Verás tu % de encaje con cada clínica." },
-          { id: "cv", hecho: r.cv > 0, opcional: true, accion: "cv",
-            titulo: "Sube tu CV", descripcion: "Opcional. Refuerza tus candidaturas ante las clínicas." },
           { id: "postular", hecho: r.candidaturas > 0, opcional: false, accion: "explorar",
             titulo: "Postúlate a tu primera oferta", descripcion: "Explora las ofertas y suplencias y da el primer paso." }
         ];
@@ -4384,7 +4419,7 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
   }
 
   const { tipo } = req.body;
-  if (!tipo || !["cv", "portfolio", "foto", "logo", "chat"].includes(tipo)) {
+  if (!tipo || !["portfolio", "foto", "logo", "chat"].includes(tipo)) {
     return res.status(400).json({ error: "Tipo de archivo inválido" });
   }
 
@@ -4467,25 +4502,21 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
             }
           });
 
-          // El logo/foto de perfil y el CV son de uno en uno: el nuevo sustituye al
-          // anterior (subir uno nuevo es "actualizar"), y el anterior se borra para no
-          // dejar archivos huérfanos.
+          // El logo/foto de perfil es de uno en uno: el nuevo sustituye al anterior
+          // (subir uno nuevo es "actualizar"), y el anterior se borra para no dejar
+          // archivos huérfanos.
           if (tipo === "logo") {
             return db.run("UPDATE usuarios SET foto_perfil_archivo_id = ? WHERE id = ?", [nuevoId, req.usuario.id], (errU) => {
               if (errU) console.error(errU);
               if (anteriorId && anteriorId !== nuevoId) {
-                db.run("DELETE FROM archivos WHERE id = ?", [anteriorId], () => {});
+                // El logo anterior puede estar adjunto a un mensaje de chat: desvincularlo
+                // antes de borrarlo, o la clave foránea (mensajes.archivo_id) impediría el
+                // borrado y el archivo quedaría huérfano para siempre.
+                return db.run("UPDATE mensajes SET archivo_id = NULL WHERE archivo_id = ?", [anteriorId], () => {
+                  db.run("DELETE FROM archivos WHERE id = ?", [anteriorId], () => responder());
+                });
               }
               responder();
-            });
-          }
-
-          if (tipo === "cv" && anteriorId && anteriorId !== nuevoId) {
-            // El CV anterior puede estar adjunto a un mensaje de chat (atajo
-            // "Adjuntar mi CV"): desvincularlo antes de borrarlo, o la clave foránea
-            // (mensajes.archivo_id) impediría el borrado.
-            return db.run("UPDATE mensajes SET archivo_id = NULL WHERE archivo_id = ?", [anteriorId], () => {
-              db.run("DELETE FROM archivos WHERE id = ?", [anteriorId], () => responder());
             });
           }
 
@@ -4502,11 +4533,6 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
   if (tipo === "logo") {
     db.get("SELECT foto_perfil_archivo_id FROM usuarios WHERE id = ?", [req.usuario.id], (errG, row) => {
       anteriorId = row ? row.foto_perfil_archivo_id : null;
-      guardarArchivo();
-    });
-  } else if (tipo === "cv") {
-    db.get("SELECT id FROM archivos WHERE usuario_id = ? AND tipo = 'cv' ORDER BY creado_en DESC LIMIT 1", [req.usuario.id], (errG, row) => {
-      anteriorId = row ? row.id : null;
       guardarArchivo();
     });
   } else if (MAX_ARCHIVOS_POR_TIPO[tipo]) {
@@ -4526,6 +4552,39 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
     });
   } else {
     guardarArchivo();
+  }
+});
+
+// Genera el CV en PDF del propio dentista y lo guarda como adjunto de chat (tipo
+// 'cv'), para el atajo "Adjuntar mi CV". El CV ya no se sube a mano: se genera al
+// vuelo a partir de "Mis datos" y "Trayectoria", igual que en /auth/mi-cv.pdf.
+app.post("/archivos/mi-cv-chat", verifyToken, async (req, res) => {
+  if (req.usuario.tipo !== "dentista") {
+    return res.status(403).json({ error: "El CV solo está disponible para dentistas" });
+  }
+  try {
+    const resultado = await generarCvPdfBuffer(req.usuario.id);
+    if (!resultado) return res.status(404).json({ error: "Usuario no encontrado" });
+    const nombreFinal = `CV-${resultado.nombreArchivo}.pdf`;
+    db.run(
+      `INSERT INTO archivos (usuario_id, tipo, nombre_archivo, mime_type, contenido, tamanyo)
+       VALUES (?, 'cv', ?, 'application/pdf', ?, ?)`,
+      [req.usuario.id, nombreFinal, resultado.buffer, resultado.buffer.length],
+      function (err) {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Error al generar el CV" });
+        }
+        res.json({
+          mensaje: "CV generado",
+          id: this.lastID,
+          archivo: { id: this.lastID, nombre: nombreFinal, tipo: "cv", tamanyo: resultado.buffer.length }
+        });
+      }
+    );
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al generar el CV" });
   }
 });
 

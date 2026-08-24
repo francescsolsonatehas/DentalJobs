@@ -43,7 +43,7 @@ test("comprimirPdf no empeora un PDF ya pequeño (se queda con el original)", as
   assert.deepEqual(resultado, original);
 });
 
-test("subir un CV en PDF con foto incrustada llega comprimido", async (t) => {
+test("subir un PDF con foto incrustada al Book llega comprimido", async (t) => {
   const { app, dbPath } = createTestApp();
   t.after(() => cleanupTestApp(dbPath));
 
@@ -53,11 +53,11 @@ test("subir un CV en PDF con foto incrustada llega comprimido", async (t) => {
   const subida = await request(app)
     .post("/archivos/upload")
     .set("Authorization", `Bearer ${token}`)
-    .field("tipo", "cv")
-    .attach("archivo", original, { filename: "cv.pdf", contentType: "application/pdf" });
+    .field("tipo", "portfolio")
+    .attach("archivo", original, { filename: "book.pdf", contentType: "application/pdf" });
 
   assert.equal(subida.status, 200);
-  assert.ok(subida.body.archivo.tamanyo < original.length, "el CV guardado debe pesar menos que el original subido");
+  assert.ok(subida.body.archivo.tamanyo < original.length, "el archivo guardado debe pesar menos que el original subido");
 
   const descarga = await request(app).get(`/archivos/${subida.body.id}/download`);
   assert.equal(descarga.status, 200);

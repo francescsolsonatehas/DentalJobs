@@ -80,4 +80,60 @@ test("CV en PDF", async (t) => {
     const res = await request(app).get("/auth/mi-cv.pdf");
     assert.equal(res.status, 401);
   });
+
+  await t.test("otro usuario puede descargar el CV del dentista desde su ficha", async () => {
+    const res = await request(app)
+      .get(`/usuarios/${dentista.usuario.id}/cv.pdf`)
+      .set("Authorization", `Bearer ${clinica.token}`)
+      .buffer(true)
+      .parse((res, callback) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => callback(null, Buffer.concat(chunks)));
+      });
+
+    assert.equal(res.status, 200);
+    assert.equal(res.headers["content-type"], "application/pdf");
+    assert.equal(res.body.slice(0, 5).toString(), "%PDF-");
+  });
+
+  await t.test("sin token no se puede ver el CV de otro dentista", async () => {
+    const res = await request(app).get(`/usuarios/${dentista.usuario.id}/cv.pdf`);
+    assert.equal(res.status, 401);
+  });
+
+  await t.test("una clínica no tiene CV que ver", async () => {
+    const res = await request(app)
+      .get(`/usuarios/${clinica.usuario.id}/cv.pdf`)
+      .set("Authorization", `Bearer ${dentista.token}`);
+    assert.equal(res.status, 404);
+  });
+
+  await t.test("el atajo del chat genera el CV y lo guarda como adjunto descargable", async () => {
+    const generado = await request(app)
+      .post("/archivos/mi-cv-chat")
+      .set("Authorization", `Bearer ${dentista.token}`);
+    assert.equal(generado.status, 200);
+    assert.equal(generado.body.archivo.tipo, "cv");
+
+    const descarga = await request(app).get(`/archivos/${generado.body.id}/download`);
+    assert.equal(descarga.status, 200);
+    assert.equal(descarga.headers["content-type"], "application/pdf");
+  });
+
+  await t.test("una clínica no puede generar el CV para el chat", async () => {
+    const res = await request(app)
+      .post("/archivos/mi-cv-chat")
+      .set("Authorization", `Bearer ${clinica.token}`);
+    assert.equal(res.status, 403);
+  });
+
+  await t.test("ya no se puede subir un CV a mano: solo se genera desde el perfil", async () => {
+    const res = await request(app)
+      .post("/archivos/upload")
+      .set("Authorization", `Bearer ${dentista.token}`)
+      .field("tipo", "cv")
+      .attach("archivo", Buffer.from("%PDF-1.4 cv"), "cv.pdf");
+    assert.equal(res.status, 400);
+  });
 });
