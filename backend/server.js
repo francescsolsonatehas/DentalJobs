@@ -26,6 +26,7 @@ const { crearZip } = require("./zip");
 const { expandirRango, sanearDias, sanearDiasSemana } = require("./fechas");
 const { comprimirImagen } = require("./imagenes");
 const { comprimirPdf } = require("./pdfs");
+const { generarHojaMiniaturas } = require("./bookMiniaturas");
 const sharp = require("sharp");
 const crypto = require("crypto");
 
@@ -456,12 +457,18 @@ app.use("/auth/registro", limiterAuth);
 // estos números tiene coste de RAM en el servidor y de tamaño de fila en Turso. Para
 // permitir archivos mucho más grandes habría que sacarlos de la BD a un
 // almacenamiento de objetos (S3/R2) y guardar solo el enlace.
-const MAX_MB_POR_TIPO = { portfolio: 10, foto: 10, logo: 5, chat: 25 };
+//
+// El Book (portfolio) admite un original de hasta 60 MB porque no se guarda tal cual:
+// si es un PDF se reduce a una única hoja de miniaturas (ver bookMiniaturas.js) que
+// siempre pesa muy por debajo del tope de archivo guardado, MAX_BOOK_GUARDADO_MB.
+const MAX_MB_POR_TIPO = { portfolio: 60, foto: 10, logo: 5, chat: 25 };
 const MAX_SUBIDA_MB = Math.max(...Object.values(MAX_MB_POR_TIPO));
+const MAX_BOOK_GUARDADO_MB = 10;
 
 // Tope de cuántos archivos puede acumular cada usuario en los tipos "de galería"
-// (foto y portfolio no sustituyen al anterior como el logo, se acumulan).
-const MAX_ARCHIVOS_POR_TIPO = { foto: 4, portfolio: 5 };
+// (foto no sustituye al anterior, se acumula; el Book y el logo sí sustituyen: solo
+// puede haber uno).
+const MAX_ARCHIVOS_POR_TIPO = { foto: 4 };
 
 // Configurar multer para uploads en memoria. El límite es el mayor de todos los
 // tipos; el ajuste fino por tipo se valida en el endpoint.
@@ -4478,6 +4485,30 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
         }
       } else if (mime === "application/pdf") {
         contenidoFinal = await comprimirPdf(req.file.buffer);
+        if (tipo === "portfolio") {
+          // El Book se reduce siempre a una única hoja de miniaturas con todas las
+          // páginas del PDF original: así, tenga las páginas que tenga el original
+          // (hasta 60 MB), lo que se guarda pesa muy poco.
+          const hoja = await generarHojaMiniaturas(contenidoFinal);
+          let comprimida = hoja ? await comprimirPdf(hoja) : null;
+          // Con las miniaturas a mayor resolución no debería hacer falta, pero por si
+          // el original tenía muchísimas páginas, un segundo intento a menor calidad
+          // da otra oportunidad de quedarse bajo el tope antes de guardar.
+          if (!comprimida || comprimida.length > MAX_BOOK_GUARDADO_MB * 1024 * 1024) {
+            const hojaBaja = await generarHojaMiniaturas(contenidoFinal, { dpi: 60, jpegQ: 35 });
+            if (hojaBaja) {
+              const comprimidaBaja = await comprimirPdf(hojaBaja);
+              if (!comprimida || comprimidaBaja.length < comprimida.length) comprimida = comprimidaBaja;
+            }
+          }
+          // Si aun así no se ha podido generar una hoja de miniaturas por debajo del
+          // tope (PDF corrupto, cifrado, con demasiadas páginas complejas…), mejor
+          // rechazar la subida que guardar un Book que incumple el límite de peso.
+          if (!comprimida || comprimida.length > MAX_BOOK_GUARDADO_MB * 1024 * 1024) {
+            return res.status(400).json({ error: "No se ha podido procesar este PDF para el Book. Prueba con otro archivo." });
+          }
+          contenidoFinal = comprimida;
+        }
       }
 
       db.run(
@@ -4520,6 +4551,14 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
             });
           }
 
+          // El Book es de uno en uno, igual que el logo: el nuevo sustituye al
+          // anterior y el anterior se borra para no dejar archivos huérfanos.
+          if (tipo === "portfolio" && anteriorId && anteriorId !== nuevoId) {
+            return db.run("UPDATE mensajes SET archivo_id = NULL WHERE archivo_id = ?", [anteriorId], () => {
+              db.run("DELETE FROM archivos WHERE id = ?", [anteriorId], () => responder());
+            });
+          }
+
           responder();
         }
       );
@@ -4535,9 +4574,14 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
       anteriorId = row ? row.foto_perfil_archivo_id : null;
       guardarArchivo();
     });
+  } else if (tipo === "portfolio") {
+    db.get("SELECT id FROM archivos WHERE usuario_id = ? AND tipo = 'portfolio' ORDER BY creado_en DESC LIMIT 1", [req.usuario.id], (errG, row) => {
+      anteriorId = row ? row.id : null;
+      guardarArchivo();
+    });
   } else if (MAX_ARCHIVOS_POR_TIPO[tipo]) {
-    // foto y portfolio se acumulan (no sustituyen al anterior): con tope, hay que
-    // contar cuántos tiene ya antes de aceptar uno más.
+    // foto se acumula (no sustituye al anterior): con tope, hay que contar cuántas
+    // tiene ya antes de aceptar una más.
     const limite = MAX_ARCHIVOS_POR_TIPO[tipo];
     db.get("SELECT COUNT(*) AS n FROM archivos WHERE usuario_id = ? AND tipo = ?", [req.usuario.id, tipo], (errG, row) => {
       if (errG) {
@@ -4545,8 +4589,7 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
         return res.status(500).json({ error: "Error al comprobar el límite de archivos" });
       }
       if ((row?.n || 0) >= limite) {
-        const sustantivo = tipo === "foto" ? "fotos" : "archivos en el Book";
-        return res.status(400).json({ error: `Ya tienes el máximo de ${limite} ${sustantivo}. Elimina uno para poder subir otro.` });
+        return res.status(400).json({ error: `Ya tienes el máximo de ${limite} fotos. Elimina una para poder subir otra.` });
       }
       guardarArchivo();
     });

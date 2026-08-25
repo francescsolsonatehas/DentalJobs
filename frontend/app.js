@@ -5347,8 +5347,6 @@ const app = {
     },
 
     renderizarArchivos() {
-      const portfolios = estadoApp.archivosUsuario.filter(a => a.tipo === 'portfolio');
-
       // Renderizar Logo (clínica) / Foto (dentista) de perfil: una sola imagen que
       // sustituye a la anterior.
       const logo = estadoApp.archivosUsuario.find(a => a.tipo === 'logo');
@@ -5392,31 +5390,36 @@ const app = {
       // tiene sentido dejar subir un quinto archivo que el servidor va a rechazar.
       app.archivos._aplicarLimite("foto", fotos.length, this.MAX_FOTOS, "fotosDropZone", "fotoAddBtn", "fotosLimite", "fotos");
 
-      // Renderizar Portfolio
-      const portfolioList = document.getElementById("portfolioList");
-      if (portfolios.length > 0) {
-        portfolioList.innerHTML = portfolios.map(p => `
-          <div style="background: #F8FAFF; padding: 1rem; border-radius: 8px; border-left: 4px solid #2ec4b6; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <p style="font-weight: 700; color: #2ec4b6; margin-bottom: 0.3rem;">🎨 ${utils.escapeHtml(p.nombre_archivo)}</p>
-              <p style="font-size: 0.9rem; color: #666;">${utils.formatearFecha(p.creado_en)} · ${utils.formatearTamanyo(p.tamanyo)}</p>
-            </div>
-            <div style="display: flex; gap: 0.5rem;">
-              <a href="${API}/archivos/${p.id}/download" class="btn-primary btn-small" style="text-decoration: none; display: inline-block;">Descargar</a>
-              <button data-tooltip="Eliminar este archivo" class="btn-outline btn-small" onclick="app.archivos.eliminar(${p.id})">Eliminar</button>
-            </div>
+      // Renderizar Book: un único archivo que sustituye al anterior, igual que el
+      // logo (subir uno nuevo reemplaza al que hubiera).
+      const portfolio = estadoApp.archivosUsuario.find(a => a.tipo === 'portfolio');
+      const portfolioContainer = document.getElementById("portfolioContainer");
+      if (portfolioContainer) {
+        const zonaSubida = `
+          <div class="drag-drop-zone" id="portfolioDropZone" ondrop="event.preventDefault(); app.archivos.manejarDrop(event, 'portfolio')" ondragover="event.preventDefault(); document.getElementById('portfolioDropZone').classList.add('dragover')" ondragleave="document.getElementById('portfolioDropZone').classList.remove('dragover')">
+            <p>🎨 Sube tu Book (PDF o imagen, máx 60 MB, 1 archivo)</p>
+            <span>Arrastra y suelta o haz clic para seleccionar</span>
+            <input type="file" id="portfolioInput" accept=".pdf,.jpg,.jpeg,.png,.gif" style="display: none;" onchange="app.archivos.subirPortfolio()">
           </div>
-        `).join("");
-      } else {
-        portfolioList.innerHTML = "";
+          <button data-tooltip="Seleccionar el archivo de tu Book" class="btn-primary" style="width: 100%; margin-top: 1rem;" onclick="document.getElementById('portfolioInput').click()">Seleccionar archivo</button>`;
+        portfolioContainer.innerHTML = portfolio
+          ? `<div style="background: #F8FAFF; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #2ec4b6;">
+               <p style="font-weight: 700; color: #2ec4b6; margin-bottom: 0.5rem;">🎨 ${utils.escapeHtml(portfolio.nombre_archivo)}</p>
+               <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">Subido el ${utils.formatearFecha(portfolio.creado_en)} · ${utils.formatearTamanyo(portfolio.tamanyo)}</p>
+               <div style="display: flex; gap: 0.8rem;">
+                 <a href="${API}/archivos/${portfolio.id}/download" class="btn-primary btn-small" style="text-decoration: none; display: inline-block;">Descargar</a>
+                 <button data-tooltip="Eliminar este archivo" class="btn-outline btn-small" onclick="app.archivos.eliminar(${portfolio.id})">Eliminar</button>
+               </div>
+             </div>
+             <p style="color:#9ca3af;font-size:.85rem;margin:1rem 0 .3rem;">Sube otro archivo para reemplazarlo.</p>
+             ${zonaSubida}`
+          : zonaSubida;
       }
-      app.archivos._aplicarLimite("portfolio", portfolios.length, this.MAX_PORTFOLIO, "portfolioDropZone", "portfolioAddBtn", "portfolioLimite", "archivos en el Book");
     },
 
-    // Tope de archivos "de galería" (no sustituyen al anterior, se acumulan), igual
-    // que MAX_ARCHIVOS_POR_TIPO en el servidor: 4 fotos por clínica, 5 archivos de Book.
+    // Tope de fotos "de galería" (no sustituyen a la anterior, se acumulan), igual
+    // que MAX_ARCHIVOS_POR_TIPO en el servidor.
     MAX_FOTOS: 4,
-    MAX_PORTFOLIO: 5,
 
     // Oculta la zona de subida y el botón de añadir cuando ya se llegó al máximo, y
     // deja un aviso en su lugar. El servidor igualmente lo rechazaría, pero así no se

@@ -15,8 +15,8 @@ test("descarga de archivo: inline vs adjunto", async (t) => {
   const subida = await request(app)
     .post("/archivos/upload")
     .set("Authorization", `Bearer ${token}`)
-    .field("tipo", "portfolio")
-    .attach("archivo", Buffer.from("%PDF-1.4 book"), "caso.pdf");
+    .field("tipo", "foto")
+    .attach("archivo", Buffer.from("imagen falsa"), "caso.jpg");
   const id = subida.body.id;
 
   await t.test("por defecto se descarga (attachment)", async () => {

@@ -77,17 +77,18 @@ test("descargar todo el Book en un ZIP", async (t) => {
     assert.equal(res.status, 404);
   });
 
+  // El Book solo admite un archivo (sustituye al anterior, no se acumula), así que el
+  // ZIP nunca tendrá más de uno; esto comprueba igualmente que solo entra el Book, no
+  // otros tipos de archivo del mismo dentista.
   await subir("caso.jpg", "portfolio", "imagen del caso");
-  await subir("memoria.pdf", "portfolio", "memoria del book");
-  // El CV no forma parte del Book y no debe colarse en el ZIP
-  await subir("cv.pdf", "cv", "curriculum");
+  await subir("foto-clinica.jpg", "foto", "una foto que no es del Book");
 
   await t.test("hace falta sesión", async () => {
     const res = await request(app).get(`/archivos/book/${dentista.usuario.id}.zip`);
     assert.equal(res.status, 401);
   });
 
-  await t.test("devuelve un ZIP con los archivos del Book, y solo esos", async () => {
+  await t.test("devuelve un ZIP con el archivo del Book, y solo ese", async () => {
     const res = await request(app)
       .get(`/archivos/book/${dentista.usuario.id}.zip`)
       .set("Authorization", `Bearer ${clinica.token}`)
@@ -103,7 +104,7 @@ test("descargar todo el Book en un ZIP", async (t) => {
     assert.match(res.headers["content-disposition"], /attachment; filename=".*\.zip"/);
 
     const entradas = leerZip(res.body);
-    assert.deepEqual(entradas.map(e => e.nombre).sort(), ["caso.jpg", "memoria.pdf"]);
-    assert.equal(entradas.find(e => e.nombre === "memoria.pdf").contenido, "memoria del book");
+    assert.deepEqual(entradas.map(e => e.nombre), ["caso.jpg"]);
+    assert.equal(entradas[0].contenido, "imagen del caso");
   });
 });

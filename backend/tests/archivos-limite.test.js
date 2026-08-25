@@ -18,12 +18,19 @@ function subirFoto(app, token, nombre) {
     .attach("archivo", Buffer.from("fake-jpg"), nombre);
 }
 
+// JPEG 1x1 válido mínimo: el Book admite imágenes y estas se recomprimen con sharp,
+// que necesita poder leer sus cabeceras de verdad.
+const JPEG_MINIMO = Buffer.from(
+  "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAj/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=",
+  "base64"
+);
+
 function subirPortfolio(app, token, nombre) {
   return request(app)
     .post("/archivos/upload")
     .set("Authorization", `Bearer ${token}`)
     .field("tipo", "portfolio")
-    .attach("archivo", Buffer.from("%PDF-1.4 book"), nombre);
+    .attach("archivo", JPEG_MINIMO, { filename: nombre, contentType: "image/jpeg" });
 }
 
 test("límite de fotos de la clínica (máx 4)", async (t) => {
@@ -53,33 +60,38 @@ test("límite de fotos de la clínica (máx 4)", async (t) => {
   });
 });
 
-test("límite de archivos del Book del dentista (máx 5, 10 MB cada uno)", async (t) => {
+test("el Book del dentista admite un único archivo, hasta 60 MB", async (t) => {
   const { app, dbPath } = createTestApp();
   t.after(() => cleanupTestApp(dbPath));
 
   const token = await registrar(app, { nombre: "Dentista Límite Book", email: "dentista-limite-book@test.com", tipo: "dentista" });
 
-  for (let i = 1; i <= 5; i++) {
-    const res = await subirPortfolio(app, token, `book${i}.pdf`);
-    assert.equal(res.status, 200, `el archivo ${i} del Book debe aceptarse`);
-  }
-
-  await t.test("el sexto archivo se rechaza", async () => {
-    const res = await subirPortfolio(app, token, "book6.pdf");
-    assert.equal(res.status, 400);
-    assert.match(res.body.error, /máximo de 5/);
+  await t.test("subir un archivo lo guarda", async () => {
+    const res = await subirPortfolio(app, token, "book1.jpg");
+    assert.equal(res.status, 200);
   });
 
-  await t.test("un archivo de más de 10 MB se rechaza", async () => {
+  await t.test("subir un segundo archivo sustituye al primero, no se acumula", async () => {
+    const res = await subirPortfolio(app, token, "book2.jpg");
+    assert.equal(res.status, 200);
+
+    const lista = await request(app).get("/archivos/usuario/" + jwtUsuarioId(token));
+    const portfolios = lista.body.filter(a => a.tipo === "portfolio");
+    assert.equal(portfolios.length, 1, "solo debe quedar un archivo del Book");
+    assert.equal(portfolios[0].id, res.body.id);
+    assert.equal(portfolios[0].nombre_archivo, "book2.webp");
+  });
+
+  await t.test("un archivo de más de 60 MB se rechaza", async () => {
     const token2 = await registrar(app, { nombre: "Dentista Book Grande", email: "dentista-book-grande@test.com", tipo: "dentista" });
-    const grande = Buffer.alloc(11 * 1024 * 1024, "a");
+    const grande = Buffer.alloc(61 * 1024 * 1024, "a");
     const res = await request(app)
       .post("/archivos/upload")
       .set("Authorization", `Bearer ${token2}`)
       .field("tipo", "portfolio")
-      .attach("archivo", grande, "grande.pdf");
+      .attach("archivo", grande, { filename: "grande.pdf", contentType: "application/pdf" });
     assert.equal(res.status, 400);
-    assert.match(res.body.error, /máx 10 MB/);
+    assert.match(res.body.error, /60 MB/);
   });
 });
 
