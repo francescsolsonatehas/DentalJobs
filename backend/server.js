@@ -4483,32 +4483,24 @@ app.post("/archivos/upload", verifyToken, subirArchivo, (req, res) => {
           mimeFinal = comprimida.mime;
           nombreFinal = nombreFinal.replace(/\.[^.]+$/, "") + ".webp";
         }
+      } else if (mime === "application/pdf" && tipo === "portfolio") {
+        // El Book se reduce siempre a una única hoja de miniaturas con todas las
+        // páginas del PDF original: así, tenga las páginas que tenga el original
+        // (hasta 60 MB), lo que se guarda pesa muy poco. Se rasteriza desde el
+        // original, no desde una versión ya comprimida con Ghostscript: comprimir
+        // antes solo limitaría la resolución de partida sin ganar nada, porque el
+        // tamaño final ya lo controla generarHojaMiniaturas (prueba de más a menos
+        // calidad hasta caber bajo el tope).
+        const hoja = await generarHojaMiniaturas(req.file.buffer);
+        // Si ni al nivel de calidad más bajo se ha podido generar una hoja por debajo
+        // del tope (PDF corrupto, cifrado, con demasiadas páginas complejas…), mejor
+        // rechazar la subida que guardar un Book que incumple el límite de peso.
+        if (!hoja || hoja.length > MAX_BOOK_GUARDADO_MB * 1024 * 1024) {
+          return res.status(400).json({ error: "No se ha podido procesar este PDF para el Book. Prueba con otro archivo." });
+        }
+        contenidoFinal = hoja;
       } else if (mime === "application/pdf") {
         contenidoFinal = await comprimirPdf(req.file.buffer);
-        if (tipo === "portfolio") {
-          // El Book se reduce siempre a una única hoja de miniaturas con todas las
-          // páginas del PDF original: así, tenga las páginas que tenga el original
-          // (hasta 60 MB), lo que se guarda pesa muy poco.
-          const hoja = await generarHojaMiniaturas(contenidoFinal);
-          let comprimida = hoja ? await comprimirPdf(hoja) : null;
-          // Con las miniaturas a mayor resolución no debería hacer falta, pero por si
-          // el original tenía muchísimas páginas, un segundo intento a menor calidad
-          // da otra oportunidad de quedarse bajo el tope antes de guardar.
-          if (!comprimida || comprimida.length > MAX_BOOK_GUARDADO_MB * 1024 * 1024) {
-            const hojaBaja = await generarHojaMiniaturas(contenidoFinal, { dpi: 60, jpegQ: 35 });
-            if (hojaBaja) {
-              const comprimidaBaja = await comprimirPdf(hojaBaja);
-              if (!comprimida || comprimidaBaja.length < comprimida.length) comprimida = comprimidaBaja;
-            }
-          }
-          // Si aun así no se ha podido generar una hoja de miniaturas por debajo del
-          // tope (PDF corrupto, cifrado, con demasiadas páginas complejas…), mejor
-          // rechazar la subida que guardar un Book que incumple el límite de peso.
-          if (!comprimida || comprimida.length > MAX_BOOK_GUARDADO_MB * 1024 * 1024) {
-            return res.status(400).json({ error: "No se ha podido procesar este PDF para el Book. Prueba con otro archivo." });
-          }
-          contenidoFinal = comprimida;
-        }
       }
 
       db.run(
